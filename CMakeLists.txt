@@ -10,6 +10,8 @@ SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 OPTION(ENABLE_ASAN "Enable build with address sanitizer" ON)
 OPTION(WITH_UNIT_TESTS "Compile miniob with unit tests" ON)
 OPTION(CONCURRENCY "Support concurrency operations" OFF)
