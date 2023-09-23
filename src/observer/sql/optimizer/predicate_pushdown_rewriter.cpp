@@ -13,12 +13,11 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/optimizer/predicate_pushdown_rewriter.h"
+#include "sql/expr/expression.h"
 #include "sql/operator/logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
-#include "sql/expr/expression.h"
 
-RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made)
-{
+RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made) {
   RC rc = RC::SUCCESS;
   if (oper->type() != LogicalOperatorType::PREDICATE) {
     return rc;
@@ -70,9 +69,8 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bo
  * @param pushdown_exprs 当前所有要下放给table get 算子的filter。此函数执行多次，
  *                       pushdown_exprs 只会增加，不要做清理操作
  */
-RC PredicatePushdownRewriter::get_exprs_can_pushdown(
-    std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &pushdown_exprs)
-{
+RC PredicatePushdownRewriter::get_exprs_can_pushdown(std::unique_ptr<Expression> &expr,
+                                                     std::vector<std::unique_ptr<Expression>> &pushdown_exprs) {
   RC rc = RC::SUCCESS;
   if (expr->type() == ExprType::CONJUNCTION) {
     ConjunctionExpr *conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());

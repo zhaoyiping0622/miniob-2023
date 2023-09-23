@@ -17,17 +17,16 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
+#include "common/lang/serializable.h"
 #include "common/rc.h"
 #include "storage/field/field_meta.h"
 #include "storage/index/index_meta.h"
-#include "common/lang/serializable.h"
 
 /**
  * @brief 表元数据
  * 
  */
-class TableMeta : public common::Serializable
-{
+class TableMeta : public common::Serializable {
 public:
   TableMeta() = default;
   ~TableMeta() = default;
@@ -47,13 +46,10 @@ public:
   const FieldMeta *field(int index) const;
   const FieldMeta *field(const char *name) const;
   const FieldMeta *find_field_by_offset(int offset) const;
-  const std::vector<FieldMeta> *field_metas() const
-  {
-    return &fields_;
-  }
+  const std::vector<FieldMeta> *field_metas() const { return &fields_; }
   auto trx_fields() const -> const std::pair<const FieldMeta *, int>;
-  
-  int field_num() const;  // sys field included
+
+  int field_num() const; // sys field included
   int sys_field_num() const;
 
   const IndexMeta *index(const char *name) const;
@@ -71,9 +67,9 @@ public:
   void desc(std::ostream &os) const;
 
 protected:
-  int32_t     table_id_ = -1;
+  int32_t table_id_ = -1;
   std::string name_;
-  std::vector<FieldMeta> fields_;  // 包含sys_fields
+  std::vector<FieldMeta> fields_; // 包含sys_fields
   std::vector<IndexMeta> indexes_;
 
   int record_size_ = 0;

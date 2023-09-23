@@ -22,8 +22,7 @@ See the Mulan PSL v2 for more details. */
  * @details 直接通过终端/标准输入输出进行通讯。从这里的实现来看，是不需要libevent的一些实现的，
  * 因此communicator需要重构，或者需要重构server中的各个通讯启动模式。
  */
-class CliCommunicator : public PlainCommunicator
-{
+class CliCommunicator : public PlainCommunicator {
 public:
   CliCommunicator() = default;
   virtual ~CliCommunicator() = default;

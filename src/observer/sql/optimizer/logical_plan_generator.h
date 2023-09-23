@@ -27,8 +27,7 @@ class DeleteStmt;
 class ExplainStmt;
 class LogicalOperator;
 
-class LogicalPlanGenerator
-{
+class LogicalPlanGenerator {
 public:
   LogicalPlanGenerator() = default;
   virtual ~LogicalPlanGenerator() = default;

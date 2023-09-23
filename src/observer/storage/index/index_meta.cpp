@@ -13,17 +13,16 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "storage/index/index_meta.h"
-#include "storage/field/field_meta.h"
-#include "storage/table/table_meta.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "storage/field/field_meta.h"
+#include "storage/table/table_meta.h"
 #include "json/json.h"
 
 const static Json::StaticString FIELD_NAME("name");
 const static Json::StaticString FIELD_FIELD_NAME("field_name");
 
-RC IndexMeta::init(const char *name, const FieldMeta &field)
-{
+RC IndexMeta::init(const char *name, const FieldMeta &field) {
   if (common::is_blank(name)) {
     LOG_ERROR("Failed to init index, name is empty.");
     return RC::INVALID_ARGUMENT;
@@ -34,14 +33,12 @@ RC IndexMeta::init(const char *name, const FieldMeta &field)
   return RC::SUCCESS;
 }
 
-void IndexMeta::to_json(Json::Value &json_value) const
-{
+void IndexMeta::to_json(Json::Value &json_value) const {
   json_value[FIELD_NAME] = name_;
   json_value[FIELD_FIELD_NAME] = field_;
 }
 
-RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index)
-{
+RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index) {
   const Json::Value &name_value = json_value[FIELD_NAME];
   const Json::Value &field_value = json_value[FIELD_FIELD_NAME];
   if (!name_value.isString()) {
@@ -50,9 +47,8 @@ RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, I
   }
 
   if (!field_value.isString()) {
-    LOG_ERROR("Field name of index [%s] is not a string. json value=%s",
-        name_value.asCString(),
-        field_value.toStyledString().c_str());
+    LOG_ERROR("Field name of index [%s] is not a string. json value=%s", name_value.asCString(),
+              field_value.toStyledString().c_str());
     return RC::INTERNAL;
   }
 
@@ -65,17 +61,8 @@ RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, I
   return index.init(name_value.asCString(), *field);
 }
 
-const char *IndexMeta::name() const
-{
-  return name_.c_str();
-}
+const char *IndexMeta::name() const { return name_.c_str(); }
 
-const char *IndexMeta::field() const
-{
-  return field_.c_str();
-}
+const char *IndexMeta::field() const { return field_.c_str(); }
 
-void IndexMeta::desc(std::ostream &os) const
-{
-  os << "index name=" << name_ << ", field=" << field_;
-}
+void IndexMeta::desc(std::ostream &os) const { os << "index name=" << name_ << ", field=" << field_; }

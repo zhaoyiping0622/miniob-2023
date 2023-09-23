@@ -12,29 +12,21 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2023/06/16.
 //
 
+#include <algorithm>
 #include <sys/errno.h>
 #include <unistd.h>
-#include <algorithm>
 
 #include "net/buffered_writer.h"
 
 using namespace std;
 
-BufferedWriter::BufferedWriter(int fd)
-  : fd_(fd), buffer_()
-{}
+BufferedWriter::BufferedWriter(int fd) : fd_(fd), buffer_() {}
 
-BufferedWriter::BufferedWriter(int fd, int32_t size)
-  : fd_(fd), buffer_(size)
-{}
+BufferedWriter::BufferedWriter(int fd, int32_t size) : fd_(fd), buffer_(size) {}
 
-BufferedWriter::~BufferedWriter()
-{
-  close();
-}
+BufferedWriter::~BufferedWriter() { close(); }
 
-RC BufferedWriter::close()
-{
+RC BufferedWriter::close() {
   if (fd_ < 0) {
     return RC::SUCCESS;
   }
@@ -49,8 +41,7 @@ RC BufferedWriter::close()
   return RC::SUCCESS;
 }
 
-RC BufferedWriter::write(const char *data, int32_t size, int32_t &write_size)
-{
+RC BufferedWriter::write(const char *data, int32_t size, int32_t &write_size) {
   if (fd_ < 0) {
     return RC::INVALID_ARGUMENT;
   }
@@ -65,8 +56,7 @@ RC BufferedWriter::write(const char *data, int32_t size, int32_t &write_size)
   return buffer_.write(data, size, write_size);
 }
 
-RC BufferedWriter::writen(const char *data, int32_t size)
-{
+RC BufferedWriter::writen(const char *data, int32_t size) {
   if (fd_ < 0) {
     return RC::INVALID_ARGUMENT;
   }
@@ -85,8 +75,7 @@ RC BufferedWriter::writen(const char *data, int32_t size)
   return RC::SUCCESS;
 }
 
-RC BufferedWriter::flush()
-{
+RC BufferedWriter::flush() {
   if (fd_ < 0) {
     return RC::INVALID_ARGUMENT;
   }
@@ -98,8 +87,7 @@ RC BufferedWriter::flush()
   return rc;
 }
 
-RC BufferedWriter::flush_internal(int32_t size)
-{
+RC BufferedWriter::flush_internal(int32_t size) {
   if (fd_ < 0) {
     return RC::INVALID_ARGUMENT;
   }

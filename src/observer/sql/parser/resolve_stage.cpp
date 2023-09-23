@@ -21,15 +21,14 @@ See the Mulan PSL v2 for more details. */
 #include "common/io/io.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
-#include "event/sql_event.h"
 #include "event/session_event.h"
+#include "event/sql_event.h"
 #include "session/session.h"
 #include "sql/stmt/stmt.h"
 
 using namespace common;
 
-RC ResolveStage::handle_request(SQLStageEvent *sql_event)
-{
+RC ResolveStage::handle_request(SQLStageEvent *sql_event) {
   RC rc = RC::SUCCESS;
   SessionEvent *session_event = sql_event->session_event();
   SqlResult *sql_result = session_event->sql_result();

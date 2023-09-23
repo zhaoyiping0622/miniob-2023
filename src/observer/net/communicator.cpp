@@ -13,16 +13,15 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "net/communicator.h"
+#include "net/buffered_writer.h"
+#include "net/cli_communicator.h"
 #include "net/mysql_communicator.h"
 #include "net/plain_communicator.h"
-#include "net/cli_communicator.h"
-#include "net/buffered_writer.h"
 #include "session/session.h"
 
 #include "common/lang/mutex.h"
 
-RC Communicator::init(int fd, Session *session, const std::string &addr)
-{
+RC Communicator::init(int fd, Session *session, const std::string &addr) {
   fd_ = fd;
   session_ = session;
   addr_ = addr;
@@ -30,8 +29,7 @@ RC Communicator::init(int fd, Session *session, const std::string &addr)
   return RC::SUCCESS;
 }
 
-Communicator::~Communicator()
-{
+Communicator::~Communicator() {
   if (fd_ >= 0) {
     close(fd_);
     fd_ = -1;
@@ -49,20 +47,19 @@ Communicator::~Communicator()
 
 /////////////////////////////////////////////////////////////////////////////////
 
-Communicator *CommunicatorFactory::create(CommunicateProtocol protocol)
-{
+Communicator *CommunicatorFactory::create(CommunicateProtocol protocol) {
   switch (protocol) {
-    case CommunicateProtocol::PLAIN: {
-      return new PlainCommunicator;
-    } break;
-    case CommunicateProtocol::CLI: {
-      return new CliCommunicator;
-    } break;
-    case CommunicateProtocol::MYSQL: {
-      return new MysqlCommunicator;
-    } break;
-    default: {
-      return nullptr;
-    }
+  case CommunicateProtocol::PLAIN: {
+    return new PlainCommunicator;
+  } break;
+  case CommunicateProtocol::CLI: {
+    return new CliCommunicator;
+  } break;
+  case CommunicateProtocol::MYSQL: {
+    return new MysqlCommunicator;
+  } break;
+  default: {
+    return nullptr;
+  }
   }
 }

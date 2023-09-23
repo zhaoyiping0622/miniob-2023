@@ -14,8 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <functional>
 #include "storage/table/table_meta.h"
+#include <functional>
 
 struct RID;
 class Record;
@@ -33,8 +33,7 @@ class Trx;
  * @brief 表
  * 
  */
-class Table 
-{
+class Table {
 public:
   Table() = default;
   ~Table();
@@ -47,11 +46,7 @@ public:
    * @param attribute_count 字段个数
    * @param attributes 字段
    */
-  RC create(int32_t table_id, 
-            const char *path, 
-            const char *name, 
-            const char *base_dir, 
-            int attribute_count, 
+  RC create(int32_t table_id, const char *path, const char *name, const char *base_dir, int attribute_count,
             const AttrInfoSqlNode attributes[]);
 
   /**
@@ -87,10 +82,7 @@ public:
 
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly);
 
-  RecordFileHandler *record_handler() const
-  {
-    return record_handler_;
-  }
+  RecordFileHandler *record_handler() const { return record_handler_; }
 
 public:
   int32_t table_id() const { return table_meta_.table_id(); }
@@ -113,8 +105,8 @@ public:
 
 private:
   std::string base_dir_;
-  TableMeta   table_meta_;
-  DiskBufferPool *data_buffer_pool_ = nullptr;   /// 数据文件关联的buffer pool
-  RecordFileHandler *record_handler_ = nullptr;  /// 记录操作
+  TableMeta table_meta_;
+  DiskBufferPool *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
+  RecordFileHandler *record_handler_ = nullptr; /// 记录操作
   std::vector<Index *> indexes_;
 };

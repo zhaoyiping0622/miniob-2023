@@ -22,8 +22,7 @@ See the Mulan PSL v2 for more details. */
  * 看起来直接使用fdopen也可以实现缓存写，不过fdopen会在close时直接关闭fd。
  * @note 在执行close时，描述符fd并不会被关闭
  */
-class BufferedWriter
-{
+class BufferedWriter {
 public:
   BufferedWriter(int fd);
   BufferedWriter(int fd, int32_t size);

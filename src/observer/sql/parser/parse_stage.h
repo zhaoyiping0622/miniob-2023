@@ -22,8 +22,7 @@ class SQLStageEvent;
  * @brief 解析SQL语句，解析后的结果可以参考parse_defs.h
  * @ingroup SQLStage
  */
-class ParseStage
-{
+class ParseStage {
 public:
   RC handle_request(SQLStageEvent *sql_event);
 };

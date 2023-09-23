@@ -15,25 +15,23 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
-#include "sql/operator/string_list_physical_operator.h"
-#include "event/sql_event.h"
 #include "event/session_event.h"
-#include "sql/executor/sql_result.h"
+#include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/executor/sql_result.h"
+#include "sql/operator/string_list_physical_operator.h"
 #include "storage/trx/trx.h"
 
 /**
  * @brief 事务开始语句的执行器
  * @ingroup Executor
  */
-class TrxBeginExecutor
-{
+class TrxBeginExecutor {
 public:
   TrxBeginExecutor() = default;
   virtual ~TrxBeginExecutor() = default;
 
-  RC execute(SQLStageEvent *sql_event)
-  {
+  RC execute(SQLStageEvent *sql_event) {
     SessionEvent *session_event = sql_event->session_event();
 
     Session *session = session_event->session();

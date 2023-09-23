@@ -14,51 +14,31 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <vector>
 #include "sql/operator/physical_operator.h"
+#include <vector>
 
 /**
  * @brief 字符串列表物理算子
  * @ingroup PhysicalOperator
  * @details 用于将字符串列表转换为物理算子,为了方便实现的接口，比如help命令
  */
-class StringListPhysicalOperator : public PhysicalOperator
-{
+class StringListPhysicalOperator : public PhysicalOperator {
 public:
-  StringListPhysicalOperator()
-  {}
+  StringListPhysicalOperator() {}
 
   virtual ~StringListPhysicalOperator() = default;
 
-  template <typename InputIt>
-  void append(InputIt begin, InputIt end)
-  {
-    strings_.emplace_back(begin, end);
-  }
+  template <typename InputIt> void append(InputIt begin, InputIt end) { strings_.emplace_back(begin, end); }
 
-  void append(std::initializer_list<std::string> init)
-  {
-    strings_.emplace_back(init);
-  }
+  void append(std::initializer_list<std::string> init) { strings_.emplace_back(init); }
 
-  template <typename T>
-  void append(const T &v)
-  {
-    strings_.emplace_back(1, v);
-  }
+  template <typename T> void append(const T &v) { strings_.emplace_back(1, v); }
 
-  PhysicalOperatorType type() const override
-  {
-    return PhysicalOperatorType::STRING_LIST;
-  }
+  PhysicalOperatorType type() const override { return PhysicalOperatorType::STRING_LIST; }
 
-  RC open(Trx *) override
-  {
-    return RC::SUCCESS;
-  }
+  RC open(Trx *) override { return RC::SUCCESS; }
 
-  RC next() override
-  {
+  RC next() override {
     if (!started_) {
       started_ = true;
       iterator_ = strings_.begin();
@@ -68,14 +48,12 @@ public:
     return iterator_ == strings_.end() ? RC::RECORD_EOF : RC::SUCCESS;
   }
 
-  virtual RC close() override
-  {
+  virtual RC close() override {
     iterator_ = strings_.end();
     return RC::SUCCESS;
   }
 
-  virtual Tuple *current_tuple() override
-  {
+  virtual Tuple *current_tuple() override {
     if (iterator_ == strings_.end()) {
       return nullptr;
     }

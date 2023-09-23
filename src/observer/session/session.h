@@ -24,8 +24,7 @@ class SessionEvent;
  * @brief 表示会话
  * @details 当前一个连接一个会话，没有做特殊的会话管理，这也简化了会话处理
  */
-class Session 
-{
+class Session {
 public:
   /**
    * @brief 获取默认的会话数据，新生成的会话都基于默认会话设置参数
@@ -90,11 +89,11 @@ public:
    * @details 当前某个请求开始时，会将会话设置到线程变量中，在整个请求处理过程中不会改变
    */
   static Session *current_session();
-  
+
 private:
   Db *db_ = nullptr;
   Trx *trx_ = nullptr;
   SessionEvent *current_request_ = nullptr; ///< 当前正在处理的请求
-  bool trx_multi_operation_mode_ = false;   ///< 当前事务的模式，是否多语句模式. 单语句模式自动提交
-  bool sql_debug_ = false;                  ///< 是否输出SQL调试信息
+  bool trx_multi_operation_mode_ = false; ///< 当前事务的模式，是否多语句模式. 单语句模式自动提交
+  bool sql_debug_ = false;                ///< 是否输出SQL调试信息
 };

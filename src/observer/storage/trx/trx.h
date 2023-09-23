@@ -14,16 +14,16 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <mutex>
 #include <stddef.h>
 #include <unordered_set>
-#include <mutex>
 #include <utility>
 
-#include "sql/parser/parse.h"
-#include "storage/record/record_manager.h"
-#include "storage/field/field_meta.h"
-#include "storage/table/table.h"
 #include "common/rc.h"
+#include "sql/parser/parse.h"
+#include "storage/field/field_meta.h"
+#include "storage/record/record_manager.h"
+#include "storage/table/table.h"
 
 /**
  * @defgroup Transaction
@@ -40,15 +40,13 @@ class Trx;
  * @ingroup Transaction
  * @details 通常包含一个操作的类型，以及操作的对象和具体的数据
  */
-class Operation 
-{
+class Operation {
 public:
   /**
    * @brief 操作的类型
    * @ingroup Transaction
    */
-  enum class Type : int 
-  {
+  enum class Type : int {
     INSERT,
     UPDATE,
     DELETE,
@@ -56,44 +54,33 @@ public:
   };
 
 public:
-  Operation(Type type, Table *table, const RID &rid) 
-      : type_(type), 
-        table_(table),
-        page_num_(rid.page_num), 
-        slot_num_(rid.slot_num)
-  {}
+  Operation(Type type, Table *table, const RID &rid)
+      : type_(type), table_(table), page_num_(rid.page_num), slot_num_(rid.slot_num) {}
 
-  Type    type() const { return type_; }
+  Type type() const { return type_; }
   int32_t table_id() const { return table_->table_id(); }
-  Table * table() const { return table_; }
+  Table *table() const { return table_; }
   PageNum page_num() const { return page_num_; }
   SlotNum slot_num() const { return slot_num_; }
 
 private:
   ///< 操作的哪张表。这里直接使用表其实并不准确，因为表中的索引也可能有日志
   Type type_;
-  
-  Table * table_ = nullptr;
+
+  Table *table_ = nullptr;
   PageNum page_num_; // TODO use RID instead of page num and slot num
   SlotNum slot_num_;
 };
 
-class OperationHasher 
-{
+class OperationHasher {
 public:
-  size_t operator()(const Operation &op) const
-  {
-    return (((size_t)op.page_num()) << 32) | (op.slot_num());
-  }
+  size_t operator()(const Operation &op) const { return (((size_t)op.page_num()) << 32) | (op.slot_num()); }
 };
 
-class OperationEqualer 
-{
+class OperationEqualer {
 public:
-  bool operator()(const Operation &op1, const Operation &op2) const
-  {
-    return op1.table_id() == op2.table_id() &&
-        op1.page_num() == op2.page_num() && op1.slot_num() == op2.slot_num();
+  bool operator()(const Operation &op1, const Operation &op2) const {
+    return op1.table_id() == op2.table_id() && op1.page_num() == op2.page_num() && op1.slot_num() == op2.slot_num();
   }
 };
 
@@ -101,18 +88,16 @@ public:
  * @brief 事务管理器
  * @ingroup Transaction
  */
-class TrxKit
-{
+class TrxKit {
 public:
   /**
    * @brief 事务管理器的类型
    * @ingroup Transaction
    * @details 进程启动时根据事务管理器的类型来创建具体的对象
    */
-  enum Type
-  {
-    VACUOUS,    ///< 空的事务管理器，不做任何事情
-    MVCC,       ///< 支持MVCC的事务管理器
+  enum Type {
+    VACUOUS, ///< 空的事务管理器，不做任何事情
+    MVCC,    ///< 支持MVCC的事务管理器
   };
 
 public:
@@ -138,8 +123,7 @@ public:
  * @brief 事务接口
  * @ingroup Transaction
  */
-class Trx
-{
+class Trx {
 public:
   Trx() = default;
   virtual ~Trx() = default;

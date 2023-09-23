@@ -21,14 +21,13 @@ See the Mulan PSL v2 for more details. */
 
 namespace Json {
 class Value;
-}  // namespace Json
+} // namespace Json
 
 /**
  * @brief 字段元数据
  * 
  */
-class FieldMeta 
-{
+class FieldMeta {
 public:
   FieldMeta();
   FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible);

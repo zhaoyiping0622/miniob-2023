@@ -23,8 +23,7 @@ class SQLStageEvent;
  * @ingroup SQLStage
  * @details 当前什么都没做
  */
-class QueryCacheStage
-{
+class QueryCacheStage {
 public:
   QueryCacheStage() = default;
   virtual ~QueryCacheStage() = default;

@@ -13,23 +13,21 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "net/plain_communicator.h"
-#include "net/buffered_writer.h"
-#include "sql/expr/tuple.h"
-#include "event/session_event.h"
-#include "session/session.h"
 #include "common/io/io.h"
 #include "common/log/log.h"
+#include "event/session_event.h"
+#include "net/buffered_writer.h"
+#include "session/session.h"
+#include "sql/expr/tuple.h"
 
-PlainCommunicator::PlainCommunicator()
-{
+PlainCommunicator::PlainCommunicator() {
   send_message_delimiter_.assign(1, '\0');
   debug_message_prefix_.resize(2);
   debug_message_prefix_[0] = '#';
   debug_message_prefix_[1] = ' ';
 }
 
-RC PlainCommunicator::read_event(SessionEvent *&event)
-{
+RC PlainCommunicator::read_event(SessionEvent *&event) {
   RC rc = RC::SUCCESS;
 
   event = nullptr;
@@ -92,8 +90,7 @@ RC PlainCommunicator::read_event(SessionEvent *&event)
   return rc;
 }
 
-RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
-{
+RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect) {
   SqlResult *sql_result = event->sql_result();
   const int buf_size = 2048;
   char *buf = new char[buf_size];
@@ -119,8 +116,7 @@ RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
   return RC::SUCCESS;
 }
 
-RC PlainCommunicator::write_debug(SessionEvent *request, bool &need_disconnect)
-{
+RC PlainCommunicator::write_debug(SessionEvent *request, bool &need_disconnect) {
   if (!session_->sql_debug_on()) {
     return RC::SUCCESS;
   }
@@ -155,8 +151,7 @@ RC PlainCommunicator::write_debug(SessionEvent *request, bool &need_disconnect)
   return RC::SUCCESS;
 }
 
-RC PlainCommunicator::write_result(SessionEvent *event, bool &need_disconnect)
-{
+RC PlainCommunicator::write_result(SessionEvent *event, bool &need_disconnect) {
   RC rc = write_result_internal(event, need_disconnect);
   if (!need_disconnect) {
     (void)write_debug(event, need_disconnect);
@@ -165,8 +160,7 @@ RC PlainCommunicator::write_result(SessionEvent *event, bool &need_disconnect)
   return rc;
 }
 
-RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disconnect)
-{
+RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disconnect) {
   RC rc = RC::SUCCESS;
   need_disconnect = true;
 

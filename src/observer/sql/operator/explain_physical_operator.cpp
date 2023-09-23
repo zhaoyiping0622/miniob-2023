@@ -12,28 +12,25 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/12/27.
 //
 
-#include <sstream>
 #include "sql/operator/explain_physical_operator.h"
 #include "common/log/log.h"
+#include <sstream>
 
 using namespace std;
 
-RC ExplainPhysicalOperator::open(Trx *)
-{
+RC ExplainPhysicalOperator::open(Trx *) {
   ASSERT(children_.size() == 1, "explain must has 1 child");
   return RC::SUCCESS;
 }
 
-RC ExplainPhysicalOperator::close()
-{
+RC ExplainPhysicalOperator::close() {
   for (std::unique_ptr<PhysicalOperator> &child_oper : children_) {
     child_oper->close();
   }
   return RC::SUCCESS;
 }
 
-RC ExplainPhysicalOperator::next()
-{
+RC ExplainPhysicalOperator::next() {
   if (!physical_plan_.empty()) {
     return RC::RECORD_EOF;
   }
@@ -62,10 +59,7 @@ RC ExplainPhysicalOperator::next()
   return RC::SUCCESS;
 }
 
-Tuple *ExplainPhysicalOperator::current_tuple()
-{
-  return &tuple_;
-}
+Tuple *ExplainPhysicalOperator::current_tuple() { return &tuple_; }
 
 /**
  * 递归打印某个算子
@@ -75,9 +69,8 @@ Tuple *ExplainPhysicalOperator::current_tuple()
  * @param last_child 当前算子是否是当前兄弟节点中最后一个节点
  * @param ends 表示当前某个层级上的算子，是否已经没有其它的节点，以判断使用什么打印符号
  */
-void ExplainPhysicalOperator::to_string(
-    std::ostream &os, PhysicalOperator *oper, int level, bool last_child, std::vector<bool> &ends)
-{
+void ExplainPhysicalOperator::to_string(std::ostream &os, PhysicalOperator *oper, int level, bool last_child,
+                                        std::vector<bool> &ends) {
   for (int i = 0; i < level - 1; i++) {
     if (ends[i]) {
       os << "  ";

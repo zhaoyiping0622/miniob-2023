@@ -21,11 +21,9 @@ See the Mulan PSL v2 for more details. */
 
 class Table;
 
-class LoadDataStmt : public Stmt
-{
+class LoadDataStmt : public Stmt {
 public:
-  LoadDataStmt(Table *table, const char *filename) : table_(table), filename_(filename)
-  {}
+  LoadDataStmt(Table *table, const char *filename) : table_(table), filename_(filename) {}
   virtual ~LoadDataStmt() = default;
 
   StmtType type() const override { return StmtType::LOAD_DATA; }

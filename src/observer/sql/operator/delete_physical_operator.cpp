@@ -12,15 +12,14 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/6/27.
 //
 
-#include "common/log/log.h"
 #include "sql/operator/delete_physical_operator.h"
+#include "common/log/log.h"
+#include "sql/stmt/delete_stmt.h"
 #include "storage/record/record.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
-#include "sql/stmt/delete_stmt.h"
 
-RC DeletePhysicalOperator::open(Trx *trx)
-{
+RC DeletePhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
     return RC::SUCCESS;
   }
@@ -37,8 +36,7 @@ RC DeletePhysicalOperator::open(Trx *trx)
   return RC::SUCCESS;
 }
 
-RC DeletePhysicalOperator::next()
-{
+RC DeletePhysicalOperator::next() {
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
     return RC::RECORD_EOF;
@@ -64,8 +62,7 @@ RC DeletePhysicalOperator::next()
   return RC::RECORD_EOF;
 }
 
-RC DeletePhysicalOperator::close()
-{
+RC DeletePhysicalOperator::close() {
   if (!children_.empty()) {
     children_[0]->close();
   }

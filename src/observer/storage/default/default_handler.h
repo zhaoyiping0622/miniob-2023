@@ -13,8 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 #pragma once
 
-#include <string>
 #include <map>
+#include <string>
 
 #include "storage/db/db.h"
 
@@ -80,7 +80,8 @@ public:
    * @param attributes
    * @return
    */
-  RC create_table(const char *dbname, const char *relation_name, int attribute_count, const AttrInfoSqlNode *attributes);
+  RC create_table(const char *dbname, const char *relation_name, int attribute_count,
+                  const AttrInfoSqlNode *attributes);
 
   /**
    * 销毁名为relName的表以及在该表上建立的所有索引
@@ -103,4 +104,4 @@ private:
   std::string base_dir_;
   std::string db_dir_;
   std::map<std::string, Db *> opened_dbs_;
-};  // class Handler
+}; // class Handler

@@ -13,22 +13,20 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
-#include "sql/stmt/filter_stmt.h"
-#include "common/log/log.h"
 #include "common/lang/string.h"
+#include "common/log/log.h"
+#include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-SelectStmt::~SelectStmt()
-{
+SelectStmt::~SelectStmt() {
   if (nullptr != filter_stmt_) {
     delete filter_stmt_;
     filter_stmt_ = nullptr;
   }
 }
 
-static void wildcard_fields(Table *table, std::vector<Field> &field_metas)
-{
+static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
@@ -36,8 +34,7 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas)
   }
 }
 
-RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
-{
+RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
@@ -132,12 +129,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt)
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db,
-      default_table,
-      &table_map,
-      select_sql.conditions.data(),
-      static_cast<int>(select_sql.conditions.size()),
-      filter_stmt);
+  RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions.data(),
+                             static_cast<int>(select_sql.conditions.size()), filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;

@@ -22,8 +22,7 @@ class SQLStageEvent;
  * @brief 执行Resolve，将解析后的SQL语句，转换成各种Stmt(Statement), 同时会做错误检查
  * @ingroup SQLStage
  */
-class ResolveStage
-{
+class ResolveStage {
 public:
   RC handle_request(SQLStageEvent *sql_event);
 };

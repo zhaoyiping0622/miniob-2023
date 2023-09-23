@@ -14,9 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <string>
-#include <event.h>
 #include "common/rc.h"
+#include <event.h>
+#include <string>
 
 struct ConnectionContext;
 class SessionEvent;
@@ -38,8 +38,7 @@ class BufferedWriter;
  * 在server中监听到某个连接有新的消息，就通过Communicator::read_event接收消息。
 
  */
-class Communicator 
-{
+class Communicator {
 public:
   virtual ~Communicator();
 
@@ -66,27 +65,18 @@ public:
   /**
    * @brief 关联的会话信息
    */
-  Session *session() const
-  {
-    return session_;
-  }
+  Session *session() const { return session_; }
 
   /**
    * @brief libevent使用的数据，参考server.cpp
    */
-  struct event &read_event()
-  {
-    return read_event_;
-  }
+  struct event &read_event() { return read_event_; }
 
   /**
    * @brief 对端地址
    * 如果是unix socket，可能没有意义
    */
-  const char *addr() const
-  {
-    return addr_.c_str();
-  }
+  const char *addr() const { return addr_.c_str(); }
 
 protected:
   Session *session_ = nullptr;
@@ -100,19 +90,17 @@ protected:
  * @brief 当前支持的通讯协议
  * @ingroup Communicator
  */
-enum class CommunicateProtocol 
-{
-  PLAIN,  ///< 以'\0'结尾的协议
-  CLI,    ///< 与客户端进行交互的协议
-  MYSQL,  ///< mysql通讯协议。具体实现参考 MysqlCommunicator
+enum class CommunicateProtocol {
+  PLAIN, ///< 以'\0'结尾的协议
+  CLI,   ///< 与客户端进行交互的协议
+  MYSQL, ///< mysql通讯协议。具体实现参考 MysqlCommunicator
 };
 
 /**
  * @brief 通讯协议工厂
  * @ingroup Communicator
  */
-class CommunicatorFactory 
-{
+class CommunicatorFactory {
 public:
   Communicator *create(CommunicateProtocol protocol);
 };

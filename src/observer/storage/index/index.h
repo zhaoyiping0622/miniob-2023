@@ -18,8 +18,8 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/rc.h"
-#include "storage/index/index_meta.h"
 #include "storage/field/field_meta.h"
+#include "storage/index/index_meta.h"
 #include "storage/record/record_manager.h"
 
 class IndexScanner;
@@ -34,16 +34,12 @@ class IndexScanner;
  * @brief 索引基类
  * @ingroup Index
  */
-class Index 
-{
+class Index {
 public:
   Index() = default;
   virtual ~Index() = default;
 
-  const IndexMeta &index_meta() const
-  {
-    return index_meta_;
-  }
+  const IndexMeta &index_meta() const { return index_meta_; }
 
   /**
    * @brief 插入一条数据
@@ -72,7 +68,7 @@ public:
    * @param right_inclusive 是否包含右边界
    */
   virtual IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive, const char *right_key,
-      int right_len, bool right_inclusive) = 0;
+                                       int right_len, bool right_inclusive) = 0;
 
   /**
    * @brief 同步索引数据到磁盘
@@ -84,16 +80,15 @@ protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
 
 protected:
-  IndexMeta index_meta_;  ///< 索引的元数据
-  FieldMeta field_meta_;  ///< 当前实现仅考虑一个字段的索引
+  IndexMeta index_meta_; ///< 索引的元数据
+  FieldMeta field_meta_; ///< 当前实现仅考虑一个字段的索引
 };
 
 /**
  * @brief 索引扫描器
  * @ingroup Index
  */
-class IndexScanner 
-{
+class IndexScanner {
 public:
   IndexScanner() = default;
   virtual ~IndexScanner() = default;

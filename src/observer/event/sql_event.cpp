@@ -20,11 +20,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
 
-SQLStageEvent::SQLStageEvent(SessionEvent *event, const std::string &sql) : session_event_(event), sql_(sql)
-{}
+SQLStageEvent::SQLStageEvent(SessionEvent *event, const std::string &sql) : session_event_(event), sql_(sql) {}
 
-SQLStageEvent::~SQLStageEvent() noexcept
-{
+SQLStageEvent::~SQLStageEvent() noexcept {
   if (session_event_ != nullptr) {
     session_event_ = nullptr;
   }

@@ -15,34 +15,30 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
-#include "sql/operator/string_list_physical_operator.h"
-#include "event/sql_event.h"
 #include "event/session_event.h"
-#include "sql/executor/sql_result.h"
+#include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/executor/sql_result.h"
+#include "sql/operator/string_list_physical_operator.h"
 
 /**
  * @brief Help语句执行器
  * @ingroup Executor
  */
-class HelpExecutor
-{
+class HelpExecutor {
 public:
   HelpExecutor() = default;
   virtual ~HelpExecutor() = default;
 
-  RC execute(SQLStageEvent *sql_event)
-  {
-    const char *strings[] = {
-        "show tables;",
-        "desc `table name`;",
-        "create table `table name` (`column name` `column type`, ...);",
-        "create index `index name` on `table` (`column`);",
-        "insert into `table` values(`value1`,`value2`);",
-        "update `table` set column=value [where `column`=`value`];",
-        "delete from `table` [where `column`=`value`];",
-        "select [ * | `columns` ] from `table`;"
-      };
+  RC execute(SQLStageEvent *sql_event) {
+    const char *strings[] = {"show tables;",
+                             "desc `table name`;",
+                             "create table `table name` (`column name` `column type`, ...);",
+                             "create index `index name` on `table` (`column`);",
+                             "insert into `table` values(`value1`,`value2`);",
+                             "update `table` set column=value [where `column`=`value`];",
+                             "delete from `table` [where `column`=`value`];",
+                             "select [ * | `columns` ] from `table`;"};
 
     auto oper = new StringListPhysicalOperator();
     for (size_t i = 0; i < sizeof(strings) / sizeof(strings[0]); i++) {

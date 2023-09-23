@@ -30,8 +30,7 @@ See the Mulan PSL v2 for more details. */
  * @brief 逻辑算子类型
  * 
  */
-enum class LogicalOperatorType 
-{
+enum class LogicalOperatorType {
   CALC,
   TABLE_GET,  ///< 从表中获取数据
   PREDICATE,  ///< 过滤，就是谓词
@@ -46,8 +45,7 @@ enum class LogicalOperatorType
  * @brief 逻辑算子描述当前执行计划要做什么
  * @details 可以看OptimizeStage中相关的代码
  */
-class LogicalOperator 
-{
+class LogicalOperator {
 public:
   LogicalOperator() = default;
   virtual ~LogicalOperator();
@@ -55,19 +53,13 @@ public:
   virtual LogicalOperatorType type() const = 0;
 
   void add_child(std::unique_ptr<LogicalOperator> oper);
-  std::vector<std::unique_ptr<LogicalOperator>> &children()
-  {
-    return children_;
-  }
-  std::vector<std::unique_ptr<Expression>> &expressions()
-  {
-    return expressions_;
-  }
+  std::vector<std::unique_ptr<LogicalOperator>> &children() { return children_; }
+  std::vector<std::unique_ptr<Expression>> &expressions() { return expressions_; }
 
 protected:
-  std::vector<std::unique_ptr<LogicalOperator>> children_;  ///< 子算子
+  std::vector<std::unique_ptr<LogicalOperator>> children_; ///< 子算子
 
   ///< 表达式，比如select中的列，where中的谓词等等，都可以使用表达式来表示
   ///< 表达式能是一个常量，也可以是一个函数，也可以是一个列，也可以是一个子查询等等
-  std::vector<std::unique_ptr<Expression>> expressions_;    
+  std::vector<std::unique_ptr<Expression>> expressions_;
 };

@@ -12,19 +12,17 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/6/27.
 //
 
-#include "common/log/log.h"
 #include "sql/operator/predicate_physical_operator.h"
-#include "storage/record/record.h"
+#include "common/log/log.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/field/field.h"
+#include "storage/record/record.h"
 
-PredicatePhysicalOperator::PredicatePhysicalOperator(std::unique_ptr<Expression> expr) : expression_(std::move(expr))
-{
+PredicatePhysicalOperator::PredicatePhysicalOperator(std::unique_ptr<Expression> expr) : expression_(std::move(expr)) {
   ASSERT(expression_->value_type() == BOOLEANS, "predicate's expression should be BOOLEAN type");
 }
 
-RC PredicatePhysicalOperator::open(Trx *trx)
-{
+RC PredicatePhysicalOperator::open(Trx *trx) {
   if (children_.size() != 1) {
     LOG_WARN("predicate operator must has one child");
     return RC::INTERNAL;
@@ -33,8 +31,7 @@ RC PredicatePhysicalOperator::open(Trx *trx)
   return children_[0]->open(trx);
 }
 
-RC PredicatePhysicalOperator::next()
-{
+RC PredicatePhysicalOperator::next() {
   RC rc = RC::SUCCESS;
   PhysicalOperator *oper = children_.front().get();
 
@@ -59,13 +56,9 @@ RC PredicatePhysicalOperator::next()
   return rc;
 }
 
-RC PredicatePhysicalOperator::close()
-{
+RC PredicatePhysicalOperator::close() {
   children_[0]->close();
   return RC::SUCCESS;
 }
 
-Tuple *PredicatePhysicalOperator::current_tuple()
-{
-  return children_[0]->current_tuple();
-}
+Tuple *PredicatePhysicalOperator::current_tuple() { return children_[0]->current_tuple(); }

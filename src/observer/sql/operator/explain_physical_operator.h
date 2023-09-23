@@ -20,16 +20,12 @@ See the Mulan PSL v2 for more details. */
  * @brief Explain物理算子
  * @ingroup PhysicalOperator
  */
-class ExplainPhysicalOperator : public PhysicalOperator
-{
+class ExplainPhysicalOperator : public PhysicalOperator {
 public:
   ExplainPhysicalOperator() = default;
   virtual ~ExplainPhysicalOperator() = default;
 
-  PhysicalOperatorType type() const override
-  {
-    return PhysicalOperatorType::EXPLAIN;
-  }
+  PhysicalOperatorType type() const override { return PhysicalOperatorType::EXPLAIN; }
 
   RC open(Trx *trx) override;
   RC next() override;

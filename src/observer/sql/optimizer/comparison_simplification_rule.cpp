@@ -13,11 +13,10 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/optimizer/comparison_simplification_rule.h"
-#include "sql/expr/expression.h"
 #include "common/log/log.h"
+#include "sql/expr/expression.h"
 
-RC ComparisonSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, bool &change_made)
-{
+RC ComparisonSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, bool &change_made) {
   RC rc = RC::SUCCESS;
   change_made = false;
   if (expr->type() == ExprType::COMPARISON) {

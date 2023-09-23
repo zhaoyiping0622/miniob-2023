@@ -24,8 +24,7 @@ See the Mulan PSL v2 for more details. */
  * 当前把调试信息都放在了session上，可以随着SQL语句输出。
  * 但是现在还不支持与输出调试信息与行数据同步输出。
  */
-class SqlDebug
-{
+class SqlDebug {
 public:
   SqlDebug() = default;
   virtual ~SqlDebug() = default;

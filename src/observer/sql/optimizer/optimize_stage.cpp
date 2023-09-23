@@ -21,18 +21,17 @@ See the Mulan PSL v2 for more details. */
 #include "common/io/io.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "event/session_event.h"
+#include "event/sql_event.h"
+#include "sql/executor/sql_result.h"
 #include "sql/expr/expression.h"
 #include "sql/operator/logical_operator.h"
-#include "sql/executor/sql_result.h"
 #include "sql/stmt/stmt.h"
-#include "event/sql_event.h"
-#include "event/session_event.h"
 
 using namespace std;
 using namespace common;
 
-RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
-{
+RC OptimizeStage::handle_request(SQLStageEvent *sql_event) {
   unique_ptr<LogicalOperator> logical_operator;
   RC rc = create_logical_plan(sql_event, logical_operator);
   if (rc != RC::SUCCESS) {
@@ -66,15 +65,13 @@ RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
   return rc;
 }
 
-RC OptimizeStage::optimize(unique_ptr<LogicalOperator> &oper)
-{
+RC OptimizeStage::optimize(unique_ptr<LogicalOperator> &oper) {
   // do nothing
   return RC::SUCCESS;
 }
 
-RC OptimizeStage::generate_physical_plan(
-    unique_ptr<LogicalOperator> &logical_operator, unique_ptr<PhysicalOperator> &physical_operator)
-{
+RC OptimizeStage::generate_physical_plan(unique_ptr<LogicalOperator> &logical_operator,
+                                         unique_ptr<PhysicalOperator> &physical_operator) {
   RC rc = RC::SUCCESS;
   rc = physical_plan_generator_.create(*logical_operator, physical_operator);
   if (rc != RC::SUCCESS) {
@@ -83,10 +80,9 @@ RC OptimizeStage::generate_physical_plan(
   return rc;
 }
 
-RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator)
-{
+RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator) {
   RC rc = RC::SUCCESS;
-  
+
   bool change_made = false;
   do {
     change_made = false;
@@ -100,8 +96,7 @@ RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator)
   return rc;
 }
 
-RC OptimizeStage::create_logical_plan(SQLStageEvent *sql_event, unique_ptr<LogicalOperator> &logical_operator)
-{
+RC OptimizeStage::create_logical_plan(SQLStageEvent *sql_event, unique_ptr<LogicalOperator> &logical_operator) {
   Stmt *stmt = sql_event->stmt();
   if (nullptr == stmt) {
     return RC::UNIMPLENMENT;

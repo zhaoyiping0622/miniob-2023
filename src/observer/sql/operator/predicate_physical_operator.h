@@ -14,9 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <memory>
-#include "sql/operator/physical_operator.h"
 #include "sql/expr/expression.h"
+#include "sql/operator/physical_operator.h"
+#include <memory>
 
 class FilterStmt;
 
@@ -24,17 +24,13 @@ class FilterStmt;
  * @brief 过滤/谓词物理算子
  * @ingroup PhysicalOperator
  */
-class PredicatePhysicalOperator : public PhysicalOperator
-{
+class PredicatePhysicalOperator : public PhysicalOperator {
 public:
   PredicatePhysicalOperator(std::unique_ptr<Expression> expr);
 
   virtual ~PredicatePhysicalOperator() = default;
 
-  PhysicalOperatorType type() const override
-  {
-    return PhysicalOperatorType::PREDICATE;
-  }
+  PhysicalOperatorType type() const override { return PhysicalOperatorType::PREDICATE; }
 
   RC open(Trx *trx) override;
   RC next() override;

@@ -20,8 +20,7 @@ See the Mulan PSL v2 for more details. */
 
 class CLogManager;
 
-class MvccTrxKit : public TrxKit
-{
+class MvccTrxKit : public TrxKit {
 public:
   MvccTrxKit() = default;
   virtual ~MvccTrxKit();
@@ -50,7 +49,7 @@ private:
 
   std::atomic<int32_t> current_trx_id_{0};
 
-  common::Mutex      lock_;
+  common::Mutex lock_;
   std::vector<Trx *> trxes_;
 };
 
@@ -59,8 +58,7 @@ private:
  * @ingroup Transaction
  * TODO 没有垃圾回收
  */
-class MvccTrx : public Trx
-{
+class MvccTrx : public Trx {
 public:
   MvccTrx(MvccTrxKit &trx_kit, CLogManager *log_manager);
   MvccTrx(MvccTrxKit &trx_kit, int32_t trx_id); // used for recover
@@ -98,10 +96,10 @@ private:
 
 private:
   using OperationSet = std::unordered_set<Operation, OperationHasher, OperationEqualer>;
-  MvccTrxKit & trx_kit_;
+  MvccTrxKit &trx_kit_;
   CLogManager *log_manager_ = nullptr;
-  int32_t      trx_id_ = -1;
-  bool         started_ = false;
-  bool         recovering_ = false;
+  int32_t trx_id_ = -1;
+  bool started_ = false;
+  bool recovering_ = false;
   OperationSet operations_;
 };

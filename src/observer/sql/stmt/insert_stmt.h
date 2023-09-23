@@ -24,33 +24,20 @@ class Db;
  * @brief 插入语句
  * @ingroup Statement
  */
-class InsertStmt : public Stmt 
-{
+class InsertStmt : public Stmt {
 public:
   InsertStmt() = default;
   InsertStmt(Table *table, const Value *values, int value_amount);
 
-  StmtType type() const override
-  {
-    return StmtType::INSERT;
-  }
+  StmtType type() const override { return StmtType::INSERT; }
 
 public:
   static RC create(Db *db, const InsertSqlNode &insert_sql, Stmt *&stmt);
 
 public:
-  Table *table() const
-  {
-    return table_;
-  }
-  const Value *values() const
-  {
-    return values_;
-  }
-  int value_amount() const
-  {
-    return value_amount_;
-  }
+  Table *table() const { return table_; }
+  const Value *values() const { return values_; }
+  int value_amount() const { return value_amount_; }
 
 private:
   Table *table_ = nullptr;

@@ -14,8 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "sql/parser/parse.h"
 #include "common/rc.h"
+#include "sql/parser/parse.h"
 
 class SQLStageEvent;
 class SessionEvent;
@@ -27,10 +27,8 @@ class SelectStmt;
  * @details 根据前面阶段生成的结果，有些语句会生成执行计划，有些不会。
  * 整体上分为两类，带执行计划的，或者 CommandExecutor 可以直接执行的。
  */
-class ExecuteStage
-{
+class ExecuteStage {
 public:
-
   RC handle_request(SQLStageEvent *event);
   RC handle_request_with_physical_operator(SQLStageEvent *sql_event);
 };

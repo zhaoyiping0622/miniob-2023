@@ -27,8 +27,7 @@ class BasePacket;
  * 可以参考 [MySQL Page Protocol](https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html)
  * 或 [MariaDB Protocol](https://mariadb.com/kb/en/clientserver-protocol/)
  */
-class MysqlCommunicator : public Communicator 
-{
+class MysqlCommunicator : public Communicator {
 public:
   /**
    * @brief 连接刚开始建立时，进行一些初始化

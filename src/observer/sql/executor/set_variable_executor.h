@@ -15,25 +15,23 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
-#include "sql/operator/string_list_physical_operator.h"
-#include "event/sql_event.h"
 #include "event/session_event.h"
-#include "sql/executor/sql_result.h"
+#include "event/sql_event.h"
 #include "session/session.h"
+#include "sql/executor/sql_result.h"
+#include "sql/operator/string_list_physical_operator.h"
 #include "sql/stmt/set_variable_stmt.h"
 
 /**
  * @brief SetVariable语句执行器
  * @ingroup Executor
  */
-class SetVariableExecutor
-{
+class SetVariableExecutor {
 public:
   SetVariableExecutor() = default;
   virtual ~SetVariableExecutor() = default;
 
-  RC execute(SQLStageEvent *sql_event)
-  {
+  RC execute(SQLStageEvent *sql_event) {
     RC rc = RC::SUCCESS;
     Session *session = sql_event->session_event()->session();
     SetVariableStmt *stmt = (SetVariableStmt *)sql_event->stmt();
@@ -57,8 +55,7 @@ public:
   }
 
 private:
-  RC var_value_to_boolean(const Value &var_value, bool &bool_value) const
-  {
+  RC var_value_to_boolean(const Value &var_value, bool &bool_value) const {
     RC rc = RC::SUCCESS;
 
     if (var_value.attr_type() == AttrType::BOOLEANS) {
@@ -69,21 +66,9 @@ private:
       bool_value = var_value.get_float() != 0.0;
     } else if (var_value.attr_type() == AttrType::CHARS) {
 
-      std::string true_strings[] = {
-          "true",
-          "on",
-          "yes",
-          "t",
-          "1"
-      };
+      std::string true_strings[] = {"true", "on", "yes", "t", "1"};
 
-      std::string false_strings[] = {
-          "false",
-          "off",
-          "no",
-          "f",
-          "0"
-      };
+      std::string false_strings[] = {"false", "off", "no", "f", "0"};
 
       for (size_t i = 0; i < sizeof(true_strings) / sizeof(true_strings[0]); i++) {
         if (strcasecmp(var_value.get_string().c_str(), true_strings[i].c_str()) == 0) {

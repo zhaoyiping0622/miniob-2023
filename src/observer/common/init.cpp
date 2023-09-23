@@ -14,8 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/init.h"
 
-#include "common/ini_setting.h"
 #include "common/conf/ini.h"
+#include "common/ini_setting.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/os/path.h"
@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/os/signal.h"
 #include "common/seda/init.h"
 #include "common/seda/stage_factory.h"
+#include "global_context.h"
 #include "session/session.h"
 #include "session/session_stage.h"
 #include "sql/executor/execute_stage.h"
@@ -35,30 +36,23 @@ See the Mulan PSL v2 for more details. */
 #include "storage/buffer/disk_buffer_pool.h"
 #include "storage/default/default_handler.h"
 #include "storage/trx/trx.h"
-#include "global_context.h"
 
 using namespace common;
 
-bool *&_get_init()
-{
+bool *&_get_init() {
   static bool util_init = false;
   static bool *util_init_p = &util_init;
   return util_init_p;
 }
 
-bool get_init()
-{
-  return *_get_init();
-}
+bool get_init() { return *_get_init(); }
 
-void set_init(bool value)
-{
+void set_init(bool value) {
   *_get_init() = value;
   return;
 }
 
-void sig_handler(int sig)
-{
+void sig_handler(int sig) {
   // Signal handler will be add in the next step.
   //  Add action to shutdown
 
@@ -67,8 +61,7 @@ void sig_handler(int sig)
   return;
 }
 
-int init_log(ProcessParam *process_cfg, Ini &properties)
-{
+int init_log(ProcessParam *process_cfg, Ini &properties) {
   const std::string &proc_name = process_cfg->get_process_name();
   try {
     // we had better alloc one lock to do so, but simplify the logic
@@ -135,8 +128,7 @@ int init_log(ProcessParam *process_cfg, Ini &properties)
   return 0;
 }
 
-void cleanup_log()
-{
+void cleanup_log() {
 
   if (g_log) {
     delete g_log;
@@ -145,19 +137,17 @@ void cleanup_log()
   return;
 }
 
-int prepare_init_seda()
-{
+int prepare_init_seda() {
   static StageFactory session_stage_factory("SessionStage", &SessionStage::make_stage);
   return 0;
 }
 
-int init_global_objects(ProcessParam *process_param, Ini &properties)
-{
+int init_global_objects(ProcessParam *process_param, Ini &properties) {
   GCTX.buffer_pool_manager_ = new BufferPoolManager();
   BufferPoolManager::set_instance(GCTX.buffer_pool_manager_);
 
   GCTX.handler_ = new DefaultHandler();
-  
+
   DefaultHandler::set_default(GCTX.handler_);
 
   int ret = 0;
@@ -176,8 +166,7 @@ int init_global_objects(ProcessParam *process_param, Ini &properties)
   return ret;
 }
 
-int uninit_global_objects()
-{
+int uninit_global_objects() {
   // TODO use global context
   DefaultHandler *default_handler = &DefaultHandler::get_default();
   if (default_handler != nullptr) {
@@ -193,8 +182,7 @@ int uninit_global_objects()
   return 0;
 }
 
-int init(ProcessParam *process_param)
-{
+int init(ProcessParam *process_param) {
   if (get_init()) {
 
     return 0;
@@ -263,10 +251,9 @@ int init(ProcessParam *process_param)
   return STATUS_SUCCESS;
 }
 
-void cleanup_util()
-{
+void cleanup_util() {
   uninit_global_objects();
-  
+
   if (nullptr != get_properties()) {
     delete get_properties();
     get_properties() = nullptr;
@@ -281,7 +268,4 @@ void cleanup_util()
   return;
 }
 
-void cleanup()
-{
-  cleanup_util();
-}
+void cleanup() { cleanup_util(); }

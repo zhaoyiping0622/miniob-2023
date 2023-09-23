@@ -19,16 +19,14 @@ See the Mulan PSL v2 for more details. */
 class Record;
 class Table;
 
-struct ConDesc 
-{
-  bool is_attr;     // 是否属性，false 表示是值
-  int attr_length;  // 如果是属性，表示属性值长度
-  int attr_offset;  // 如果是属性，表示在记录中的偏移量
-  Value value;      // 如果是值类型，这里记录值的数据
+struct ConDesc {
+  bool is_attr;    // 是否属性，false 表示是值
+  int attr_length; // 如果是属性，表示属性值长度
+  int attr_offset; // 如果是属性，表示在记录中的偏移量
+  Value value;     // 如果是值类型，这里记录值的数据
 };
 
-class ConditionFilter 
-{
+class ConditionFilter {
 public:
   virtual ~ConditionFilter();
 
@@ -40,8 +38,7 @@ public:
   virtual bool filter(const Record &rec) const = 0;
 };
 
-class DefaultConditionFilter : public ConditionFilter 
-{
+class DefaultConditionFilter : public ConditionFilter {
 public:
   DefaultConditionFilter();
   virtual ~DefaultConditionFilter();
@@ -52,25 +49,13 @@ public:
   virtual bool filter(const Record &rec) const;
 
 public:
-  const ConDesc &left() const
-  {
-    return left_;
-  }
+  const ConDesc &left() const { return left_; }
 
-  const ConDesc &right() const
-  {
-    return right_;
-  }
+  const ConDesc &right() const { return right_; }
 
-  CompOp comp_op() const
-  {
-    return comp_op_;
-  }
+  CompOp comp_op() const { return comp_op_; }
 
-  AttrType attr_type() const
-  {
-    return attr_type_;
-  }
+  AttrType attr_type() const { return attr_type_; }
 
 private:
   ConDesc left_;
@@ -79,8 +64,7 @@ private:
   CompOp comp_op_ = NO_OP;
 };
 
-class CompositeConditionFilter : public ConditionFilter 
-{
+class CompositeConditionFilter : public ConditionFilter {
 public:
   CompositeConditionFilter() = default;
   virtual ~CompositeConditionFilter();
@@ -90,14 +74,8 @@ public:
   virtual bool filter(const Record &rec) const;
 
 public:
-  int filter_num() const
-  {
-    return filter_num_;
-  }
-  const ConditionFilter &filter(int index) const
-  {
-    return *filters_[index];
-  }
+  int filter_num() const { return filter_num_; }
+  const ConditionFilter &filter(int index) const { return *filters_[index]; }
 
 private:
   RC init(const ConditionFilter *filters[], int filter_num, bool own_memory);
@@ -105,5 +83,5 @@ private:
 private:
   const ConditionFilter **filters_ = nullptr;
   int filter_num_ = 0;
-  bool memory_owner_ = false;  // filters_的内存是否由自己来控制
+  bool memory_owner_ = false; // filters_的内存是否由自己来控制
 };

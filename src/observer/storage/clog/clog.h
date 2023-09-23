@@ -14,18 +14,18 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <atomic>
+#include <deque>
+#include <list>
+#include <memory>
 #include <stddef.h>
 #include <stdint.h>
-#include <list>
-#include <atomic>
-#include <unordered_map>
-#include <deque>
-#include <memory>
 #include <string>
+#include <unordered_map>
 
-#include "storage/record/record.h"
-#include "storage/persist/persist.h"
 #include "common/lang/mutex.h"
+#include "storage/persist/persist.h"
+#include "storage/record/record.h"
 
 class CLogManager;
 class CLogBuffer;
@@ -49,16 +49,15 @@ class Db;
  * 也就是说，像INSERT、DELETE等是事务自己处理的，其实这种类型的日志不需要在这里定义，而是在各个
  * 事务模型中定义，由各个事务模型自行处理。
  */
-#define DEFINE_CLOG_TYPE_ENUM         \
-  DEFINE_CLOG_TYPE(ERROR)             \
-  DEFINE_CLOG_TYPE(MTR_BEGIN)         \
-  DEFINE_CLOG_TYPE(MTR_COMMIT)        \
-  DEFINE_CLOG_TYPE(MTR_ROLLBACK)      \
-  DEFINE_CLOG_TYPE(INSERT)            \
+#define DEFINE_CLOG_TYPE_ENUM                                                                                          \
+  DEFINE_CLOG_TYPE(ERROR)                                                                                              \
+  DEFINE_CLOG_TYPE(MTR_BEGIN)                                                                                          \
+  DEFINE_CLOG_TYPE(MTR_COMMIT)                                                                                         \
+  DEFINE_CLOG_TYPE(MTR_ROLLBACK)                                                                                       \
+  DEFINE_CLOG_TYPE(INSERT)                                                                                             \
   DEFINE_CLOG_TYPE(DELETE)
 
-enum class CLogType 
-{ 
+enum class CLogType {
 #define DEFINE_CLOG_TYPE(name) name,
   DEFINE_CLOG_TYPE_ENUM
 #undef DEFINE_CLOG_TYPE
@@ -85,15 +84,13 @@ CLogType clog_type_from_integer(int32_t value);
  * @brief CLog的记录头。每个日志都带有这个信息
  * @ingroup CLog
  */
-struct CLogRecordHeader 
-{
-  int32_t lsn_ = -1;     ///< log sequence number。当前没有使用
-  int32_t trx_id_ = -1;  ///< 日志所属事务的编号
+struct CLogRecordHeader {
+  int32_t lsn_ = -1;                                     ///< log sequence number。当前没有使用
+  int32_t trx_id_ = -1;                                  ///< 日志所属事务的编号
   int32_t type_ = clog_type_to_integer(CLogType::ERROR); ///< 日志类型
-  int32_t logrec_len_ = 0;  ///< record的长度，不包含header长度
+  int32_t logrec_len_ = 0;                               ///< record的长度，不包含header长度
 
-  bool operator==(const CLogRecordHeader &other) const
-  {
+  bool operator==(const CLogRecordHeader &other) const {
     return lsn_ == other.lsn_ && trx_id_ == other.trx_id_ && type_ == other.type_ && logrec_len_ == other.logrec_len_;
   }
 
@@ -105,14 +102,10 @@ struct CLogRecordHeader
  * @brief MTR_COMMIT 日志的数据
  * @details 其它的类型的MTR日志都没有数据，只有COMMIT有。
  */
-struct CLogRecordCommitData
-{
+struct CLogRecordCommitData {
   int32_t commit_xid_ = -1; ///< 事务提交的事务号
 
-  bool operator == (const CLogRecordCommitData &other) const
-  {
-    return this->commit_xid_ == other.commit_xid_;
-  }
+  bool operator==(const CLogRecordCommitData &other) const { return this->commit_xid_ == other.commit_xid_; }
 
   std::string to_string() const;
 };
@@ -122,28 +115,23 @@ struct CLogRecordCommitData
  * @ingroup CLog
  * @details 这里记录的都是操作的记录，比如插入、删除一条数据。
  */
-struct CLogRecordData
-{
-  int32_t          table_id_ = -1;    ///< 操作的表
-  RID              rid_;              ///< 操作的哪条记录
-  int32_t          data_len_ = 0;     ///< 记录的数据长度(因为header中也包含长度信息，这个长度可以不要)
-  int32_t          data_offset_ = 0;  ///< 操作的数据在完整记录中的偏移量
-  char *           data_ = nullptr;   ///< 具体的数据，可能没有任何数据
+struct CLogRecordData {
+  int32_t table_id_ = -1;   ///< 操作的表
+  RID rid_;                 ///< 操作的哪条记录
+  int32_t data_len_ = 0;    ///< 记录的数据长度(因为header中也包含长度信息，这个长度可以不要)
+  int32_t data_offset_ = 0; ///< 操作的数据在完整记录中的偏移量
+  char *data_ = nullptr;    ///< 具体的数据，可能没有任何数据
 
   ~CLogRecordData();
 
-  bool operator==(const CLogRecordData &other) const
-  {
-    return table_id_ == other.table_id_ &&
-      rid_ == other.rid_ &&
-      data_len_ == other.data_len_ &&
-      data_offset_ == other.data_offset_ &&
-      0 == memcmp(data_, other.data_, data_len_);
+  bool operator==(const CLogRecordData &other) const {
+    return table_id_ == other.table_id_ && rid_ == other.rid_ && data_len_ == other.data_len_ &&
+           data_offset_ == other.data_offset_ && 0 == memcmp(data_, other.data_, data_len_);
   }
 
   std::string to_string() const;
 
-  const static int32_t HEADER_SIZE;  ///< 指RecordData的头长度，即不包含data_的长度
+  const static int32_t HEADER_SIZE; ///< 指RecordData的头长度，即不包含data_的长度
 };
 
 /**
@@ -152,8 +140,7 @@ struct CLogRecordData
  * @details 一条日志记录由一个日志头和具体的数据构成。
  * 具体的数据根据日志类型不同，也是不同的类型。
  */
-class CLogRecord 
-{
+class CLogRecord {
 public:
   /**
    * @brief 默认构造函数。
@@ -190,14 +177,9 @@ public:
    * @param data_offset 偏移量，参考 CLogRecordData::data_offset_
    * @param data 具体的数据
    */
-  static CLogRecord *build_data_record(CLogType type,
-                                       int32_t trx_id,
-                                       int32_t table_id,
-                                       const RID &rid,
-                                       int32_t data_len,
-                                       int32_t data_offset,
-                                       const char *data);
-  
+  static CLogRecord *build_data_record(CLogType type, int32_t trx_id, int32_t table_id, const RID &rid,
+                                       int32_t data_len, int32_t data_offset, const char *data);
+
   /**
    * @brief 根据二进制数据创建日志对象
    * @details 通常是从日志文件中读取数据，然后调用此函数创建日志对象
@@ -206,24 +188,24 @@ public:
    */
   static CLogRecord *build(const CLogRecordHeader &header, char *data);
 
-  CLogType log_type() const  { return clog_type_from_integer(header_.type_); }
-  int32_t  trx_id() const { return header_.trx_id_; }
-  int32_t  logrec_len() const { return header_.logrec_len_; }
+  CLogType log_type() const { return clog_type_from_integer(header_.type_); }
+  int32_t trx_id() const { return header_.trx_id_; }
+  int32_t logrec_len() const { return header_.logrec_len_; }
 
   CLogRecordHeader &header() { return header_; }
   CLogRecordCommitData &commit_record() { return commit_record_; }
-  CLogRecordData   &data_record() { return data_record_; }
+  CLogRecordData &data_record() { return data_record_; }
 
   const CLogRecordHeader &header() const { return header_; }
   const CLogRecordCommitData &commit_record() const { return commit_record_; }
-  const CLogRecordData   &data_record() const { return data_record_; }
+  const CLogRecordData &data_record() const { return data_record_; }
 
   std::string to_string() const;
 
 protected:
   CLogRecordHeader header_; ///< 日志头信息
 
-  CLogRecordData       data_record_;   ///< 如果日志操作的是数据，此结构生效
+  CLogRecordData data_record_;         ///< 如果日志操作的是数据，此结构生效
   CLogRecordCommitData commit_record_; ///< 如果是事务提交日志，此结构生效
 };
 
@@ -234,8 +216,7 @@ protected:
  * 管理二进制buffer的方法。这里仅仅把日志记录下来，放到链表中。如果达到一定量的日志，
  * 或者日志数量超过某个阈值，就会调用flush_buffer将日志刷新到磁盘中。
  */
-class CLogBuffer 
-{
+class CLogBuffer {
 public:
   CLogBuffer();
   ~CLogBuffer();
@@ -263,9 +244,9 @@ private:
   RC write_log_record(CLogFile &log_file, CLogRecord *log_record);
 
 private:
-  common::Mutex lock_;  ///< 加锁支持多线程并发写入
-  std::deque<std::unique_ptr<CLogRecord>> log_records_;  ///< 当前等待刷数据的日志记录
-  std::atomic_int32_t total_size_;  ///< 当前缓存中的日志记录的总大小
+  common::Mutex lock_;                                  ///< 加锁支持多线程并发写入
+  std::deque<std::unique_ptr<CLogRecord>> log_records_; ///< 当前等待刷数据的日志记录
+  std::atomic_int32_t total_size_;                      ///< 当前缓存中的日志记录的总大小
 };
 
 /**
@@ -274,8 +255,7 @@ private:
  * @details 这里的名字不太贴切，因为这个类希望管理所有日志文件，而不是特定的某个文件。不过当前
  * 只有一个文件，并且文件名是固定的。
  */
-class CLogFile 
-{
+class CLogFile {
 public:
   CLogFile() = default;
   ~CLogFile();
@@ -320,9 +300,9 @@ public:
   bool eof() const { return eof_; }
 
 protected:
-  std::string filename_;  ///< 日志文件名。总是init函数参数path路径下的clog文件
-  int fd_ = -1;           ///< 操作的文件描述符
-  bool eof_ = false;      ///< 是否已经读取到文件尾
+  std::string filename_; ///< 日志文件名。总是init函数参数path路径下的clog文件
+  int fd_ = -1;          ///< 操作的文件描述符
+  bool eof_ = false;     ///< 是否已经读取到文件尾
 };
 
 /**
@@ -330,8 +310,7 @@ protected:
  * @ingroup CLog
  * @details 使用时先执行初始化(init)，然后多次调用next，直到valid返回false。
  */
-class CLogRecordIterator
-{
+class CLogRecordIterator {
 public:
   CLogRecordIterator() = default;
   ~CLogRecordIterator() = default;
@@ -353,8 +332,7 @@ private:
  * @details 一个日志管理器属于某一个DB（当前仅有一个DB sys）。
  * 管理器负责写日志（运行时）、读日志与恢复（启动时）
  */
-class CLogManager 
-{
+class CLogManager {
 public:
   CLogManager() = default;
   ~CLogManager();
@@ -369,12 +347,7 @@ public:
   /**
    * @brief 新增一条数据更新的日志
    */
-  RC append_log(CLogType type,
-                int32_t trx_id,
-                int32_t table_id,
-                const RID &rid,
-                int32_t data_len,
-                int32_t data_offset,
+  RC append_log(CLogType type, int32_t trx_id, int32_t table_id, const RID &rid, int32_t data_len, int32_t data_offset,
                 const char *data);
 
   /**
@@ -417,6 +390,6 @@ public:
   RC recover(Db *db);
 
 private:
-  CLogBuffer *log_buffer_ = nullptr;   ///< 日志缓存。新增日志时先放到内存，也就是这个buffer中
-  CLogFile *  log_file_   = nullptr;   ///< 管理日志，比如读写日志
+  CLogBuffer *log_buffer_ = nullptr; ///< 日志缓存。新增日志时先放到内存，也就是这个buffer中
+  CLogFile *log_file_ = nullptr;     ///< 管理日志，比如读写日志
 };

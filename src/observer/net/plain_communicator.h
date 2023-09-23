@@ -23,8 +23,7 @@ See the Mulan PSL v2 for more details. */
  * @ingroup Communicator
  * @details 使用简单的文本通讯协议，每个消息使用'\0'结尾
  */
-class PlainCommunicator : public Communicator 
-{
+class PlainCommunicator : public Communicator {
 public:
   PlainCommunicator();
   virtual ~PlainCommunicator() = default;
@@ -39,5 +38,5 @@ private:
 
 protected:
   std::vector<char> send_message_delimiter_; ///< 发送消息分隔符
-  std::vector<char> debug_message_prefix_; ///< 调试信息前缀
+  std::vector<char> debug_message_prefix_;   ///< 调试信息前缀
 };

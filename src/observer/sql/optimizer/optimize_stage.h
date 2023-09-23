@@ -35,8 +35,7 @@ class Stmt;
  * 不过并不是所有的语句都需要生成计划，有些可以直接执行，比如create table、create index等。
  * 这些语句可以参考 @class CommandExecutor。
  */
-class OptimizeStage
-{
+class OptimizeStage {
 public:
   RC handle_request(SQLStageEvent *event);
 
@@ -71,11 +70,11 @@ private:
    * 而物理计划描述怎么做，比如如何从某张表按照什么条件获取什么数据，是否使用索引，使用哪个索引等。
    * @param physical_operator 生成的物理计划。通常是一个多叉树的形状，这里就拿着根节点就可以了。
    */
-  RC generate_physical_plan(
-      std::unique_ptr<LogicalOperator> &logical_operator, std::unique_ptr<PhysicalOperator> &physical_operator);
+  RC generate_physical_plan(std::unique_ptr<LogicalOperator> &logical_operator,
+                            std::unique_ptr<PhysicalOperator> &physical_operator);
 
 private:
-  LogicalPlanGenerator  logical_plan_generator_;  ///< 根据SQL生成逻辑计划
+  LogicalPlanGenerator logical_plan_generator_;   ///< 根据SQL生成逻辑计划
   PhysicalPlanGenerator physical_plan_generator_; ///< 根据逻辑计划生成物理计划
-  Rewriter              rewriter_;                ///< 逻辑计划改写
+  Rewriter rewriter_;                             ///< 逻辑计划改写
 };
