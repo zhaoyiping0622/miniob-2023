@@ -92,6 +92,16 @@ RC TableMeta::add_index(const IndexMeta &index) {
   return RC::SUCCESS;
 }
 
+RC TableMeta::drop_index(const char *index_name) {
+  for (int i = 0; i < indexes_.size(); i++) {
+    if (strcmp(indexes_[i].name(), index_name) == 0) {
+      indexes_.erase(indexes_.begin() + i);
+      return RC::SUCCESS;
+    }
+  }
+  return RC::SCHEMA_INDEX_NOT_EXIST;
+}
+
 const char *TableMeta::name() const { return name_.c_str(); }
 
 const FieldMeta *TableMeta::trx_field() const { return &fields_[0]; }
