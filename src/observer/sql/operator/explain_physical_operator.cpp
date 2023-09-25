@@ -24,9 +24,10 @@ RC ExplainPhysicalOperator::open(Trx *) {
 }
 
 RC ExplainPhysicalOperator::close() {
-  for (std::unique_ptr<PhysicalOperator> &child_oper : children_) {
-    child_oper->close();
-  }
+  // zhaoyiping: 这个没有open感觉不需要close
+  // for (std::unique_ptr<PhysicalOperator> &child_oper : children_) {
+  //   child_oper->close();
+  // }
   return RC::SUCCESS;
 }
 

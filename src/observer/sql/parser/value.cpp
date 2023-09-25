@@ -16,13 +16,14 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/comparator.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "sql/parser/date.h"
 #include "storage/field/field.h"
 #include <sstream>
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= FLOATS) {
+  if (type >= UNDEFINED && type <= BOOLEANS) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -44,8 +45,10 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value::Value(Date date) { set_date(date); }
+
 void Value::set_data(char *data, int length) {
-  switch (attr_type_) {
+  switch (attr_type()) {
   case CHARS: {
     set_string(data, length);
   } break;
@@ -59,6 +62,10 @@ void Value::set_data(char *data, int length) {
   } break;
   case BOOLEANS: {
     num_value_.bool_value_ = *(int *)data != 0;
+    length_ = length;
+  } break;
+  case DATES: {
+    num_value_.date_value_ = *(Date *)data;
     length_ = length;
   } break;
   default: {
@@ -92,9 +99,14 @@ void Value::set_string(const char *s, int len /*= 0*/) {
   }
   length_ = str_value_.length();
 }
+void Value::set_date(Date date) {
+  attr_type_ = DATES;
+  num_value_.date_value_ = date;
+  length_ = sizeof(date);
+}
 
 void Value::set_value(const Value &value) {
-  switch (value.attr_type_) {
+  switch (value.attr_type()) {
   case INTS: {
     set_int(value.get_int());
   } break;
@@ -107,6 +119,9 @@ void Value::set_value(const Value &value) {
   case BOOLEANS: {
     set_boolean(value.get_boolean());
   } break;
+  case DATES: {
+    set_date(value.get_date());
+  } break;
   case UNDEFINED: {
     ASSERT(false, "got an invalid value type");
   } break;
@@ -114,7 +129,7 @@ void Value::set_value(const Value &value) {
 }
 
 const char *Value::data() const {
-  switch (attr_type_) {
+  switch (attr_type()) {
   case CHARS: {
     return str_value_.c_str();
   } break;
@@ -126,7 +141,7 @@ const char *Value::data() const {
 
 std::string Value::to_string() const {
   std::stringstream os;
-  switch (attr_type_) {
+  switch (attr_type()) {
   case INTS: {
     os << num_value_.int_value_;
   } break;
@@ -139,6 +154,9 @@ std::string Value::to_string() const {
   case CHARS: {
     os << str_value_;
   } break;
+  case DATES: {
+    os << Date::to_string(num_value_.date_value_);
+  } break;
   default: {
     LOG_WARN("unsupported attr type: %d", attr_type_);
   } break;
@@ -147,7 +165,7 @@ std::string Value::to_string() const {
 }
 
 int Value::compare(const Value &other) const {
-  if (this->attr_type_ == other.attr_type_) {
+  if (this->attr_type() == other.attr_type()) {
     switch (this->attr_type_) {
     case INTS: {
       return common::compare_int((void *)&this->num_value_.int_value_, (void *)&other.num_value_.int_value_);
@@ -161,7 +179,10 @@ int Value::compare(const Value &other) const {
     } break;
     case BOOLEANS: {
       return common::compare_int((void *)&this->num_value_.bool_value_, (void *)&other.num_value_.bool_value_);
-    }
+    } break;
+    case DATES: {
+      return Date::compare_date(&num_value_.date_value_, &other.num_value_.date_value_);
+    } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
     }
@@ -172,13 +193,19 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
     float other_data = other.num_value_.int_value_;
     return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+  } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
+    Date a = get_date();
+    return Date::compare_date(&a, &other.num_value_.date_value_);
+  } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
+    Date b = other.get_date();
+    return Date::compare_date(&num_value_.date_value_, &b);
   }
   LOG_WARN("not supported");
   return -1; // TODO return rc?
 }
 
 int Value::get_int() const {
-  switch (attr_type_) {
+  switch (attr_type()) {
   case CHARS: {
     try {
       return (int)(std::stol(str_value_));
@@ -197,6 +224,7 @@ int Value::get_int() const {
     return (int)(num_value_.bool_value_);
   }
   default: {
+    // DATES ignore
     LOG_WARN("unknown data type. type=%d", attr_type_);
     return 0;
   }
@@ -205,7 +233,7 @@ int Value::get_int() const {
 }
 
 float Value::get_float() const {
-  switch (attr_type_) {
+  switch (attr_type()) {
   case CHARS: {
     try {
       return std::stof(str_value_);
@@ -224,6 +252,7 @@ float Value::get_float() const {
     return float(num_value_.bool_value_);
   } break;
   default: {
+    // DATES ignore
     LOG_WARN("unknown data type. type=%d", attr_type_);
     return 0;
   }
@@ -234,7 +263,7 @@ float Value::get_float() const {
 std::string Value::get_string() const { return this->to_string(); }
 
 bool Value::get_boolean() const {
-  switch (attr_type_) {
+  switch (attr_type()) {
   case CHARS: {
     try {
       float val = std::stof(str_value_);
@@ -264,9 +293,41 @@ bool Value::get_boolean() const {
     return num_value_.bool_value_;
   } break;
   default: {
+    // DATES ignore
     LOG_WARN("unknown data type. type=%d", attr_type_);
     return false;
   }
   }
   return false;
 }
+
+bool Value::convert(AttrType from, AttrType to, Value &value) {
+  if (from == to) {
+    return true;
+  }
+  if (from == CHARS && to == DATES) {
+    Date date = value.get_date();
+    if (date == INVALID_DATE)
+      return false;
+    value.set_date(date);
+    return true;
+  }
+  if (from == INTS && to == FLOATS) {
+    value.set_float(value.get_float());
+    return true;
+  }
+  if (from == FLOATS && to == INTS) {
+    value.set_int(value.get_int());
+    return true;
+  }
+  return false;
+}
+
+Date Value::get_date() const {
+  switch (attr_type()) {
+  case DATES: return num_value_.date_value_;
+  case CHARS: return Date(str_value_);
+  default: return INVALID_DATE;
+  }
+}
+

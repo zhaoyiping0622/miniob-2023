@@ -86,6 +86,8 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   filter_unit = new FilterUnit;
 
+  AttrType left_type, right_type;
+
   if (condition.left_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
@@ -97,10 +99,12 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     FilterObj filter_obj;
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_left(filter_obj);
+    left_type = field->type();
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
     filter_unit->set_left(filter_obj);
+    left_type = condition.left_value.attr_type();
   }
 
   if (condition.right_is_attr) {
@@ -114,10 +118,30 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     FilterObj filter_obj;
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_right(filter_obj);
+    right_type = field->type();
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
     filter_unit->set_right(filter_obj);
+    right_type = condition.right_value.attr_type();
+  }
+
+  if (left_type != right_type) {
+    if (condition.left_is_attr && !condition.right_is_attr) {
+      Value right = condition.right_value;
+      if (!Value::convert(right_type, left_type, right))
+        return RC::SQL_SYNTAX;
+      FilterObj filter_obj;
+      filter_obj.init_value(right);
+      filter_unit->set_right(filter_obj);
+    } else if (!condition.left_is_attr && condition.right_is_attr) {
+      Value left = condition.left_value;
+      if (!Value::convert(left_type, right_type, left))
+        return RC::SQL_SYNTAX;
+      FilterObj filter_obj;
+      filter_obj.init_value(left);
+      filter_unit->set_left(filter_obj);
+    }
   }
 
   filter_unit->set_comp(comp);
