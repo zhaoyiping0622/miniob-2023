@@ -79,6 +79,8 @@ public:
 
   // TODO refactor
   RC create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name);
+  RC drop_index(const char *index_name);
+  RC drop_all_indexes();
 
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly);
 
@@ -102,6 +104,10 @@ private:
 public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
+  RC drop_index(int idx);
+
+private:
+  RC flush_table_meta_file(TableMeta &new_table_meta);
 
 private:
   std::string base_dir_;

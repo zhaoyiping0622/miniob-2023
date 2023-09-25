@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 #include "common/lang/string.h"
@@ -94,6 +95,33 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfoS
 
   opened_tables_[table_name] = table;
   LOG_INFO("Create table success. table name=%s", table_name);
+  return RC::SUCCESS;
+}
+
+RC Db::drop_table(Trx *trx, const char *table_name) {
+  // 找到所有索引 把他们删了
+  RC rc = RC::SUCCESS;
+  auto it = opened_tables_.find(table_name);
+  if (it == opened_tables_.end()) {
+    LOG_WARN("%s has not been opened before.", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+
+  Table *table = it->second;
+  table->drop_all_indexes();
+  // 这里会释放所有page
+  delete table;
+  opened_tables_.erase(it);
+  auto table_file_name = table_data_file(path_.c_str(), table_name);
+  auto table_meta_name = table_meta_file(path_.c_str(), table_name);
+  if (unlink(table_file_name.c_str()) == -1) {
+    LOG_ERROR("Failed to delete table (%s) data file %s.", table_name, table_file_name.c_str());
+    return RC::IOERR_UNLINK;
+  }
+  if (unlink(table_meta_name.c_str()) == -1) {
+    LOG_ERROR("Failed to delete table (%s) data meta file %s.", table_name, table_meta_name.c_str());
+    return RC::IOERR_UNLINK;
+  }
   return RC::SUCCESS;
 }
 
