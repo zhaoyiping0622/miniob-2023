@@ -17,8 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
-    : table_(table), values_(values), value_amount_(value_amount) {}
+InsertStmt::InsertStmt(Table *table, std::vector<std::vector<Value>> records) : table_(table), records_(records) {}
 
 RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   const char *table_name = inserts.relation_name.c_str();
@@ -35,11 +34,27 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  // check the fields number
-  const Value *values = inserts.values.data();
-  const int value_num = static_cast<int>(inserts.values.size());
+  auto &records = inserts.values;
+  RC rc;
+  for (auto &record : records) {
+    rc = check_record(table, record);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
+  // everything alright
+  stmt = new InsertStmt(table, records);
+  return RC::SUCCESS;
+}
+
+RC InsertStmt::check_record(Table *table, const std::vector<Value> &record) {
   const TableMeta &table_meta = table->table_meta();
+  const char *table_name = table_meta.name();
   const int field_num = table_meta.field_num() - table_meta.sys_field_num();
+  const int value_num = static_cast<int>(record.size());
+
+  // check the fields number
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
@@ -50,16 +65,13 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
     const AttrType field_type = field_meta->type();
-    const AttrType value_type = values[i].attr_type();
+    const AttrType value_type = record[i].attr_type();
     if (!Value::convert(value_type, field_type,
-                        const_cast<Value &>(values[i]))) { // TODO try to convert the value type to field type
+                        const_cast<Value &>(record[i]))) { // TODO try to convert the value type to field type
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", table_name, field_meta->name(),
                field_type, value_type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
   }
-
-  // everything alright
-  stmt = new InsertStmt(table, values, value_num);
   return RC::SUCCESS;
 }
