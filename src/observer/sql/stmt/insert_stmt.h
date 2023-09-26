@@ -42,7 +42,7 @@ public:
   int record_amount() const { return record_amount_; }
 
 private:
-  static RC check_record(Table* table, const std::vector<Value> &record);
+  static RC check_record(Table *table, const std::vector<Value> &record);
 
 private:
   Table *table_ = nullptr;
