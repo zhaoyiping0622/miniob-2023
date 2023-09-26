@@ -15,17 +15,24 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/index_scan_physical_operator.h"
 #include "storage/index/index.h"
 #include "storage/trx/trx.h"
+#include <cstring>
 
 IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const Value *left_value,
                                                      bool left_inclusive, const Value *right_value,
                                                      bool right_inclusive)
     : table_(table), index_(index), readonly_(readonly), left_inclusive_(left_inclusive),
       right_inclusive_(right_inclusive) {
+  const char *field_name = index_->index_meta().field();
+  auto &table_meta = table_->table_meta();
+  auto *field_meta = table_meta.field(field_name);
+  field_type_ = field_meta->type();
   if (left_value) {
     left_value_ = *left_value;
+    Value::convert(left_value_.attr_type(), field_type_, left_value_);
   }
   if (right_value) {
     right_value_ = *right_value;
+    Value::convert(right_value_.attr_type(), field_type_, right_value_);
   }
 }
 
