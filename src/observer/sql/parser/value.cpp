@@ -330,4 +330,3 @@ Date Value::get_date() const {
   default: return INVALID_DATE;
   }
 }
-
