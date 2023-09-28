@@ -153,7 +153,7 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-ConjunctionExpr::ConjunctionExpr(Type type, vector<unique_ptr<Expression>> &children)
+ConjunctionExpr::ConjunctionExpr(ConjunctionType type, vector<unique_ptr<Expression>> &children)
     : conjunction_type_(type), children_(std::move(children)) {}
 
 RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const {
@@ -171,22 +171,22 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const {
       return rc;
     }
     bool bool_value = tmp_value.get_boolean();
-    if ((conjunction_type_ == Type::AND && !bool_value) || (conjunction_type_ == Type::OR && bool_value)) {
+    if ((conjunction_type_ == ConjunctionType::AND && !bool_value) || (conjunction_type_ == ConjunctionType::OR && bool_value)) {
       value.set_boolean(bool_value);
       return rc;
     }
   }
 
-  bool default_value = (conjunction_type_ == Type::AND);
+  bool default_value = (conjunction_type_ == ConjunctionType::AND);
   value.set_boolean(default_value);
   return rc;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::Type type, Expression *left, Expression *right)
+ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::ArithmeticType type, Expression *left, Expression *right)
     : arithmetic_type_(type), left_(left), right_(right) {}
-ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::Type type, unique_ptr<Expression> left, unique_ptr<Expression> right)
+ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::ArithmeticType type, unique_ptr<Expression> left, unique_ptr<Expression> right)
     : arithmetic_type_(type), left_(std::move(left)), right_(std::move(right)) {}
 
 AttrType ArithmeticExpr::value_type() const {
@@ -195,7 +195,7 @@ AttrType ArithmeticExpr::value_type() const {
   }
 
   if (left_->value_type() == AttrType::INTS && right_->value_type() == AttrType::INTS &&
-      arithmetic_type_ != Type::DIV) {
+      arithmetic_type_ != ArithmeticType::DIV) {
     return AttrType::INTS;
   }
 
@@ -208,7 +208,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
   const AttrType target_type = value_type();
 
   switch (arithmetic_type_) {
-  case Type::ADD: {
+  case ArithmeticType::ADD: {
     if (target_type == AttrType::INTS) {
       value.set_int(left_value.get_int() + right_value.get_int());
     } else {
@@ -216,7 +216,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     }
   } break;
 
-  case Type::SUB: {
+  case ArithmeticType::SUB: {
     if (target_type == AttrType::INTS) {
       value.set_int(left_value.get_int() - right_value.get_int());
     } else {
@@ -224,7 +224,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     }
   } break;
 
-  case Type::MUL: {
+  case ArithmeticType::MUL: {
     if (target_type == AttrType::INTS) {
       value.set_int(left_value.get_int() * right_value.get_int());
     } else {
@@ -232,7 +232,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     }
   } break;
 
-  case Type::DIV: {
+  case ArithmeticType::DIV: {
     if (target_type == AttrType::INTS) {
       if (right_value.get_int() == 0) {
         // NOTE: 设置为整数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为整数最大值。
@@ -250,7 +250,7 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
     }
   } break;
 
-  case Type::NEGATIVE: {
+  case ArithmeticType::NEGATIVE: {
     if (target_type == AttrType::INTS) {
       value.set_int(-left_value.get_int());
     } else {

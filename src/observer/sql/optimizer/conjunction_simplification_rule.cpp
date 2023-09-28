@@ -44,7 +44,7 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
       continue;
     }
 
-    if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::AND) {
+    if (conjunction_expr->conjunction_type() == ConjunctionExpr::ConjunctionType::AND) {
       if (constant_value == true) {
         child_exprs.erase(iter);
       } else {
