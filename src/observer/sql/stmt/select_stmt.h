@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/rc.h"
+#include "sql/expr/expression.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
@@ -47,6 +48,7 @@ public:
 
 private:
   std::vector<Field> query_fields_;
+  std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
 };

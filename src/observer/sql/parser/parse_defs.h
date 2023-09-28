@@ -102,11 +102,11 @@ public:
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
   void set_name(std::string name) { name_ = name; }
-  void get_field(FieldExprSqlNode *&field) { field = expr_.field; }
-  void get_value(ValueExprSqlNode *&value) { value = expr_.value; }
-  void get_comparison(ComparisonExprSqlNode *&comparison) { comparison = expr_.comparison; }
-  void get_conjunction(ConjunctionExprSqlNode *&conjunction) { conjunction = expr_.conjunction; }
-  void get_arithmetic(ArithmeticExprSqlNode *&arithmetic) { arithmetic = expr_.arithmetic; }
+  FieldExprSqlNode *get_field() const { return expr_.field; }
+  ValueExprSqlNode *get_value() const { return expr_.value; }
+  ComparisonExprSqlNode *get_comparison() const { return expr_.comparison; }
+  ConjunctionExprSqlNode *get_conjunction() const { return expr_.conjunction; }
+  ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
 };
 
 struct StarExprSqlNode {};

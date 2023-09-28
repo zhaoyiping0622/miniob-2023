@@ -17,9 +17,11 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <string.h>
 #include <string>
+#include <unordered_map>
 
 #include "common/log/log.h"
 #include "sql/parser/value.h"
+#include "storage/db/db.h"
 #include "storage/field/field.h"
 
 class Tuple;
@@ -74,6 +76,9 @@ public:
   virtual std::string name() const { return name_; }
   virtual void set_name(std::string name) { name_ = name; }
 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+                   const ExprSqlNode *expr_node, Expression *&expr);
+
 private:
   std::string name_;
 };
@@ -102,6 +107,9 @@ public:
   const char *field_name() const { return field_.field_name(); }
 
   RC get_value(const Tuple &tuple, Value &value) const override;
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+                   const FieldExprSqlNode *field_node, Expression *&expr);
 
 private:
   Field field_;
@@ -132,6 +140,8 @@ public:
 
   const Value &get_value() const { return value_; }
 
+  static RC create(const ValueExprSqlNode *value_node, Expression *&expr);
+
 private:
   Value value_;
 };
@@ -143,6 +153,7 @@ private:
 class CastExpr : public Expression {
 public:
   CastExpr(std::unique_ptr<Expression> child, AttrType cast_type);
+  CastExpr(Expression *child, AttrType cast_type);
   virtual ~CastExpr();
 
   ExprType type() const override { return ExprType::CAST; }
@@ -153,6 +164,8 @@ public:
   AttrType value_type() const override { return cast_type_; }
 
   std::unique_ptr<Expression> &child() { return child_; }
+
+  static RC create(AttrType target_type, Expression *&expr);
 
 private:
   RC cast(const Value &value, Value &cast_value) const;
@@ -169,6 +182,7 @@ private:
 class ComparisonExpr : public Expression {
 public:
   ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   virtual ~ComparisonExpr();
 
   ExprType type() const override { return ExprType::COMPARISON; }
@@ -193,6 +207,8 @@ public:
    * @param value the result of comparison
    */
   RC compare_value(const Value &left, const Value &right, bool &value) const;
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+                   const ComparisonExprSqlNode *comparison_node, Expression *&expr);
 
 private:
   CompOp comp_;
@@ -208,8 +224,8 @@ private:
  */
 class ConjunctionExpr : public Expression {
 public:
-public:
-  ConjunctionExpr(ConjunctionType type, std::vector<std::unique_ptr<Expression>> &children);
+  ConjunctionExpr(ConjunctionType type, Expression *left, Expression *right);
+  ConjunctionExpr(ConjunctionType type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ConjunctionExpr() = default;
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
@@ -220,11 +236,15 @@ public:
 
   ConjunctionType conjunction_type() const { return conjunction_type_; }
 
-  std::vector<std::unique_ptr<Expression>> &children() { return children_; }
+  std::unique_ptr<Expression> &left() { return left_; }
+  std::unique_ptr<Expression> &right() { return right_; }
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+                   const ConjunctionExprSqlNode *conjunction_node, Expression *&expr);
 
 private:
   ConjunctionType conjunction_type_;
-  std::vector<std::unique_ptr<Expression>> children_;
+  std::unique_ptr<Expression> left_;
+  std::unique_ptr<Expression> right_;
 };
 
 /**
@@ -232,8 +252,6 @@ private:
  * @ingroup Expression
  */
 class ArithmeticExpr : public Expression {
-public:
-
 public:
   ArithmeticExpr(ArithmeticType type, Expression *left, Expression *right);
   ArithmeticExpr(ArithmeticType type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
@@ -250,6 +268,8 @@ public:
 
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+                   const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr);
 
 private:
   RC calc_value(const Value &left_value, const Value &right_value, Value &value) const;
