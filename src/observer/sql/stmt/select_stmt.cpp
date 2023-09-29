@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/rc.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
@@ -26,11 +28,11 @@ SelectStmt::~SelectStmt() {
   }
 }
 
-static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
+static void wildcard_fields(Table *table, std::vector<std::unique_ptr<Expression>> &field_metas) {
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
-    field_metas.push_back(Field(table, table_meta.field(i)));
+    field_metas.emplace_back(new FieldExpr(table, table_meta.field(i)));
   }
 }
 
@@ -60,77 +62,44 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
 
-  // collect query fields in `select` statement
-  std::vector<Field> query_fields;
-  for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0; i--) {
-    const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
-
-    if (common::is_blank(relation_attr.relation_name.c_str()) &&
-        0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
-      for (Table *table : tables) {
-        wildcard_fields(table, query_fields);
-      }
-
-    } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
-      const char *table_name = relation_attr.relation_name.c_str();
-      const char *field_name = relation_attr.attribute_name.c_str();
-
-      if (0 == strcmp(table_name, "*")) {
-        if (0 != strcmp(field_name, "*")) {
-          LOG_WARN("invalid field name while table is *. attr=%s", field_name);
-          return RC::SCHEMA_FIELD_MISSING;
-        }
-        for (Table *table : tables) {
-          wildcard_fields(table, query_fields);
-        }
-      } else {
-        auto iter = table_map.find(table_name);
-        if (iter == table_map.end()) {
-          LOG_WARN("no such table in from list: %s", table_name);
-          return RC::SCHEMA_FIELD_MISSING;
-        }
-
-        Table *table = iter->second;
-        if (0 == strcmp(field_name, "*")) {
-          wildcard_fields(table, query_fields);
-        } else {
-          const FieldMeta *field_meta = table->table_meta().field(field_name);
-          if (nullptr == field_meta) {
-            LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), field_name);
-            return RC::SCHEMA_FIELD_MISSING;
-          }
-
-          query_fields.push_back(Field(table, field_meta));
-        }
-      }
-    } else {
-      if (tables.size() != 1) {
-        LOG_WARN("invalid. I do not know the attr's table. attr=%s", relation_attr.attribute_name.c_str());
-        return RC::SCHEMA_FIELD_MISSING;
-      }
-
-      Table *table = tables[0];
-      const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name.c_str());
-      if (nullptr == field_meta) {
-        LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(), relation_attr.attribute_name.c_str());
-        return RC::SCHEMA_FIELD_MISSING;
-      }
-
-      query_fields.push_back(Field(table, field_meta));
-    }
-  }
-
-  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), query_fields.size());
-
   Table *default_table = nullptr;
   if (tables.size() == 1) {
     default_table = tables[0];
   }
 
+  // collect query fields in `select` statement
+  std::vector<std::unique_ptr<Expression>> expressions;
+  for (int i = 0; i < select_sql.attributes.size(); i++) {
+    const ExprSqlNode *expression = select_sql.attributes[i];
+
+    if (expression->type() == ExprType::STAR) {
+      for (Table *table : tables) {
+        wildcard_fields(table, expressions);
+      }
+    } else {
+      Expression *expr;
+      RC rc = Expression::create(db, default_table, &table_map, expression, expr);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to parse expression, rc=%s", strrc(rc));
+      }
+      expressions.emplace_back(expr);
+    }
+  }
+
+  vector<set<Field>> reference_fields(expressions.size());
+  set<Field> used_fields;
+
+  for (int i = 0; i < expressions.size(); i++) {
+    auto fields = expressions[i]->reference_fields();
+    used_fields.insert(fields.begin(), fields.end());
+    reference_fields[i].swap(fields);
+  }
+
+  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
+
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions.data(),
-                             static_cast<int>(select_sql.conditions.size()), filter_stmt);
+  RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;
@@ -140,8 +109,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
   select_stmt->tables_.swap(tables);
-  select_stmt->query_fields_.swap(query_fields);
+  select_stmt->used_fields_ = used_fields;
+  select_stmt->reference_fields_.swap(reference_fields);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->expressions_.swap(expressions);
   stmt = select_stmt;
   return RC::SUCCESS;
 }

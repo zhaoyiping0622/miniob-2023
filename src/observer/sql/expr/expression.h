@@ -76,8 +76,10 @@ public:
   virtual std::string name() const { return name_; }
   virtual void set_name(std::string name) { name_ = name; }
 
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const ExprSqlNode *expr_node, Expression *&expr);
+
+  virtual std::set<Field> reference_fields() const = 0;
 
 private:
   std::string name_;
@@ -108,8 +110,10 @@ public:
 
   RC get_value(const Tuple &tuple, Value &value) const override;
 
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const FieldExprSqlNode *field_node, Expression *&expr);
+
+  virtual std::set<Field> reference_fields() const override;
 
 private:
   Field field_;
@@ -142,6 +146,8 @@ public:
 
   static RC create(const ValueExprSqlNode *value_node, Expression *&expr);
 
+  set<Field> reference_fields() const override;
+
 private:
   Value value_;
 };
@@ -166,6 +172,8 @@ public:
   std::unique_ptr<Expression> &child() { return child_; }
 
   static RC create(AttrType target_type, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   RC cast(const Value &value, Value &cast_value) const;
@@ -207,8 +215,10 @@ public:
    * @param value the result of comparison
    */
   RC compare_value(const Value &left, const Value &right, bool &value) const;
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const ComparisonExprSqlNode *comparison_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   CompOp comp_;
@@ -238,8 +248,10 @@ public:
 
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const ConjunctionExprSqlNode *conjunction_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   ConjunctionType conjunction_type_;
@@ -268,8 +280,10 @@ public:
 
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
-  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables, 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   RC calc_value(const Value &left_value, const Value &right_value, Value &value) const;

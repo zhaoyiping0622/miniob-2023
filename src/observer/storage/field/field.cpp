@@ -31,3 +31,7 @@ int Field::get_int(const Record &record) {
 }
 
 const char *Field::get_data(const Record &record) { return record.data() + field_->offset(); }
+
+std::strong_ordering Field::operator<=>(const Field &other) const {
+  return (table_ == other.table_) ? (field_ <=> other.field_) : (table_ <=> other.table_);
+}

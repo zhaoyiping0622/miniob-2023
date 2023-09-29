@@ -26,7 +26,7 @@ RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::stri
   Expression *expr;
   RC rc = RC::SUCCESS;
   stmt = nullptr;
-  rc = ConjunctionExpr::create(db, default_table, tables, false, conditions, expr);
+  rc = ConjunctionExpr::create(db, default_table, tables, conditions, expr);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create ConjunctionExpr");
     return rc;

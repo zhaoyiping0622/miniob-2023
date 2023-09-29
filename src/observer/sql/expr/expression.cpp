@@ -411,8 +411,8 @@ RC CastExpr::create(AttrType target_type, Expression *&expr) {
   }
   if (expr->value_type() == target_type)
     return RC::SUCCESS;
-  auto *value_expr = dynamic_cast<ValueExpr *>(expr);
-  if (value_expr != nullptr) {
+  if (expr->type() == ExprType::VALUE) {
+    auto *value_expr = static_cast<ValueExpr *>(expr);
     Value value = value_expr->get_value();
     delete expr;
     if (!Value::convert(value.attr_type(), target_type, value)) {
@@ -500,4 +500,37 @@ RC ArithmeticExpr::create(Db *db, Table *default_table, std::unordered_map<std::
   }
   expr = new ArithmeticExpr(arithmetic_node->type, left, right);
   return RC::SUCCESS;
+}
+
+static void join_fields(set<Field> &a, set<Field> &b) { a.insert(b.begin(), b.end()); }
+
+set<Field> FieldExpr::reference_fields() const { return {field_}; }
+set<Field> ValueExpr::reference_fields() const { return {}; }
+set<Field> CastExpr::reference_fields() const { return child_->reference_fields(); }
+set<Field> ComparisonExpr::reference_fields() const {
+  set<Field> a, b;
+  if (left_)
+    a = left_->reference_fields();
+  if (right_)
+    a = right_->reference_fields();
+  join_fields(a, b);
+  return a;
+}
+set<Field> ConjunctionExpr::reference_fields() const {
+  set<Field> a, b;
+  if (left_)
+    a = left_->reference_fields();
+  if (right_)
+    a = right_->reference_fields();
+  join_fields(a, b);
+  return a;
+}
+set<Field> ArithmeticExpr::reference_fields() const {
+  set<Field> a, b;
+  if (left_)
+    a = left_->reference_fields();
+  if (right_)
+    a = right_->reference_fields();
+  join_fields(a, b);
+  return a;
 }

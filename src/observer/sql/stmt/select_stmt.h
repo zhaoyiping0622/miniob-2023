@@ -43,11 +43,15 @@ public:
 
 public:
   const std::vector<Table *> &tables() const { return tables_; }
-  const std::vector<Field> &query_fields() const { return query_fields_; }
+  const std::set<Field> &used_fields() const { return used_fields_; }
+  const std::vector<std::unique_ptr<Expression>> &expressions() const { return expressions_; }
+  std::vector<std::unique_ptr<Expression>> &expressions() { return expressions_; }
+  const std::vector<std::set<Field>> reference_fields() const { return reference_fields_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
 
 private:
-  std::vector<Field> query_fields_;
+  std::set<Field> used_fields_;
+  std::vector<std::set<Field>> reference_fields_;
   std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
