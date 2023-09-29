@@ -16,10 +16,12 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <memory>
 
 SelectStmt::~SelectStmt() {
   if (nullptr != filter_stmt_) {
@@ -67,6 +69,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     default_table = tables[0];
   }
 
+  unique_ptr<TupleSchema> schema = make_unique<TupleSchema>();
+
   // collect query fields in `select` statement
   std::vector<std::unique_ptr<Expression>> expressions;
   for (int i = 0; i < select_sql.attributes.size(); i++) {
@@ -92,6 +96,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   for (int i = 0; i < expressions.size(); i++) {
     auto fields = expressions[i]->reference_fields();
     used_fields.insert(fields.begin(), fields.end());
+    if (expressions[i]->type() == ExprType::FIELD) {
+      Field field = *fields.begin();
+      schema->append_cell(field.table_name(), field.field_name());
+    } else {
+      schema->append_cell(expressions[i]->name().c_str());
+    }
     reference_fields[i].swap(fields);
   }
 
@@ -113,6 +123,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->reference_fields_.swap(reference_fields);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->expressions_.swap(expressions);
+  select_stmt->schema_ = std::move(schema);
   stmt = select_stmt;
   return RC::SUCCESS;
 }

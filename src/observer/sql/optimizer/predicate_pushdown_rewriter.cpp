@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "sql/operator/logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
+#include "sql/parser/parse_defs.h"
 
 RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made) {
   RC rc = RC::SUCCESS;
@@ -75,15 +76,19 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(std::unique_ptr<Expression>
   if (expr->type() == ExprType::CONJUNCTION) {
     ConjunctionExpr *conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
     // 或 操作的比较，太复杂，现在不考虑
-    if (conjunction_expr->conjunction_type() == ConjunctionExpr::ConjunctionType::OR) {
+    if (conjunction_expr->conjunction_type() == ConjunctionType::OR) {
       return rc;
     }
 
-    std::vector<std::unique_ptr<Expression>> &child_exprs = conjunction_expr->children();
+    std::vector<std::unique_ptr<Expression> *> child_exprs;
+    child_exprs.push_back(&conjunction_expr->left());
+    if (conjunction_expr->conjunction_type() != ConjunctionType::SINGLE) {
+      child_exprs.push_back(&conjunction_expr->right());
+    }
     for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
       // 对每个子表达式，判断是否可以下放到table get 算子
       // 如果可以的话，就从当前孩子节点中删除他
-      rc = get_exprs_can_pushdown(*iter, pushdown_exprs);
+      rc = get_exprs_can_pushdown(**iter, pushdown_exprs);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to get pushdown expressions. rc=%s", strrc(rc));
         return rc;

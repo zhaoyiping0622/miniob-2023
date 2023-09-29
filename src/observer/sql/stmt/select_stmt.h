@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/rc.h"
 #include "sql/expr/expression.h"
+#include "sql/expr/tuple.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
@@ -48,11 +49,13 @@ public:
   std::vector<std::unique_ptr<Expression>> &expressions() { return expressions_; }
   const std::vector<std::set<Field>> reference_fields() const { return reference_fields_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
+  const std::unique_ptr<TupleSchema> &schema() const { return schema_; }
 
 private:
   std::set<Field> used_fields_;
   std::vector<std::set<Field>> reference_fields_;
   std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
+  std::unique_ptr<TupleSchema> schema_;
   FilterStmt *filter_stmt_ = nullptr;
 };

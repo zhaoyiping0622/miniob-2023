@@ -110,15 +110,12 @@ RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, boo
 
   case ExprType::CONJUNCTION: {
     auto conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
-    std::vector<std::unique_ptr<Expression>> &children = conjunction_expr->children();
-    for (std::unique_ptr<Expression> &child_expr : children) {
+    auto &left = conjunction_expr->left();
+    auto &right = conjunction_expr->right();
+    bool sub_change_made = false;
+    for (std::unique_ptr<Expression> *child_expr : {&left, &right}) {
       bool sub_change_made = false;
-      rc = rewrite_expression(child_expr, sub_change_made);
-      if (rc != RC::SUCCESS) {
-
-        LOG_WARN("failed to rewriter conjunction sub expression. rc=%s", strrc(rc));
-        return rc;
-      }
+      rc = rewrite_expression(*child_expr, sub_change_made);
 
       if (sub_change_made && !change_made) {
         change_made = true;
