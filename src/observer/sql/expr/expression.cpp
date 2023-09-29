@@ -313,6 +313,7 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const {
 
 RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                       const ExprSqlNode *expr_node, Expression *&expr) {
+  RC rc = RC::SUCCESS;
   switch (expr_node->type()) {
   case ExprType::NONE: {
     LOG_ERROR("unable to translate NONE expr to Expression");
@@ -326,15 +327,22 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
     LOG_ERROR("unable to translate CAST expr to Expression");
     return RC::INTERNAL;
   }
-  case ExprType::FIELD: return FieldExpr::create(db, default_table, tables, expr_node->get_field(), expr);
-  case ExprType::VALUE: return ValueExpr::create(expr_node->get_value(), expr);
+  case ExprType::FIELD: rc = FieldExpr::create(db, default_table, tables, expr_node->get_field(), expr); break;
+  case ExprType::VALUE: rc = ValueExpr::create(expr_node->get_value(), expr); break;
   case ExprType::COMPARISON:
-    return ComparisonExpr::create(db, default_table, tables, expr_node->get_comparison(), expr);
+    rc = ComparisonExpr::create(db, default_table, tables, expr_node->get_comparison(), expr);
+    break;
   case ExprType::CONJUNCTION:
-    return ConjunctionExpr::create(db, default_table, tables, expr_node->get_conjunction(), expr);
+    rc = ConjunctionExpr::create(db, default_table, tables, expr_node->get_conjunction(), expr);
+    break;
   case ExprType::ARITHMETIC:
-    return ArithmeticExpr::create(db, default_table, tables, expr_node->get_arithmetic(), expr);
+    rc = ArithmeticExpr::create(db, default_table, tables, expr_node->get_arithmetic(), expr);
+    break;
   }
+  if (rc != RC::SUCCESS)
+    return rc;
+  expr->set_name(expr_node->name());
+  return RC::SUCCESS;
 }
 
 RC ArithmeticExpr::try_get_value(Value &value) const {
