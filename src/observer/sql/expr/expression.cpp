@@ -184,16 +184,18 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const {
   switch (conjunction_type_) {
   case ConjunctionType::SINGLE: return rc;
   case ConjunctionType::AND: {
-    if (!value.get_boolean()) {
+    if (!left_value) {
       value.set_boolean(left_value);
       return rc;
     }
+    break;
   }
   case ConjunctionType::OR: {
-    if (value.get_boolean()) {
+    if (left_value) {
       value.set_boolean(left_value);
       return rc;
     }
+    break;
   }
   }
 
