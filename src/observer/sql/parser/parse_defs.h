@@ -171,13 +171,14 @@ struct ArithmeticExprSqlNode {
  */
 
 struct SelectSqlNode {
-  std::vector<ExprSqlNode *> attributes; ///< attributes in select clause
-  std::vector<std::string> relations;    ///< 查询的表
-  ConjunctionExprSqlNode *conditions;    ///< 查询条件，使用AND串联起来多个条件
+  std::vector<ExprSqlNode *> attributes;        ///< attributes in select clause
+  std::vector<std::string> relations;           ///< 查询的表
+  ConjunctionExprSqlNode *conditions = nullptr; ///< 查询条件，使用AND串联起来多个条件
   ~SelectSqlNode() {
     for (auto *x : attributes)
       delete x;
-    delete conditions;
+    if (conditions)
+      delete conditions;
   }
 };
 
@@ -207,8 +208,11 @@ struct InsertSqlNode {
  */
 struct DeleteSqlNode {
   std::string relation_name; ///< Relation to delete from
-  ConjunctionExprSqlNode *conditions;
-  ~DeleteSqlNode() { delete conditions; }
+  ConjunctionExprSqlNode *conditions = nullptr;
+  ~DeleteSqlNode() {
+    if (conditions)
+      delete conditions;
+  }
 };
 
 /**
@@ -219,8 +223,11 @@ struct UpdateSqlNode {
   std::string relation_name;  ///< Relation to update
   std::string attribute_name; ///< 更新的字段，仅支持一个字段
   ValueExprSqlNode value;     ///< 更新的值，仅支持一个字段
-  ConjunctionExprSqlNode *conditions;
-  ~UpdateSqlNode() { delete conditions; }
+  ConjunctionExprSqlNode *conditions = nullptr;
+  ~UpdateSqlNode() {
+    if (conditions)
+      delete conditions;
+  }
 };
 
 /**
