@@ -36,18 +36,14 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
   auto conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
   auto &left = conjunction_expr->left();
   auto &right = conjunction_expr->right();
-  rewrite(left, change_made);
   auto type = conjunction_expr->conjunction_type();
-  unique_ptr<Expression> ret;
   if (type == ConjunctionType::SINGLE) {
-    ret = std::move(left);
-    expr = std::move(ret);
-    change_made = true;
+    LOG_ERROR("ConjunctionType::SINGLE exist in expresion");
+    return RC::INTERNAL;
   } else {
-    rewrite(right, change_made);
     bool vl, vr;
     RC rc1 = try_to_get_bool_constant(left, vl);
-    RC rc2 = try_to_get_bool_constant(left, vr);
+    RC rc2 = try_to_get_bool_constant(right, vr);
     if (rc1 != RC::SUCCESS && rc2 != RC::SUCCESS) {
       return RC::SUCCESS;
     } else if (rc1 == RC::SUCCESS && rc2 == RC::SUCCESS) {
@@ -65,8 +61,7 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
       }
       if (type == ConjunctionType::AND) {
         if (vl) {
-          ret = std::move(right);
-          expr = std::move(ret);
+          expr.reset(right.release());
         } else {
           expr.reset(new ValueExpr(Value(false)));
         }
@@ -74,8 +69,7 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
         if (vl) {
           expr.reset(new ValueExpr(Value(true)));
         } else {
-          ret = std::move(right);
-          expr = std::move(ret);
+          expr.reset(right.release());
         }
       }
     }

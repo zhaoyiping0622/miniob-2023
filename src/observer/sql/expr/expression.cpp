@@ -475,10 +475,10 @@ RC ConjunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std:
       delete left;
       return rc;
     }
+    expr = new ConjunctionExpr(conjunction_node->type, left, right);
   } else {
-    right = nullptr;
+    expr = left;
   }
-  expr = new ConjunctionExpr(conjunction_node->type, left, right);
   return RC::SUCCESS;
 }
 

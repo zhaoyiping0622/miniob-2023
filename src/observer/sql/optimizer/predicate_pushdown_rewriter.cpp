@@ -82,9 +82,7 @@ RC PredicatePushdownRewriter::get_exprs_can_pushdown(std::unique_ptr<Expression>
 
     std::vector<std::unique_ptr<Expression> *> child_exprs;
     child_exprs.push_back(&conjunction_expr->left());
-    if (conjunction_expr->conjunction_type() != ConjunctionType::SINGLE) {
-      child_exprs.push_back(&conjunction_expr->right());
-    }
+    child_exprs.push_back(&conjunction_expr->right());
     for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
       // 对每个子表达式，判断是否可以下放到table get 算子
       // 如果可以的话，就从当前孩子节点中删除他
