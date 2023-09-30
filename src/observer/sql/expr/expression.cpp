@@ -424,12 +424,12 @@ RC CastExpr::create(AttrType target_type, Expression *&expr) {
   if (expr->type() == ExprType::VALUE) {
     auto *value_expr = static_cast<ValueExpr *>(expr);
     Value value = value_expr->get_value();
-    delete expr;
     if (!Value::convert(value.attr_type(), target_type, value)) {
-      LOG_ERROR("cannot cast value %s from %s to %s", value.to_string().c_str(), attr_type_to_string(value.attr_type()),
-                attr_type_to_string(target_type));
+      LOG_WARN("cannot cast value %s from %s to %s", value.to_string().c_str(), attr_type_to_string(value.attr_type()),
+               attr_type_to_string(target_type));
       return RC::INTERNAL;
     }
+    delete expr;
     expr = new ValueExpr(value);
     return RC::SUCCESS;
   }
@@ -445,7 +445,7 @@ RC ComparisonExpr::create(Db *db, Table *default_table, std::unordered_map<std::
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  Expression::create(db, default_table, tables, comparison_node->right, right);
+  rc = Expression::create(db, default_table, tables, comparison_node->right, right);
   if (rc != RC::SUCCESS) {
     delete left;
     return rc;
