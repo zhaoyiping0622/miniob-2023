@@ -85,6 +85,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       RC rc = Expression::create(db, default_table, &table_map, expression, expr);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to parse expression, rc=%s", strrc(rc));
+        return rc;
       }
       expressions.emplace_back(expr);
     }
