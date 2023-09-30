@@ -19,7 +19,6 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/record/record_manager.h"
 #include "storage/buffer/disk_buffer_pool.h"
-#include "storage/common/condition_filter.h"
 #include "storage/trx/vacuous_trx.h"
 #include "common/log/log.h"
 #include "integer_generator.h"
@@ -49,23 +48,6 @@ struct Stat
 struct TestRecord
 {
   int32_t int_fields[15];
-};
-
-class TestConditionFilter : public ConditionFilter
-{
-public:
-  TestConditionFilter(int32_t begin, int32_t end) : begin_(begin), end_(end) {}
-
-  bool filter(const Record &rec) const override
-  {
-    const char *data  = rec.data();
-    int32_t     value = *(int32_t *)data;
-    return value >= begin_ && value <= end_;
-  }
-
-private:
-  int32_t begin_;
-  int32_t end_;
 };
 
 class BenchmarkBase : public Fixture
@@ -197,10 +179,9 @@ public:
 
   void Scan(int32_t begin, int32_t end, Stat &stat)
   {
-    TestConditionFilter condition_filter(begin, end);
     RecordFileScanner   scanner;
     VacuousTrx          trx;
-    RC rc = scanner.open_scan(nullptr /*table*/, *buffer_pool_, &trx, true /*readonly*/, &condition_filter);
+    RC rc = scanner.open_scan(nullptr /*table*/, *buffer_pool_, &trx, true /*readonly*/);
     if (rc != RC::SUCCESS) {
       stat.scan_open_failed_count++;
     } else {

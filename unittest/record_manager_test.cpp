@@ -128,7 +128,7 @@ TEST(test_record_page_handler, test_record_file_iterator)
 
   VacuousTrx trx;
   RecordFileScanner file_scanner;
-  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/, nullptr/*condition_filter*/);
+  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/);
   ASSERT_EQ(rc, RC::SUCCESS);
 
   int count = 0;
@@ -151,7 +151,7 @@ TEST(test_record_page_handler, test_record_file_iterator)
     rids.push_back(rid);
   }
 
-  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/, nullptr/*condition_filter*/);
+  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/);
   ASSERT_EQ(rc, RC::SUCCESS);
 
   count = 0;
@@ -168,7 +168,7 @@ TEST(test_record_page_handler, test_record_file_iterator)
     ASSERT_EQ(rc, RC::SUCCESS);
   }
 
-  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/, nullptr/*condition_filter*/);
+  rc = file_scanner.open_scan(nullptr/*table*/, *bp, &trx, true/*readonly*/);
   ASSERT_EQ(rc, RC::SUCCESS);
 
   count = 0;
