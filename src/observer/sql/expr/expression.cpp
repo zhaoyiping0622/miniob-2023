@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
@@ -313,8 +314,16 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const {
   return calc_value(left_value, right_value, value);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+NamedExpr::NamedExpr(AttrType value_type, TupleCellSpec spec) : value_type_(value_type), spec_(spec) {}
+RC NamedExpr::get_value(const Tuple &tuple, Value &value) const { return tuple.find_cell(spec_, value); }
+RC NamedExpr::try_get_value(Value &value) const { return RC::INVALID_ARGUMENT; }
+ExprType NamedExpr::type() const { return ExprType::NAMED; }
+AttrType NamedExpr::value_type() const { return value_type_; }
+set<Field> NamedExpr::reference_fields() const { return {}; }
 RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                      const ExprSqlNode *expr_node, Expression *&expr) {
+                      const ExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   RC rc = RC::SUCCESS;
   switch (expr_node->type()) {
   case ExprType::NONE: {
@@ -332,13 +341,20 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::FIELD: rc = FieldExpr::create(db, default_table, tables, expr_node->get_field(), expr); break;
   case ExprType::VALUE: rc = ValueExpr::create(expr_node->get_value(), expr); break;
   case ExprType::COMPARISON:
-    rc = ComparisonExpr::create(db, default_table, tables, expr_node->get_comparison(), expr);
+    rc = ComparisonExpr::create(db, default_table, tables, expr_node->get_comparison(), expr, fallback);
     break;
   case ExprType::CONJUNCTION:
-    rc = ConjunctionExpr::create(db, default_table, tables, expr_node->get_conjunction(), expr);
+    rc = ConjunctionExpr::create(db, default_table, tables, expr_node->get_conjunction(), expr, fallback);
     break;
   case ExprType::ARITHMETIC:
-    rc = ArithmeticExpr::create(db, default_table, tables, expr_node->get_arithmetic(), expr);
+    rc = ArithmeticExpr::create(db, default_table, tables, expr_node->get_arithmetic(), expr, fallback);
+    break;
+  default:
+    if (fallback) {
+      rc = (*fallback)(expr_node, expr);
+    } else {
+      rc = RC::INTERNAL;
+    }
     break;
   }
   if (rc != RC::SUCCESS)
@@ -438,14 +454,14 @@ RC CastExpr::create(AttrType target_type, Expression *&expr) {
 }
 
 RC ComparisonExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                          const ComparisonExprSqlNode *comparison_node, Expression *&expr) {
+                          const ComparisonExprSqlNode *comparison_node, Expression *&expr, ExprGenerator *fallback) {
   RC rc = RC::SUCCESS;
   Expression *left, *right;
-  rc = Expression::create(db, default_table, tables, comparison_node->left, left);
+  rc = Expression::create(db, default_table, tables, comparison_node->left, left, fallback);
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  rc = Expression::create(db, default_table, tables, comparison_node->right, right);
+  rc = Expression::create(db, default_table, tables, comparison_node->right, right, fallback);
   if (rc != RC::SUCCESS) {
     delete left;
     return rc;
@@ -462,15 +478,15 @@ RC ComparisonExpr::create(Db *db, Table *default_table, std::unordered_map<std::
 }
 
 RC ConjunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                           const ConjunctionExprSqlNode *conjunction_node, Expression *&expr) {
+                           const ConjunctionExprSqlNode *conjunction_node, Expression *&expr, ExprGenerator *fallback) {
   Expression *left, *right;
   RC rc = RC::SUCCESS;
-  rc = Expression::create(db, default_table, tables, conjunction_node->left, left);
+  rc = Expression::create(db, default_table, tables, conjunction_node->left, left, fallback);
   if (rc != RC::SUCCESS || (rc = CastExpr::create(BOOLEANS, left)) != RC::SUCCESS) {
     return rc;
   }
   if (conjunction_node->type != ConjunctionType::SINGLE) {
-    rc = Expression::create(db, default_table, tables, conjunction_node->right, right);
+    rc = Expression::create(db, default_table, tables, conjunction_node->right, right, fallback);
     if (rc != RC::SUCCESS || (rc = CastExpr::create(BOOLEANS, right)) != RC::SUCCESS) {
       delete left;
       return rc;
@@ -483,15 +499,15 @@ RC ConjunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std:
 }
 
 RC ArithmeticExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                          const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr) {
+                          const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr, ExprGenerator *fallback) {
   Expression *left, *right;
   RC rc = RC::SUCCESS;
-  rc = Expression::create(db, default_table, tables, arithmetic_node->left, left);
+  rc = Expression::create(db, default_table, tables, arithmetic_node->left, left, fallback);
   if (rc != RC::SUCCESS) {
     return rc;
   }
   if (arithmetic_node->type != ArithmeticType::NEGATIVE) {
-    rc = Expression::create(db, default_table, tables, arithmetic_node->right, right);
+    rc = Expression::create(db, default_table, tables, arithmetic_node->right, right, fallback);
     if (rc != RC::SUCCESS) {
       delete left;
       return rc;

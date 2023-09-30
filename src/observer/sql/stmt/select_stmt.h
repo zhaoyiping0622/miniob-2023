@@ -57,5 +57,6 @@ private:
   std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
   std::unique_ptr<TupleSchema> schema_;
+  std::vector<std::unique_ptr<FieldExpr>> groupbys_;
   FilterStmt *filter_stmt_ = nullptr;
 };

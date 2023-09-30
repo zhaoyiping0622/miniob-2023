@@ -14,15 +14,19 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string.h>
 #include <string>
 #include <unordered_map>
 
 #include "common/log/log.h"
+#include "sql/expr/tuple_cell.h"
 #include "sql/parser/value.h"
 #include "storage/db/db.h"
 #include "storage/field/field.h"
+
+using ExprGenerator = std::function<RC(const ExprSqlNode *, Expression *&)>;
 
 class Tuple;
 
@@ -77,7 +81,7 @@ public:
   virtual void set_name(std::string name) { name_ = name; }
 
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                   const ExprSqlNode *expr_node, Expression *&expr);
+                   const ExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
 
   virtual std::set<Field> reference_fields() const = 0;
 
@@ -216,7 +220,7 @@ public:
    */
   RC compare_value(const Value &left, const Value &right, bool &value) const;
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                   const ComparisonExprSqlNode *comparison_node, Expression *&expr);
+                   const ComparisonExprSqlNode *comparison_node, Expression *&expr, ExprGenerator *fallback);
 
   set<Field> reference_fields() const override;
 
@@ -249,7 +253,7 @@ public:
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                   const ConjunctionExprSqlNode *conjunction_node, Expression *&expr);
+                   const ConjunctionExprSqlNode *conjunction_node, Expression *&expr, ExprGenerator *fallback);
 
   set<Field> reference_fields() const override;
 
@@ -281,7 +285,7 @@ public:
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                   const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr);
+                   const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr, ExprGenerator *fallback);
 
   set<Field> reference_fields() const override;
 
@@ -292,4 +296,24 @@ private:
   ArithmeticType arithmetic_type_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
+};
+
+/**
+ * @brief 命名表达式
+ * @ingroup Expression
+ */
+class NamedExpr : public Expression {
+public:
+  NamedExpr(AttrType value_type, TupleCellSpec spec);
+  virtual ~NamedExpr() = default;
+
+  virtual RC get_value(const Tuple &tuple, Value &value) const override;
+  virtual RC try_get_value(Value &value) const override;
+  virtual ExprType type() const override;
+  virtual AttrType value_type() const override;
+  virtual std::set<Field> reference_fields() const override;
+
+private:
+  AttrType value_type_;
+  TupleCellSpec spec_;
 };

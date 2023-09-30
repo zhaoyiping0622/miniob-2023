@@ -61,6 +61,11 @@ AggregationExprSqlNode::~AggregationExprSqlNode() {
     delete child;
 }
 
+NamedExprSqlNode::~NamedExprSqlNode() {
+  if (child)
+    delete child;
+}
+
 ExprSqlNode::~ExprSqlNode() {
   switch (type_) {
   case ExprType::STAR: delete expr_.star; break;
@@ -69,7 +74,7 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::COMPARISON: delete expr_.comparison; break;
   case ExprType::CONJUNCTION: delete expr_.conjunction; break;
   case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
-  case ExprType::AGGREGATION: delete expr_.aggregation; break;
+  case ExprType::NAMED: delete expr_.aggregation; break;
   default: break;
   }
 }

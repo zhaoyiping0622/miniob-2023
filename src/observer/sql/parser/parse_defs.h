@@ -36,7 +36,7 @@ enum class ExprType {
   COMPARISON,  ///< 需要做比较的表达式
   CONJUNCTION, ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,  ///< 算术运算
-  AGGREGATION, ///< 聚合操作
+  NAMED,       ///< 聚合操作
 };
 
 enum class ConjunctionType {
@@ -51,13 +51,6 @@ enum class ArithmeticType {
   MUL,
   DIV,
   NEGATIVE,
-};
-
-enum class AggregationType {
-  MAX,
-  MIN,
-  AVG,
-  COUNT,
 };
 
 /**
@@ -108,7 +101,7 @@ public:
   ExprSqlNode(ComparisonExprSqlNode *comparison) : type_(ExprType::COMPARISON) { expr_.comparison = comparison; }
   ExprSqlNode(ConjunctionExprSqlNode *conjunction) : type_(ExprType::CONJUNCTION) { expr_.conjunction = conjunction; }
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
-  ExprSqlNode(AggregationExprSqlNode *aggregation) : type_(ExprType::AGGREGATION) { expr_.aggregation = aggregation; }
+  ExprSqlNode(AggregationExprSqlNode *aggregation) : type_(ExprType::NAMED) { expr_.aggregation = aggregation; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -118,6 +111,7 @@ public:
   ComparisonExprSqlNode *get_comparison() const { return expr_.comparison; }
   ConjunctionExprSqlNode *get_conjunction() const { return expr_.conjunction; }
   ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
+  AggregationExprSqlNode *get_aggregation() const { return expr_.aggregation; }
 };
 
 struct StarExprSqlNode {};
@@ -170,11 +164,24 @@ struct ArithmeticExprSqlNode {
   ~ArithmeticExprSqlNode();
 };
 
-struct AggregationExprSqlNode {
-  AggregationType type;
+struct NamedExprSqlNode {
+  std::string name;
   ExprSqlNode *child;
-  template <typename T1>
-  AggregationExprSqlNode(AggregationType type, T1 *child) : type(type), child(get_expr_pointer(child)) {}
+  template <typename T> NamedExprSqlNode(std::string name, T *child) : name(name), child(get_expr_pointer(child)) {}
+  ~NamedExprSqlNode();
+};
+
+struct AggregationExprSqlNode {
+
+  enum Type {
+    AGGR_MAX,
+    AGGR_MIN,
+    AGGR_AVG,
+    AGGR_COUNT,
+  };
+  NamedExprSqlNode *child;
+  Type type;
+  AggregationExprSqlNode(Type type, NamedExprSqlNode *child) : type(type), child(child) {}
   ~AggregationExprSqlNode();
 };
 

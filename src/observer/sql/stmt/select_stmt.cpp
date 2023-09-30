@@ -69,6 +69,20 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     default_table = tables[0];
   }
 
+  vector<unique_ptr<FieldExpr>> groupbys;
+  for (auto *x : select_sql.groupbys) {
+    Expression *field;
+    RC rc = FieldExpr::create(db, default_table, &table_map, x, field);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    if (field->type() != ExprType::FIELD) {
+      LOG_ERROR("FieldExpr::create not get field expr, get %s", field->type());
+      return RC::INTERNAL;
+    }
+    groupbys.emplace_back(static_cast<FieldExpr *>(field));
+  }
+
   unique_ptr<TupleSchema> schema = make_unique<TupleSchema>();
 
   // collect query fields in `select` statement
@@ -126,7 +140,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->reference_fields_.swap(reference_fields);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->expressions_.swap(expressions);
-  select_stmt->schema_ = std::move(schema);
+  select_stmt->schema_.swap(schema);
+  select_stmt->groupbys_.swap(groupbys);
   stmt = select_stmt;
   return RC::SUCCESS;
 }

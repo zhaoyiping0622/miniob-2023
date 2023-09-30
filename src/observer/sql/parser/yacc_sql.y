@@ -113,9 +113,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
-  enum class AggregationType                    aggr;
+  AggregationExprSqlNode::Type                  aggr;
   FieldExprSqlNode *                            rel_attr;
-  std::vector<FieldExprSqlNode *>               rel_attr_list;
+  std::vector<FieldExprSqlNode *> *             rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
@@ -482,7 +482,7 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $5;
       }
       if ($7 != nullptr) {
-        $$->groupbys.swap(*$7);
+        $$->selection.groupbys.swap(*$7);
         delete $7;
       }
       $$->selection.relations.push_back($4);
@@ -573,8 +573,9 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
     }
     | aggr_op LBRACE expression RBRACE {
-      $$ = new ExprSqlNode(new AggregationExprSqlNode($1, $3))
-      $$->set_name(token_name(sql_string, &@$));
+      std::string name = token_name(sql_string, &@$);
+      $$ = new ExprSqlNode(new AggregationExprSqlNode($1, new NamedExprSqlNode(name, $3)));
+      $$->set_name(name);
     }
     ;
 
@@ -662,10 +663,10 @@ comp_op:
     ;
 
 aggr_op:
-      MIN { $$ = AggregationType::MIN; }
-    | MAX { $$ = AggregationType::MAX; }
-    | AVG { $$ = AggregationType::AVG; }
-    | COUNT { $$ = AggregationType::COUNT; }
+      MIN { $$ = AggregationExprSqlNode::Type::AGGR_MIN; }
+    | MAX { $$ = AggregationExprSqlNode::Type::AGGR_MAX; }
+    | AVG { $$ = AggregationExprSqlNode::Type::AGGR_AVG; }
+    | COUNT { $$ = AggregationExprSqlNode::Type::AGGR_COUNT; }
 
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 

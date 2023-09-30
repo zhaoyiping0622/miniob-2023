@@ -125,9 +125,9 @@ union YYSTYPE
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
-  enum class AggregationType                    aggr;
+  AggregationExprSqlNode::Type                  aggr;
   FieldExprSqlNode *                            rel_attr;
-  std::vector<FieldExprSqlNode *>               rel_attr_list;
+  std::vector<FieldExprSqlNode *> *             rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
