@@ -348,6 +348,7 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
   case FLOATS:
   case BOOLEANS: return BOOLEANS;
   }
+  return UNDEFINED;
 }
 
 bool Value::check_value(const Value &v) {
