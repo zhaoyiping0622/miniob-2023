@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <vector>
 
+#include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/stmt/stmt.h"
@@ -38,10 +39,15 @@ public:
 public:
   static RC create(CalcSqlNode &calc_sql, Stmt *&stmt) {
     CalcStmt *calc_stmt = new CalcStmt();
-    for (Expression *const expr : calc_sql.expressions) {
+    for (ExprSqlNode *sql : calc_sql.expressions) {
+      Expression *expr;
+      RC rc = Expression::create(nullptr, nullptr, nullptr, sql, expr);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("fail to create expression from expr sql node, rc=%s", strrc(rc));
+        return rc;
+      }
       calc_stmt->expressions_.emplace_back(expr);
     }
-    calc_sql.expressions.clear();
     stmt = calc_stmt;
     return RC::SUCCESS;
   }

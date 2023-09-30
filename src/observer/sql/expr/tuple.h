@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
 #include "storage/record/record.h"
 
@@ -209,6 +211,7 @@ public:
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
+  void add_expression(std::unique_ptr<Expression> &expression) { expressions_.push_back(std::move(expression)); }
   int cell_num() const override { return speces_.size(); }
 
   RC cell_at(int index, Value &cell) const override {
@@ -223,7 +226,14 @@ public:
     return tuple_->find_cell(*spec, cell);
   }
 
-  RC find_cell(const TupleCellSpec &spec, Value &cell) const override { return tuple_->find_cell(spec, cell); }
+  RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
+    for (int i = 0; i < expressions_.size(); i++) {
+      if (speces_[i] == spec) {
+        return expressions_[i]->get_value(*tuple_, cell);
+      }
+    }
+    return RC::NOTFOUND;
+  }
 
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
@@ -237,6 +247,7 @@ public:
 #endif
 private:
   std::vector<TupleCellSpec *> speces_;
+  std::vector<std::unique_ptr<Expression>> expressions_;
   Tuple *tuple_ = nullptr;
 };
 

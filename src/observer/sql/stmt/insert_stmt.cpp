@@ -35,16 +35,22 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   }
 
   auto &records = inserts.values;
+  vector<vector<Value>> record_values;
   RC rc;
-  for (auto &record : records) {
+  for (auto &record_expr : records) {
+    vector<Value> record;
+    record.reserve(record_expr.size());
+    for (int i = 0; i < record_expr.size(); i++)
+      record.push_back(record_expr[i].value);
     rc = check_record(table, record);
     if (rc != RC::SUCCESS) {
       return rc;
     }
+    record_values.push_back(record);
   }
 
   // everything alright
-  stmt = new InsertStmt(table, records);
+  stmt = new InsertStmt(table, record_values);
   return RC::SUCCESS;
 }
 

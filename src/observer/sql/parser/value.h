@@ -88,6 +88,8 @@ public:
    */
   static bool convert(AttrType from, AttrType to, Value &value);
 
+  static bool check_value(const Value &v);
+
 private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = 0;
@@ -100,3 +102,5 @@ private:
   } num_value_;
   std::string str_value_;
 };
+
+AttrType AttrTypeCompare(AttrType a, AttrType b);

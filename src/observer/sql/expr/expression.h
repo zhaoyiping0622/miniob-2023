@@ -17,9 +17,11 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <string.h>
 #include <string>
+#include <unordered_map>
 
 #include "common/log/log.h"
 #include "sql/parser/value.h"
+#include "storage/db/db.h"
 #include "storage/field/field.h"
 
 class Tuple;
@@ -28,21 +30,6 @@ class Tuple;
  * @defgroup Expression
  * @brief 表达式
  */
-
-/**
- * @brief 表达式类型
- * @ingroup Expression
- */
-enum class ExprType {
-  NONE,
-  STAR,        ///< 星号，表示所有字段
-  FIELD,       ///< 字段。在实际执行时，根据行数据内容提取对应字段的值
-  VALUE,       ///< 常量值
-  CAST,        ///< 需要做类型转换的表达式
-  COMPARISON,  ///< 需要做比较的表达式
-  CONJUNCTION, ///< 多个表达式使用同一种关系(AND或OR)来联结
-  ARITHMETIC,  ///< 算术运算
-};
 
 /**
  * @brief 表达式的抽象描述
@@ -89,6 +76,11 @@ public:
   virtual std::string name() const { return name_; }
   virtual void set_name(std::string name) { name_ = name; }
 
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ExprSqlNode *expr_node, Expression *&expr);
+
+  virtual std::set<Field> reference_fields() const = 0;
+
 private:
   std::string name_;
 };
@@ -117,6 +109,11 @@ public:
   const char *field_name() const { return field_.field_name(); }
 
   RC get_value(const Tuple &tuple, Value &value) const override;
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const FieldExprSqlNode *field_node, Expression *&expr);
+
+  virtual std::set<Field> reference_fields() const override;
 
 private:
   Field field_;
@@ -147,6 +144,10 @@ public:
 
   const Value &get_value() const { return value_; }
 
+  static RC create(const ValueExprSqlNode *value_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
+
 private:
   Value value_;
 };
@@ -158,6 +159,7 @@ private:
 class CastExpr : public Expression {
 public:
   CastExpr(std::unique_ptr<Expression> child, AttrType cast_type);
+  CastExpr(Expression *child, AttrType cast_type);
   virtual ~CastExpr();
 
   ExprType type() const override { return ExprType::CAST; }
@@ -168,6 +170,10 @@ public:
   AttrType value_type() const override { return cast_type_; }
 
   std::unique_ptr<Expression> &child() { return child_; }
+
+  static RC create(AttrType target_type, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   RC cast(const Value &value, Value &cast_value) const;
@@ -184,6 +190,7 @@ private:
 class ComparisonExpr : public Expression {
 public:
   ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   virtual ~ComparisonExpr();
 
   ExprType type() const override { return ExprType::COMPARISON; }
@@ -208,6 +215,10 @@ public:
    * @param value the result of comparison
    */
   RC compare_value(const Value &left, const Value &right, bool &value) const;
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ComparisonExprSqlNode *comparison_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   CompOp comp_;
@@ -223,13 +234,8 @@ private:
  */
 class ConjunctionExpr : public Expression {
 public:
-  enum class Type {
-    AND,
-    OR,
-  };
-
-public:
-  ConjunctionExpr(Type type, std::vector<std::unique_ptr<Expression>> &children);
+  ConjunctionExpr(ConjunctionType type, Expression *left, Expression *right);
+  ConjunctionExpr(ConjunctionType type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ConjunctionExpr() = default;
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
@@ -238,13 +244,19 @@ public:
 
   RC get_value(const Tuple &tuple, Value &value) const override;
 
-  Type conjunction_type() const { return conjunction_type_; }
+  ConjunctionType conjunction_type() const { return conjunction_type_; }
 
-  std::vector<std::unique_ptr<Expression>> &children() { return children_; }
+  std::unique_ptr<Expression> &left() { return left_; }
+  std::unique_ptr<Expression> &right() { return right_; }
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ConjunctionExprSqlNode *conjunction_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
-  Type conjunction_type_;
-  std::vector<std::unique_ptr<Expression>> children_;
+  ConjunctionType conjunction_type_;
+  std::unique_ptr<Expression> left_;
+  std::unique_ptr<Expression> right_;
 };
 
 /**
@@ -253,17 +265,8 @@ private:
  */
 class ArithmeticExpr : public Expression {
 public:
-  enum class Type {
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    NEGATIVE,
-  };
-
-public:
-  ArithmeticExpr(Type type, Expression *left, Expression *right);
-  ArithmeticExpr(Type type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  ArithmeticExpr(ArithmeticType type, Expression *left, Expression *right);
+  ArithmeticExpr(ArithmeticType type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ArithmeticExpr() = default;
 
   ExprType type() const override { return ExprType::ARITHMETIC; }
@@ -273,16 +276,20 @@ public:
   RC get_value(const Tuple &tuple, Value &value) const override;
   RC try_get_value(Value &value) const override;
 
-  Type arithmetic_type() const { return arithmetic_type_; }
+  ArithmeticType arithmetic_type() const { return arithmetic_type_; }
 
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ArithmeticExprSqlNode *arithmetic_node, Expression *&expr);
+
+  set<Field> reference_fields() const override;
 
 private:
   RC calc_value(const Value &left_value, const Value &right_value, Value &value) const;
 
 private:
-  Type arithmetic_type_;
+  ArithmeticType arithmetic_type_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

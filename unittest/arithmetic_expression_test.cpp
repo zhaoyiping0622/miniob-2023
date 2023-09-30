@@ -29,22 +29,22 @@ TEST(ArithmeticExpr, test_value_type)
 
   unique_ptr<Expression> left_expr(new ValueExpr(int_value1));
   unique_ptr<Expression> right_expr(new ValueExpr(int_value2));
-  ArithmeticExpr expr_int(ArithmeticExpr::Type::ADD, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr expr_int(ArithmeticType::ADD, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(AttrType::INTS, expr_int.value_type());
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(float_value2));
-  ArithmeticExpr expr_float(ArithmeticExpr::Type::ADD, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr expr_float(ArithmeticType::ADD, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(AttrType::FLOATS, expr_float.value_type());
 
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(float_value2));
-  ArithmeticExpr expr_int_float(ArithmeticExpr::Type::ADD, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr expr_int_float(ArithmeticType::ADD, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(AttrType::FLOATS, expr_int_float.value_type());
 
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(int_value2));
-  ArithmeticExpr expr_int_int(ArithmeticExpr::Type::DIV, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr expr_int_int(ArithmeticType::DIV, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(AttrType::FLOATS, expr_int_int.value_type());
 }
 
@@ -60,7 +60,7 @@ TEST(ArithmeticExpr, test_try_get_value)
 
   unique_ptr<ValueExpr> left_expr(new ValueExpr(int_value1));
   unique_ptr<ValueExpr> right_expr(new ValueExpr(int_value2));
-  ArithmeticExpr int_expr(ArithmeticExpr::Type::ADD, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr int_expr(ArithmeticType::ADD, std::move(left_expr), std::move(right_expr));
   
   ASSERT_EQ(int_expr.try_get_value(int_result), RC::SUCCESS);
   ASSERT_EQ(int_result.get_int(), 3);
@@ -69,48 +69,48 @@ TEST(ArithmeticExpr, test_try_get_value)
 
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(int_value2));
-  new (&int_expr)(ArithmeticExpr)(ArithmeticExpr::Type::SUB, std::move(left_expr), std::move(right_expr));
+  new (&int_expr)(ArithmeticExpr)(ArithmeticType::SUB, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(int_expr.try_get_value(int_result), RC::SUCCESS);
   ASSERT_EQ(int_result.get_int(), -1);
 
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(int_value2));
   int_expr.~ArithmeticExpr();
-  new (&int_expr)(ArithmeticExpr)(ArithmeticExpr::Type::MUL, std::move(left_expr), std::move(right_expr));
+  new (&int_expr)(ArithmeticExpr)(ArithmeticType::MUL, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(int_expr.try_get_value(int_result), RC::SUCCESS);
   ASSERT_EQ(int_result.get_int(), 2);
 
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(int_value2));
   int_expr.~ArithmeticExpr();
-  new (&int_expr)(ArithmeticExpr)(ArithmeticExpr::Type::DIV, std::move(left_expr), std::move(right_expr));
+  new (&int_expr)(ArithmeticExpr)(ArithmeticType::DIV, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(int_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), 0.5);
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(float_value2));
-  ArithmeticExpr float_expr(ArithmeticExpr::Type::ADD, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr float_expr(ArithmeticType::ADD, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(float_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), 3.3);
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(float_value2));
   float_expr.~ArithmeticExpr();
-  new (&float_expr)(ArithmeticExpr)(ArithmeticExpr::Type::SUB, std::move(left_expr), std::move(right_expr));
+  new (&float_expr)(ArithmeticExpr)(ArithmeticType::SUB, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(float_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), -1.1);
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(float_value2));
   float_expr.~ArithmeticExpr();
-  new (&float_expr)(ArithmeticExpr)(ArithmeticExpr::Type::MUL, std::move(left_expr), std::move(right_expr));
+  new (&float_expr)(ArithmeticExpr)(ArithmeticType::MUL, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(float_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), 1.1*2.2);
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(float_value2));
   float_expr.~ArithmeticExpr();
-  new (&float_expr)(ArithmeticExpr)(ArithmeticExpr::Type::DIV, std::move(left_expr), std::move(right_expr));
+  new (&float_expr)(ArithmeticExpr)(ArithmeticType::DIV, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(float_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), 1.1/2.2);
 
@@ -118,21 +118,21 @@ TEST(ArithmeticExpr, test_try_get_value)
   Value zero_float_value((float)0);
   left_expr.reset(new ValueExpr(int_value1));
   right_expr.reset(new ValueExpr(zero_int_value));
-  ArithmeticExpr zero_int_expr(ArithmeticExpr::Type::DIV, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr zero_int_expr(ArithmeticType::DIV, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(zero_int_expr.try_get_value(float_result), RC::SUCCESS);
 
   left_expr.reset(new ValueExpr(float_value1));
   right_expr.reset(new ValueExpr(zero_float_value));
-  ArithmeticExpr zero_float_expr(ArithmeticExpr::Type::DIV, std::move(left_expr), std::move(right_expr));
+  ArithmeticExpr zero_float_expr(ArithmeticType::DIV, std::move(left_expr), std::move(right_expr));
   ASSERT_EQ(zero_float_expr.try_get_value(float_result), RC::SUCCESS);
 
   left_expr.reset(new ValueExpr(int_value1));
-  ArithmeticExpr negative_expr(ArithmeticExpr::Type::NEGATIVE, std::move(left_expr), nullptr);
+  ArithmeticExpr negative_expr(ArithmeticType::NEGATIVE, std::move(left_expr), nullptr);
   ASSERT_EQ(negative_expr.try_get_value(int_result), RC::SUCCESS);
   ASSERT_EQ(int_result.get_int(), -1);
 
   left_expr.reset(new ValueExpr(float_value1));
-  ArithmeticExpr negative_float_expr(ArithmeticExpr::Type::NEGATIVE, std::move(left_expr), nullptr);
+  ArithmeticExpr negative_float_expr(ArithmeticType::NEGATIVE, std::move(left_expr), nullptr);
   ASSERT_EQ(negative_float_expr.try_get_value(float_result), RC::SUCCESS);
   EXPECT_FLOAT_EQ(float_result.get_float(), -1.1);
 }

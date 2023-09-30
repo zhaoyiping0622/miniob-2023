@@ -23,7 +23,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/rc.h"
 #include "storage/buffer/disk_buffer_pool.h"
-#include "storage/common/condition_filter.h"
 #include "storage/common/meta_util.h"
 #include "storage/index/bplus_tree_index.h"
 #include "storage/index/index.h"
@@ -315,7 +314,7 @@ RC Table::init_record_handler(const char *base_dir) {
 }
 
 RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly) {
-  RC rc = scanner.open_scan(this, *data_buffer_pool_, trx, readonly, nullptr);
+  RC rc = scanner.open_scan(this, *data_buffer_pool_, trx, readonly);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("failed to open scanner. rc=%s", strrc(rc));
   }

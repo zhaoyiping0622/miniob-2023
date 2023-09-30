@@ -34,6 +34,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/table_scan_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
+#include "sql/parser/parse_defs.h"
 
 using namespace std;
 
@@ -183,9 +184,15 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
   }
 
   ProjectPhysicalOperator *project_operator = new ProjectPhysicalOperator;
-  const vector<Field> &project_fields = project_oper.fields();
-  for (const Field &field : project_fields) {
-    project_operator->add_projection(field.table(), field.meta());
+  vector<unique_ptr<Expression>> &expressions = project_oper.expressions();
+  for (auto &expr : expressions) {
+    if (expr->type() == ExprType::FIELD) {
+      Field field = *expr->reference_fields().begin();
+      project_operator->add_projection(field.table(), field.meta());
+    } else {
+      project_operator->add_projection(expr->name().c_str());
+    }
+    project_operator->add_expression(expr);
   }
 
   if (child_phy_oper) {

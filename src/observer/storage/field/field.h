@@ -43,6 +43,8 @@ public:
 
   const char *get_data(const Record &record);
 
+  std::strong_ordering operator<=>(const Field &other) const;
+
 private:
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;

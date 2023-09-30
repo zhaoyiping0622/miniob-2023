@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 RC parse(char *st, ParsedSqlNode *sqln);
 
 CalcSqlNode::~CalcSqlNode() {
-  for (Expression *expr : expressions) {
+  for (auto *expr : expressions) {
     delete expr;
   }
   expressions.clear();
@@ -32,6 +32,39 @@ ParsedSqlNode::ParsedSqlNode(SqlCommandFlag _flag) : flag(_flag) {}
 
 void ParsedSqlResult::add_sql_node(std::unique_ptr<ParsedSqlNode> sql_node) {
   sql_nodes_.emplace_back(std::move(sql_node));
+}
+
+ConjunctionExprSqlNode::~ConjunctionExprSqlNode() {
+  if (left)
+    delete left;
+  if (right)
+    delete right;
+}
+
+ComparisonExprSqlNode::~ComparisonExprSqlNode() {
+  if (left)
+    delete left;
+  if (right)
+    delete right;
+}
+
+ArithmeticExprSqlNode::~ArithmeticExprSqlNode() {
+  if (left)
+    delete left;
+  if (right)
+    delete right;
+}
+
+ExprSqlNode::~ExprSqlNode() {
+  switch (type_) {
+  case ExprType::STAR: delete expr_.star; break;
+  case ExprType::FIELD: delete expr_.field; break;
+  case ExprType::VALUE: delete expr_.value; break;
+  case ExprType::COMPARISON: delete expr_.comparison; break;
+  case ExprType::CONJUNCTION: delete expr_.conjunction; break;
+  case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
+  default: break;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

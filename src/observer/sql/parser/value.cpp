@@ -330,3 +330,27 @@ Date Value::get_date() const {
   default: return INVALID_DATE;
   }
 }
+
+AttrType AttrTypeCompare(AttrType a, AttrType b) {
+  if (a == b)
+    return a;
+  if (a > b)
+    std::swap(a, b);
+  switch (a) {
+  case UNDEFINED:
+  case CHARS: return b;
+  case INTS: {
+    if (b == DATES)
+      return UNDEFINED;
+    return b;
+  }
+  case DATES: return UNDEFINED;
+  case FLOATS:
+  case BOOLEANS: return BOOLEANS;
+  }
+  return UNDEFINED;
+}
+
+bool Value::check_value(const Value &v) {
+  return v.attr_type() != UNDEFINED && (v.attr_type() != CHARS || v.get_date() != INVALID_DATE);
+}

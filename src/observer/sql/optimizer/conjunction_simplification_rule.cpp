@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/optimizer/conjunction_simplification_rule.h"
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
+#include <utility>
 
 RC try_to_get_bool_constant(std::unique_ptr<Expression> &expr, bool &constant_value) {
   if (expr->type() == ExprType::VALUE && expr->value_type() == BOOLEANS) {
@@ -32,49 +34,45 @@ RC ConjunctionSimplificationRule::rewrite(std::unique_ptr<Expression> &expr, boo
 
   change_made = false;
   auto conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
-  std::vector<std::unique_ptr<Expression>> &child_exprs = conjunction_expr->children();
-  // 先看看有没有能够直接去掉的表达式。比如AND时恒为true的表达式可以删除
-  // 或者是否可以直接计算出当前表达式的值。比如AND时，如果有一个表达式为false，那么整个表达式就是false
-  for (auto iter = child_exprs.begin(); iter != child_exprs.end();) {
-    bool constant_value = false;
-    rc = try_to_get_bool_constant(*iter, constant_value);
-    if (rc != RC::SUCCESS) {
-      rc = RC::SUCCESS;
-      ++iter;
-      continue;
-    }
-
-    if (conjunction_expr->conjunction_type() == ConjunctionExpr::Type::AND) {
-      if (constant_value == true) {
-        child_exprs.erase(iter);
-      } else {
-        // always be false
-        std::unique_ptr<Expression> child_expr = std::move(child_exprs.front());
-        child_exprs.clear();
-        expr = std::move(child_expr);
-        return rc;
+  auto &left = conjunction_expr->left();
+  auto &right = conjunction_expr->right();
+  auto type = conjunction_expr->conjunction_type();
+  if (type == ConjunctionType::SINGLE) {
+    LOG_ERROR("ConjunctionType::SINGLE exist in expresion");
+    return RC::INTERNAL;
+  } else {
+    bool vl, vr;
+    RC rc1 = try_to_get_bool_constant(left, vl);
+    RC rc2 = try_to_get_bool_constant(right, vr);
+    if (rc1 != RC::SUCCESS && rc2 != RC::SUCCESS) {
+      return RC::SUCCESS;
+    } else if (rc1 == RC::SUCCESS && rc2 == RC::SUCCESS) {
+      change_made = true;
+      if (type == ConjunctionType::AND) {
+        expr.reset(new ValueExpr(Value(vl && vr)));
+      } else if (type == ConjunctionType::OR) {
+        expr.reset(new ValueExpr(Value(vl || vr)));
       }
     } else {
-      // conjunction_type == OR
-      if (constant_value == true) {
-        // always be true
-        std::unique_ptr<Expression> child_expr = std::move(child_exprs.front());
-        child_exprs.clear();
-        expr = std::move(child_expr);
-        return rc;
-      } else {
-        child_exprs.erase(iter);
+      change_made = true;
+      if (rc1 != RC::SUCCESS) {
+        swap(vl, vr);
+        swap(left, right);
+      }
+      if (type == ConjunctionType::AND) {
+        if (vl) {
+          expr.reset(right.release());
+        } else {
+          expr.reset(new ValueExpr(Value(false)));
+        }
+      } else if (type == ConjunctionType::OR) {
+        if (vl) {
+          expr.reset(new ValueExpr(Value(true)));
+        } else {
+          expr.reset(right.release());
+        }
       }
     }
   }
-  if (child_exprs.size() == 1) {
-    LOG_TRACE("conjunction expression has only 1 child");
-    std::unique_ptr<Expression> child_expr = std::move(child_exprs.front());
-    child_exprs.clear();
-    expr = std::move(child_expr);
-
-    change_made = true;
-  }
-
-  return rc;
+  return RC::SUCCESS;
 }
