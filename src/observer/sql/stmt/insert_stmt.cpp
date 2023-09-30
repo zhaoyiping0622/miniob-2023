@@ -41,7 +41,7 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
     vector<Value> record;
     record.reserve(record_expr.size());
     for (int i = 0; i < record_expr.size(); i++)
-      record[i] = record_expr[i].value;
+      record.push_back(record_expr[i].value);
     rc = check_record(table, record);
     if (rc != RC::SUCCESS) {
       return rc;
