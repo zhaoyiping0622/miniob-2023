@@ -99,6 +99,12 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         LE
         GE
         NE
+        MIN
+        MAX
+        AVG
+        COUNT
+        GROUP
+        BY
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -107,7 +113,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
+  enum class AggregationType                    aggr;
   FieldExprSqlNode *                            rel_attr;
+  std::vector<FieldExprSqlNode *>               rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
@@ -134,7 +142,10 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <value_expr>          value_expr
 %type <number>              number
 %type <comp>                comp_op
+%type <aggr>                aggr_op
 %type <rel_attr>            rel_attr
+%type <rel_attr_list>       rel_attr_list
+%type <rel_attr_list>       groupby
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <record>              value_list
@@ -459,7 +470,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     ;
 
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT select_attr FROM ID rel_list where groupby
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -470,6 +481,10 @@ select_stmt:        /*  select 语句的语法解析树*/
         $$->selection.relations.swap(*$5);
         delete $5;
       }
+      if ($7 != nullptr) {
+        $$->groupbys.swap(*$7);
+        delete $7;
+      }
       $$->selection.relations.push_back($4);
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
@@ -477,6 +492,30 @@ select_stmt:        /*  select 语句的语法解析树*/
       free($4);
     }
     ;
+
+groupby:
+    {
+      $$ = nullptr;
+    }
+    | GROUP BY rel_attr rel_attr_list 
+    {
+      $$ = $4;
+      $$->push_back($3);
+      std::reverse($$->begin(), $$->end());
+    }
+
+rel_attr_list:
+    {
+      $$ = nullptr;
+    }
+    | COMMA rel_attr rel_attr_list
+    {
+      $$ = $3;
+      if ($$ == nullptr) {
+        $$ = new std::vector<FieldExprSqlNode *>();
+      }
+      $$->push_back($2);
+    }
 
 calc_stmt:
     CALC expression_list
@@ -531,6 +570,10 @@ expression:
     }
     | value_expr {
       $$ = new ExprSqlNode($1);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | aggr_op LBRACE expression RBRACE {
+      $$ = new ExprSqlNode(new AggregationExprSqlNode($1, $3))
       $$->set_name(token_name(sql_string, &@$));
     }
     ;
@@ -617,6 +660,12 @@ comp_op:
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
     ;
+
+aggr_op:
+      MIN { $$ = AggregationType::MIN; }
+    | MAX { $$ = AggregationType::MAX; }
+    | AVG { $$ = AggregationType::AVG; }
+    | COUNT { $$ = AggregationType::COUNT; }
 
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 

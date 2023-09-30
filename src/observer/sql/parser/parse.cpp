@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include <mutex>
 
 RC parse(char *st, ParsedSqlNode *sqln);
@@ -55,6 +56,11 @@ ArithmeticExprSqlNode::~ArithmeticExprSqlNode() {
     delete right;
 }
 
+AggregationExprSqlNode::~AggregationExprSqlNode() {
+  if (child)
+    delete child;
+}
+
 ExprSqlNode::~ExprSqlNode() {
   switch (type_) {
   case ExprType::STAR: delete expr_.star; break;
@@ -63,6 +69,7 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::COMPARISON: delete expr_.comparison; break;
   case ExprType::CONJUNCTION: delete expr_.conjunction; break;
   case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
+  case ExprType::AGGREGATION: delete expr_.aggregation; break;
   default: break;
   }
 }

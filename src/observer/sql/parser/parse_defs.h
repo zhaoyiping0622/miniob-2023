@@ -36,6 +36,7 @@ enum class ExprType {
   COMPARISON,  ///< 需要做比较的表达式
   CONJUNCTION, ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,  ///< 算术运算
+  AGGREGATION, ///< 聚合操作
 };
 
 enum class ConjunctionType {
@@ -50,6 +51,13 @@ enum class ArithmeticType {
   MUL,
   DIV,
   NEGATIVE,
+};
+
+enum class AggregationType {
+  MAX,
+  MIN,
+  AVG,
+  COUNT,
 };
 
 /**
@@ -77,6 +85,7 @@ struct ValueExprSqlNode;
 struct ComparisonExprSqlNode;
 struct ConjunctionExprSqlNode;
 struct ArithmeticExprSqlNode;
+struct AggregationExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -88,6 +97,7 @@ private:
     ComparisonExprSqlNode *comparison;
     ConjunctionExprSqlNode *conjunction;
     ArithmeticExprSqlNode *arithmetic;
+    AggregationExprSqlNode *aggregation;
   } expr_;
   std::string name_;
 
@@ -98,6 +108,7 @@ public:
   ExprSqlNode(ComparisonExprSqlNode *comparison) : type_(ExprType::COMPARISON) { expr_.comparison = comparison; }
   ExprSqlNode(ConjunctionExprSqlNode *conjunction) : type_(ExprType::CONJUNCTION) { expr_.conjunction = conjunction; }
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
+  ExprSqlNode(AggregationExprSqlNode *aggregation) : type_(ExprType::AGGREGATION) { expr_.aggregation = aggregation; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -159,6 +170,14 @@ struct ArithmeticExprSqlNode {
   ~ArithmeticExprSqlNode();
 };
 
+struct AggregationExprSqlNode {
+  AggregationType type;
+  ExprSqlNode *child;
+  template <typename T1>
+  AggregationExprSqlNode(AggregationType type, T1 *child) : type(type), child(get_expr_pointer(child)) {}
+  ~AggregationExprSqlNode();
+};
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -173,6 +192,7 @@ struct ArithmeticExprSqlNode {
 struct SelectSqlNode {
   std::vector<ExprSqlNode *> attributes;        ///< attributes in select clause
   std::vector<std::string> relations;           ///< 查询的表
+  std::vector<FieldExprSqlNode *> groupbys;     ///< groupbys
   ConjunctionExprSqlNode *conditions = nullptr; ///< 查询条件，使用AND串联起来多个条件
   ~SelectSqlNode() {
     for (auto *x : attributes)
