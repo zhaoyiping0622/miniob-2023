@@ -121,6 +121,7 @@ AVG                                     RETURN_TOKEN(AVG);
 COUNT                                   RETURN_TOKEN(COUNT);
 GROUP                                   RETURN_TOKEN(GROUP);
 BY                                      RETURN_TOKEN(BY);
+HAVING                                  RETURN_TOKEN(HAVING);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

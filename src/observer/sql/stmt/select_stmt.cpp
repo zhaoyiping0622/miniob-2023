@@ -26,12 +26,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include <memory>
 
-SelectStmt::~SelectStmt() {
-  if (nullptr != filter_stmt_) {
-    delete filter_stmt_;
-    filter_stmt_ = nullptr;
-  }
-}
+SelectStmt::~SelectStmt() {}
 
 static void wildcard_fields(Table *table, std::vector<std::unique_ptr<Expression>> &field_metas) {
   const TableMeta &table_meta = table->table_meta();
@@ -72,6 +67,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     default_table = tables[0];
   }
 
+  // 处理groupby
   set<Field> groupbys;
   for (auto *x : select_sql.groupbys) {
     Expression *field;
@@ -165,26 +161,51 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     reference_fields[i].swap(fields);
   }
 
-  if (aggregation_stmt->has_aggregate()) {
-    for (auto &x : used_fields) {
+  // create filter statement in `where` statement
+  unique_ptr<FilterStmt> filter_stmt;
+  if (select_sql.conditions != nullptr) {
+    FilterStmt *stmt = nullptr;
+    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, stmt, nullptr);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct filter stmt");
+      return rc;
+    }
+    filter_stmt.reset(stmt);
+  }
+
+  auto check_fields = [&](const set<Field> &fields) -> RC {
+    for (auto x : fields) {
       if (groupbys.count(x) == 0) {
         LOG_WARN("expressions use field not in groupby expression, use=%s.%s", x.table_name(), x.field_name());
         return RC::FIELD_NOT_IN_GROUP_BY;
       }
     }
-  }
+    return RC::SUCCESS;
+  };
 
-  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
-
-  // create filter statement in `where` statement
-  FilterStmt *filter_stmt = nullptr;
-  if (select_sql.conditions != nullptr) {
-    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt);
+  unique_ptr<FilterStmt> having_stmt;
+  if (select_sql.having_conditions != nullptr) {
+    FilterStmt *stmt = nullptr;
+    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.having_conditions, stmt, &subexpr_generator);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
     }
+    auto fields = stmt->filter_expr()->reference_fields();
+    having_stmt.reset(stmt);
+    if ((rc = check_fields(fields)) != RC::SUCCESS) {
+      return rc;
+    }
   }
+
+  if (aggregation_stmt->has_aggregate()) {
+    RC rc = RC::SUCCESS;
+    if ((rc = check_fields(used_fields)) != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
+  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
@@ -192,7 +213,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->tables_.swap(tables);
   select_stmt->used_fields_ = used_fields;
   select_stmt->reference_fields_.swap(reference_fields);
-  select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->filter_stmt_ = std::move(filter_stmt);
+  select_stmt->having_stmt_ = std::move(having_stmt);
   select_stmt->expressions_.swap(expressions);
   select_stmt->schema_.swap(schema);
   select_stmt->aggregation_stmt_.swap(aggregation_stmt);

@@ -22,11 +22,11 @@ See the Mulan PSL v2 for more details. */
 FilterStmt::~FilterStmt() {}
 
 RC FilterStmt::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                      const ConjunctionExprSqlNode *conditions, FilterStmt *&stmt) {
+                      const ConjunctionExprSqlNode *conditions, FilterStmt *&stmt, ExprGenerator *generator) {
   Expression *expr;
   RC rc = RC::SUCCESS;
   stmt = nullptr;
-  rc = ConjunctionExpr::create(db, default_table, tables, conditions, expr, nullptr);
+  rc = ConjunctionExpr::create(db, default_table, tables, conditions, expr, generator);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create ConjunctionExpr");
     return rc;

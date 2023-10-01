@@ -100,7 +100,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   unique_ptr<LogicalOperator> predicate_oper;
-  FilterStmt *filter_stmt = select_stmt->filter_stmt();
+  auto &filter_stmt = select_stmt->filter_stmt();
   if (filter_stmt != nullptr) {
     predicate_oper.reset(new PredicateLogicalOperator(std::move(filter_stmt->filter_expr())));
   }
@@ -120,9 +120,18 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
   if (select_stmt->aggregation_stmt()->has_aggregate()) {
     // FIXME(zhaoyiping): 这里要考虑一下如何处理table_oper是nullptr的情况
-    AggregateLogicalOperator* aggr_oper = new AggregateLogicalOperator(select_stmt->aggregation_stmt().get());
-    aggr_oper->add_child(std::move(scan_oper));
+    AggregateLogicalOperator *aggr_oper = new AggregateLogicalOperator(select_stmt->aggregation_stmt().get());
+    if (scan_oper) {
+      aggr_oper->add_child(std::move(scan_oper));
+    }
     scan_oper.reset(aggr_oper);
+  }
+
+  auto &having_stmt = select_stmt->having_stmt();
+  if (having_stmt) {
+    predicate_oper.reset(new PredicateLogicalOperator(std::move(having_stmt->filter_expr())));
+    predicate_oper->add_child(std::move(scan_oper));
+    scan_oper.swap(predicate_oper);
   }
 
   project_oper->add_child(std::move(scan_oper));

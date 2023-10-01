@@ -199,15 +199,18 @@ struct AggregationExprSqlNode {
  */
 
 struct SelectSqlNode {
-  std::vector<ExprSqlNode *> attributes;        ///< attributes in select clause
-  std::vector<std::string> relations;           ///< 查询的表
-  std::vector<FieldExprSqlNode *> groupbys;     ///< groupbys
-  ConjunctionExprSqlNode *conditions = nullptr; ///< 查询条件，使用AND串联起来多个条件
+  std::vector<ExprSqlNode *> attributes;               ///< attributes in select clause
+  std::vector<std::string> relations;                  ///< 查询的表
+  std::vector<FieldExprSqlNode *> groupbys;            ///< groupbys
+  ConjunctionExprSqlNode *conditions = nullptr;        ///< 查询条件，使用AND串联起来多个条件
+  ConjunctionExprSqlNode *having_conditions = nullptr; ///< having查询条件
   ~SelectSqlNode() {
     for (auto *x : attributes)
       delete x;
     if (conditions)
       delete conditions;
+    if (having_conditions)
+      delete having_conditions;
   }
 };
 

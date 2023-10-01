@@ -105,6 +105,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         COUNT
         GROUP
         BY
+        HAVING
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -152,6 +153,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <record>              record
 %type <record_list>         record_list
 %type <conjunction>         where
+%type <conjunction>         having
 %type <conjunction>         conjunction
 %type <expression_list>     select_attr
 %type <relation_list>       rel_list
@@ -470,7 +472,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     ;
 
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where groupby
+    SELECT select_attr FROM ID rel_list where groupby having
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -489,7 +491,17 @@ select_stmt:        /*  select 语句的语法解析树*/
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
       $$->selection.conditions = $6;
+      $$->selection.having_conditions=$8;
       free($4);
+    }
+    ;
+
+having:
+    {
+      $$ = nullptr;
+    }
+    | HAVING conjunction {
+      $$ = $2;
     }
     ;
 
