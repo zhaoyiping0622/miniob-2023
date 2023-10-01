@@ -74,7 +74,7 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::COMPARISON: delete expr_.comparison; break;
   case ExprType::CONJUNCTION: delete expr_.conjunction; break;
   case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
-  case ExprType::NAMED: delete expr_.aggregation; break;
+  case ExprType::NAMED: delete expr_.named; break;
   default: break;
   }
 }

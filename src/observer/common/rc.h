@@ -76,7 +76,8 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(FILE_WRITE)                                                                                                \
   DEFINE_RC(VARIABLE_NOT_EXISTS)                                                                                       \
   DEFINE_RC(VARIABLE_NOT_VALID)                                                                                        \
-  DEFINE_RC(LOGBUF_FULL)
+  DEFINE_RC(LOGBUF_FULL)                                                                                               \
+  DEFINE_RC(FIELD_NOT_IN_GROUP_BY)
 
 enum class RC {
 #define DEFINE_RC(name) name,

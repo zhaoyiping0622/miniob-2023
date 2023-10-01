@@ -113,7 +113,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
-  AggregationExprSqlNode::Type                  aggr;
+  AggregationType                               aggr;
   FieldExprSqlNode *                            rel_attr;
   std::vector<FieldExprSqlNode *> *             rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
@@ -564,6 +564,9 @@ expression:
     | '-' expression %prec UMINUS {
       $$ = create_arithmetic_expression(ArithmeticType::NEGATIVE, $2, nullptr, sql_string, &@$);
     }
+    | '*' {
+      $$ = new ExprSqlNode(new StarExprSqlNode);
+    }
     | rel_attr {
       $$ = new ExprSqlNode($1);
       $$->set_name(token_name(sql_string, &@$));
@@ -574,17 +577,13 @@ expression:
     }
     | aggr_op LBRACE expression RBRACE {
       std::string name = token_name(sql_string, &@$);
-      $$ = new ExprSqlNode(new AggregationExprSqlNode($1, new NamedExprSqlNode(name, $3)));
+      $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, $3)));
       $$->set_name(name);
     }
     ;
 
 select_attr:
-    '*' {
-      $$ = new std::vector<ExprSqlNode *>;
-      $$->emplace_back(new ExprSqlNode(new StarExprSqlNode));
-    }
-    | expression_list {
+    expression_list {
       std::reverse($1->begin(), $1->end());
       $$ = $1;
     }
@@ -663,10 +662,10 @@ comp_op:
     ;
 
 aggr_op:
-      MIN { $$ = AggregationExprSqlNode::Type::AGGR_MIN; }
-    | MAX { $$ = AggregationExprSqlNode::Type::AGGR_MAX; }
-    | AVG { $$ = AggregationExprSqlNode::Type::AGGR_AVG; }
-    | COUNT { $$ = AggregationExprSqlNode::Type::AGGR_COUNT; }
+      MIN { $$ = AggregationType::AGGR_MIN; }
+    | MAX { $$ = AggregationType::AGGR_MAX; }
+    | AVG { $$ = AggregationType::AGGR_AVG; }
+    | COUNT { $$ = AggregationType::AGGR_COUNT; }
 
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 

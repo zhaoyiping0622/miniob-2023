@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
@@ -57,6 +58,6 @@ private:
   std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
   std::unique_ptr<TupleSchema> schema_;
-  std::vector<std::unique_ptr<FieldExpr>> groupbys_;
   FilterStmt *filter_stmt_ = nullptr;
+  std::unique_ptr<AggregationStmt> aggregation_stmt_ = nullptr;
 };

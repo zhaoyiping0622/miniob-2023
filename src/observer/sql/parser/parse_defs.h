@@ -79,6 +79,7 @@ struct ComparisonExprSqlNode;
 struct ConjunctionExprSqlNode;
 struct ArithmeticExprSqlNode;
 struct AggregationExprSqlNode;
+struct NamedExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -90,7 +91,7 @@ private:
     ComparisonExprSqlNode *comparison;
     ConjunctionExprSqlNode *conjunction;
     ArithmeticExprSqlNode *arithmetic;
-    AggregationExprSqlNode *aggregation;
+    NamedExprSqlNode *named;
   } expr_;
   std::string name_;
 
@@ -101,7 +102,7 @@ public:
   ExprSqlNode(ComparisonExprSqlNode *comparison) : type_(ExprType::COMPARISON) { expr_.comparison = comparison; }
   ExprSqlNode(ConjunctionExprSqlNode *conjunction) : type_(ExprType::CONJUNCTION) { expr_.conjunction = conjunction; }
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
-  ExprSqlNode(AggregationExprSqlNode *aggregation) : type_(ExprType::NAMED) { expr_.aggregation = aggregation; }
+  ExprSqlNode(NamedExprSqlNode *named) : type_(ExprType::NAMED) { expr_.named = named; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -111,7 +112,7 @@ public:
   ComparisonExprSqlNode *get_comparison() const { return expr_.comparison; }
   ConjunctionExprSqlNode *get_conjunction() const { return expr_.conjunction; }
   ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
-  AggregationExprSqlNode *get_aggregation() const { return expr_.aggregation; }
+  NamedExprSqlNode *get_named() const { return expr_.named; }
 };
 
 struct StarExprSqlNode {};
@@ -166,22 +167,23 @@ struct ArithmeticExprSqlNode {
 
 struct NamedExprSqlNode {
   std::string name;
-  ExprSqlNode *child;
-  template <typename T> NamedExprSqlNode(std::string name, T *child) : name(name), child(get_expr_pointer(child)) {}
+  AggregationExprSqlNode *child;
+  NamedExprSqlNode(std::string name, AggregationExprSqlNode *child) : name(name), child(child) {}
   ~NamedExprSqlNode();
 };
 
-struct AggregationExprSqlNode {
+enum class AggregationType {
+  AGGR_MAX,
+  AGGR_MIN,
+  AGGR_AVG,
+  AGGR_COUNT,
+};
 
-  enum Type {
-    AGGR_MAX,
-    AGGR_MIN,
-    AGGR_AVG,
-    AGGR_COUNT,
-  };
-  NamedExprSqlNode *child;
-  Type type;
-  AggregationExprSqlNode(Type type, NamedExprSqlNode *child) : type(type), child(child) {}
+struct AggregationExprSqlNode {
+  ExprSqlNode *child;
+  AggregationType type;
+  template <typename T>
+  AggregationExprSqlNode(AggregationType type, T *child) : type(type), child(get_expr_pointer(child)) {}
   ~AggregationExprSqlNode();
 };
 
