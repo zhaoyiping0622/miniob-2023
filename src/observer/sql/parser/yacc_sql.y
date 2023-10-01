@@ -157,6 +157,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         conjunction
 %type <expression_list>     select_attr
 %type <relation_list>       rel_list
+%type <relation_list>       from
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -472,27 +473,39 @@ update_stmt:      /*  update 语句的语法解析树*/
     ;
 
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where groupby having
+    SELECT select_attr from where groupby having
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
+      if ($3 != nullptr) {
+        $$->selection.relations.swap(*$3);
+        delete $3;
+      }
       if ($5 != nullptr) {
-        $$->selection.relations.swap(*$5);
+        $$->selection.groupbys.swap(*$5);
         delete $5;
       }
-      if ($7 != nullptr) {
-        $$->selection.groupbys.swap(*$7);
-        delete $7;
-      }
-      $$->selection.relations.push_back($4);
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
-      $$->selection.conditions = $6;
-      $$->selection.having_conditions=$8;
-      free($4);
+      $$->selection.conditions = $4;
+      $$->selection.having_conditions=$6;
+    }
+    ;
+
+from:
+    {
+      $$ = nullptr;
+    }
+    | FROM ID rel_list {
+      $$ = $3;
+      if ($$ == nullptr) {
+        $$ = new std::vector<std::string>;
+      }
+      $$->push_back($2);
+      free($2);
     }
     ;
 

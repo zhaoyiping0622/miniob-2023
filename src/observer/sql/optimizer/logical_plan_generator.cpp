@@ -134,7 +134,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     scan_oper.swap(predicate_oper);
   }
 
-  project_oper->add_child(std::move(scan_oper));
+    project_oper->add_child(std::move(scan_oper));
 
   logical_operator.swap(project_oper);
   return RC::SUCCESS;

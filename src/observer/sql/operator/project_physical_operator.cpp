@@ -15,12 +15,17 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_physical_operator.h"
 #include "common/log/log.h"
 #include "sql/expr/tuple_cell.h"
+#include "sql/operator/string_list_physical_operator.h"
 #include "storage/record/record.h"
 #include "storage/table/table.h"
+#include <memory>
+#include <utility>
 
 RC ProjectPhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
-    return RC::SUCCESS;
+    auto string=make_unique<StringListPhysicalOperator>();
+    string->append("");
+    add_child(std::move(string));
   }
 
   PhysicalOperator *child = children_[0].get();
