@@ -222,8 +222,7 @@ public:
       return RC::INTERNAL;
     }
 
-    const TupleCellSpec *spec = speces_[index];
-    return tuple_->find_cell(*spec, cell);
+    return expressions_[index]->get_value(*tuple_, cell);
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
