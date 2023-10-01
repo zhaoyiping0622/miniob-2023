@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/optimizer/logical_plan_generator.h"
 
+#include "sql/operator/aggregate_logical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
@@ -31,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/insert_stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
+#include <utility>
 
 using namespace std;
 
@@ -103,20 +105,27 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     predicate_oper.reset(new PredicateLogicalOperator(std::move(filter_stmt->filter_expr())));
   }
 
-  // TODO(zhaoyiping): 这里要分成是否有聚合函数
-  // 如果有就直接project
-  // 不然就aggregate
   unique_ptr<LogicalOperator> project_oper(new ProjectLogicalOperator(select_stmt->expressions()));
+  unique_ptr<LogicalOperator> scan_oper;
   if (predicate_oper) {
     if (table_oper) {
       predicate_oper->add_child(std::move(table_oper));
     }
-    project_oper->add_child(std::move(predicate_oper));
+    scan_oper.swap(predicate_oper);
   } else {
     if (table_oper) {
-      project_oper->add_child(std::move(table_oper));
+      scan_oper.swap(table_oper);
     }
   }
+
+  if (select_stmt->aggregation_stmt()->has_aggregate()) {
+    // FIXME(zhaoyiping): 这里要考虑一下如何处理table_oper是nullptr的情况
+    AggregateLogicalOperator* aggr_oper = new AggregateLogicalOperator(select_stmt->aggregation_stmt().get());
+    aggr_oper->add_child(std::move(scan_oper));
+    scan_oper.reset(aggr_oper);
+  }
+
+  project_oper->add_child(std::move(scan_oper));
 
   logical_operator.swap(project_oper);
   return RC::SUCCESS;

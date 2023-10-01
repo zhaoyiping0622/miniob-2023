@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "sql/parser/date.h"
+#include <compare>
 #include <string>
 
 /**
@@ -70,6 +71,8 @@ public:
   int length() const { return length_; }
 
   AttrType attr_type() const { return attr_type_; }
+
+  std::strong_ordering operator<=>(const Value &value) const;
 
 public:
   /**

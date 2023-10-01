@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/parser/date.h"
 #include "storage/field/field.h"
+#include <compare>
 #include <sstream>
 
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
@@ -202,6 +203,17 @@ int Value::compare(const Value &other) const {
   }
   LOG_WARN("not supported");
   return -1; // TODO return rc?
+}
+
+std::strong_ordering Value::operator<=>(const Value &value) const {
+  int cmp = compare(value);
+  if (cmp < 0) {
+    return std::strong_ordering::less;
+  }
+  if (cmp > 0) {
+    return std::strong_ordering::equal;
+  }
+  return std::strong_ordering::equal;
 }
 
 int Value::get_int() const {

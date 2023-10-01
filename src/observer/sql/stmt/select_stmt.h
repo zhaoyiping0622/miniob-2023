@@ -51,6 +51,7 @@ public:
   const std::vector<std::set<Field>> reference_fields() const { return reference_fields_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
   const std::unique_ptr<TupleSchema> &schema() const { return schema_; }
+  const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
 
 private:
   std::set<Field> used_fields_;

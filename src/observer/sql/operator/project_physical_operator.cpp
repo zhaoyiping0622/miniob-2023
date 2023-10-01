@@ -63,6 +63,8 @@ void ProjectPhysicalOperator::add_projection(const char *alias) {
   tuple_.add_cell_spec(spec);
 }
 
+void ProjectPhysicalOperator::add_projection(const Field &field) { add_projection(field.table(), field.meta()); }
+
 void ProjectPhysicalOperator::add_expression(std::unique_ptr<Expression> &expression) {
   tuple_.add_expression(expression);
 }

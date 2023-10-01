@@ -145,7 +145,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   vector<set<Field>> reference_fields(expressions.size());
-  set<Field> used_fields;
+  set<Field> used_fields = groupbys;
 
   for (int i = 0; i < expressions.size(); i++) {
     auto fields = expressions[i]->reference_fields();
