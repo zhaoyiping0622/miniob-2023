@@ -500,6 +500,9 @@ groupby:
     | GROUP BY rel_attr rel_attr_list 
     {
       $$ = $4;
+      if ($$ == nullptr) {
+        $$ = new std::vector<FieldExprSqlNode *>();
+      }
       $$->push_back($3);
       std::reverse($$->begin(), $$->end());
     }

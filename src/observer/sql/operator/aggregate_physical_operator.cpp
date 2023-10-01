@@ -21,7 +21,13 @@ AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
   }
   for (auto &x : aggregation_units_) {
     aggregation_speces_.push_back(new TupleCellSpec(x->name().c_str()));
-    project->add_projection(x->expression()->name().c_str());
+    auto &expression = x->expression();
+    if (expression->type() == ExprType::FIELD) {
+      FieldExpr& field_expr = static_cast<FieldExpr&>(*expression);
+      project->add_projection(field_expr.field());
+    } else {
+      project->add_projection(x->expression()->name().c_str());
+    }
     project->add_expression(x->expression());
   }
   children_.emplace_back(std::move(project));

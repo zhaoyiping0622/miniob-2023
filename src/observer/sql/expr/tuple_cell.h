@@ -28,7 +28,7 @@ public:
   const char *alias() const { return alias_.c_str(); }
 
   bool operator==(const TupleCellSpec &other) const {
-    if (alias_.size() && other.alias_.size())
+    if (alias_.size() && other.alias_.size() && alias_.size() == other.alias_.size())
       return alias_ == other.alias_;
     return table_name_ == other.table_name_ && field_name_ == other.field_name_;
   }

@@ -119,7 +119,13 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       sub_expr = new ValueExpr(Value(0));
     }
     AggregationUnit *aggr_unit = new AggregationUnit(name, type, sub_expr);
-    expr = new NamedExpr(aggr_unit->value_type(), TupleCellSpec(name.c_str()));
+    auto value_type = aggr_unit->value_type();
+    if (value_type == UNDEFINED) {
+      delete aggr_unit;
+      LOG_WARN("aggregate on unsupport type");
+      return RC::INVALID_ARGUMENT;
+    }
+    expr = new NamedExpr(value_type, TupleCellSpec(name.c_str()));
     aggregation_stmt->add_aggregation_unit(aggr_unit);
     return RC::SUCCESS;
   };
