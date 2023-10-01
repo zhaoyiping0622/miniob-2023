@@ -312,7 +312,7 @@ public:
         cell = cells_[i];
         return RC::SUCCESS;
       }
-    return RC::INTERNAL;
+    return RC::NOTFOUND;
   }
 
 private:

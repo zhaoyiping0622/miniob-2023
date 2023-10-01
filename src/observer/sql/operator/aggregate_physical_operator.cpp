@@ -1,4 +1,6 @@
 #include "sql/operator/aggregate_physical_operator.h"
+#include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/operator/project_physical_operator.h"
 #include "sql/parser/parse_defs.h"
@@ -44,10 +46,18 @@ RC AggregatePhysicalOperator::calculate_all() {
     vector<Value> record(groupby_speces_.size());
     vector<Value> values(aggregation_speces_.size());
     for (int i = 0; i < record.size(); i++) {
-      tuple->cell_at(i, record[i]);
+      rc = tuple->cell_at(i, record[i]);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("fail to read tuple cell idx=%d", i);
+        return rc;
+      }
     }
     for (int i = 0; i < values.size(); i++) {
-      tuple->cell_at(i + record.size(), values[i]);
+      rc = tuple->cell_at(i + record.size(), values[i]);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("fail to read tuple cell idx=%d", i);
+        return rc;
+      }
     }
     auto it = map_.find(record);
     if (it == map_.end()) {
