@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <stddef.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sql/parser/value.h"
@@ -36,6 +37,8 @@ enum class ExprType {
   COMPARISON,  ///< 需要做比较的表达式
   CONJUNCTION, ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,  ///< 算术运算
+  NAMED,       ///< 聚合操作
+  FUNCTION,    ///< 函数操作
 };
 
 enum class ConjunctionType {
@@ -50,6 +53,12 @@ enum class ArithmeticType {
   MUL,
   DIV,
   NEGATIVE,
+};
+
+enum class FunctionType {
+  LENGTH,
+  ROUND,
+  DATE_FORMAT,
 };
 
 /**
@@ -77,6 +86,9 @@ struct ValueExprSqlNode;
 struct ComparisonExprSqlNode;
 struct ConjunctionExprSqlNode;
 struct ArithmeticExprSqlNode;
+struct AggregationExprSqlNode;
+struct NamedExprSqlNode;
+struct FunctionExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -88,6 +100,8 @@ private:
     ComparisonExprSqlNode *comparison;
     ConjunctionExprSqlNode *conjunction;
     ArithmeticExprSqlNode *arithmetic;
+    NamedExprSqlNode *named;
+    FunctionExprSqlNode *function;
   } expr_;
   std::string name_;
 
@@ -98,6 +112,8 @@ public:
   ExprSqlNode(ComparisonExprSqlNode *comparison) : type_(ExprType::COMPARISON) { expr_.comparison = comparison; }
   ExprSqlNode(ConjunctionExprSqlNode *conjunction) : type_(ExprType::CONJUNCTION) { expr_.conjunction = conjunction; }
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
+  ExprSqlNode(NamedExprSqlNode *named) : type_(ExprType::NAMED) { expr_.named = named; }
+  ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -107,6 +123,8 @@ public:
   ComparisonExprSqlNode *get_comparison() const { return expr_.comparison; }
   ConjunctionExprSqlNode *get_conjunction() const { return expr_.conjunction; }
   ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
+  NamedExprSqlNode *get_named() const { return expr_.named; }
+  FunctionExprSqlNode *get_function() const { return expr_.function; }
 };
 
 struct StarExprSqlNode {};
@@ -159,6 +177,36 @@ struct ArithmeticExprSqlNode {
   ~ArithmeticExprSqlNode();
 };
 
+struct NamedExprSqlNode {
+  std::string name;
+  AggregationExprSqlNode *child;
+  NamedExprSqlNode(std::string name, AggregationExprSqlNode *child) : name(name), child(child) {}
+  ~NamedExprSqlNode();
+};
+
+enum class AggregationType {
+  AGGR_MAX,
+  AGGR_MIN,
+  AGGR_AVG,
+  AGGR_COUNT,
+};
+
+struct AggregationExprSqlNode {
+  std::vector<ExprSqlNode *> children;
+  AggregationType type;
+  AggregationExprSqlNode(AggregationType type, std::vector<ExprSqlNode *> &children)
+      : type(type), children(std::move(children)) {}
+  AggregationExprSqlNode(AggregationType type) : type(type) {}
+  ~AggregationExprSqlNode();
+};
+
+struct FunctionExprSqlNode {
+  FunctionType type;
+  std::vector<ExprSqlNode *> children;
+  FunctionExprSqlNode(FunctionType type, std::vector<ExprSqlNode *> *child) : type(type), children(std::move(*child)) {}
+  ~FunctionExprSqlNode();
+};
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -171,14 +219,18 @@ struct ArithmeticExprSqlNode {
  */
 
 struct SelectSqlNode {
-  std::vector<ExprSqlNode *> attributes;        ///< attributes in select clause
-  std::vector<std::string> relations;           ///< 查询的表
-  ConjunctionExprSqlNode *conditions = nullptr; ///< 查询条件，使用AND串联起来多个条件
+  std::vector<ExprSqlNode *> attributes;               ///< attributes in select clause
+  std::vector<std::string> relations;                  ///< 查询的表
+  std::vector<FieldExprSqlNode *> groupbys;            ///< groupbys
+  ConjunctionExprSqlNode *conditions = nullptr;        ///< 查询条件，使用AND串联起来多个条件
+  ConjunctionExprSqlNode *having_conditions = nullptr; ///< having查询条件
   ~SelectSqlNode() {
     for (auto *x : attributes)
       delete x;
     if (conditions)
       delete conditions;
+    if (having_conditions)
+      delete having_conditions;
   }
 };
 
@@ -198,8 +250,13 @@ struct CalcSqlNode {
  * @details 于Selects类似，也做了很多简化
  */
 struct InsertSqlNode {
-  std::string relation_name;                         ///< Relation to insert into
-  std::vector<std::vector<ValueExprSqlNode>> values; ///< 要插入的值
+  std::string relation_name;                      ///< Relation to insert into
+  std::vector<std::vector<ExprSqlNode *>> values; ///< 要插入的值
+  ~InsertSqlNode() {
+    for (auto &x : values)
+      for (auto *y : x)
+        delete y;
+  }
 };
 
 /**

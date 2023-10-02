@@ -39,7 +39,7 @@ public:
 
 public:
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                   const ConjunctionExprSqlNode *conditions, FilterStmt *&stmt);
+                   const ConjunctionExprSqlNode *conditions, FilterStmt *&stmt, ExprGenerator *generator);
 
 private:
   std::unique_ptr<Expression> filter_expr_;

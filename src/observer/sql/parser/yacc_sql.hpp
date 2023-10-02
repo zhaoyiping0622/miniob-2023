@@ -98,12 +98,22 @@ extern int yydebug;
     LE = 299,                      /* LE  */
     GE = 300,                      /* GE  */
     NE = 301,                      /* NE  */
-    NUMBER = 302,                  /* NUMBER  */
-    FLOAT = 303,                   /* FLOAT  */
-    ID = 304,                      /* ID  */
-    SSS = 305,                     /* SSS  */
-    OR = 306,                      /* OR  */
-    UMINUS = 307                   /* UMINUS  */
+    MIN = 302,                     /* MIN  */
+    MAX = 303,                     /* MAX  */
+    AVG = 304,                     /* AVG  */
+    COUNT = 305,                   /* COUNT  */
+    GROUP = 306,                   /* GROUP  */
+    BY = 307,                      /* BY  */
+    HAVING = 308,                  /* HAVING  */
+    LENGTH = 309,                  /* LENGTH  */
+    ROUND = 310,                   /* ROUND  */
+    DATE_FORMAT = 311,             /* DATE_FORMAT  */
+    NUMBER = 312,                  /* NUMBER  */
+    FLOAT = 313,                   /* FLOAT  */
+    ID = 314,                      /* ID  */
+    SSS = 315,                     /* SSS  */
+    OR = 316,                      /* OR  */
+    UMINUS = 317                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -112,27 +122,29 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 104 "yacc_sql.y"
+#line 114 "yacc_sql.y"
 
   ParsedSqlNode *                               sql_node;
   ComparisonExprSqlNode *                       condition;
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
+  AggregationType                               aggr;
+  FunctionType                                  func;
   FieldExprSqlNode *                            rel_attr;
+  std::vector<FieldExprSqlNode *> *             rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
   std::vector<ExprSqlNode *> *                  expression_list;
-  std::vector<ValueExprSqlNode> *               record;
-  std::vector<std::vector<ValueExprSqlNode>> *  record_list;
+  std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
   char *                                        string;
   int                                           number;
   float                                         floats;
 
-#line 136 "yacc_sql.hpp"
+#line 148 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -12,10 +12,10 @@ class Date {
 public:
   int value;
   auto operator<=>(const Date &o) const = default;
-  Date(const std::string &s);
+  Date(const std::string &s, const std::string &format = "%F");
   Date(int val) : value(val) {}
   Date() = default;
-  static std::string to_string(const Date &date);
+  static std::string to_string(const Date &date, const std::string &format = "%F");
   static int compare_date(const Date *a, const Date *b);
 };
 const Date INVALID_DATE(-1);

@@ -16,19 +16,17 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/parser/value.h"
+#include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include <memory>
 
-SelectStmt::~SelectStmt() {
-  if (nullptr != filter_stmt_) {
-    delete filter_stmt_;
-    filter_stmt_ = nullptr;
-  }
-}
+SelectStmt::~SelectStmt() {}
 
 static void wildcard_fields(Table *table, std::vector<std::unique_ptr<Expression>> &field_metas) {
   const TableMeta &table_meta = table->table_meta();
@@ -69,7 +67,69 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     default_table = tables[0];
   }
 
+  // 处理groupby
+  set<Field> groupbys;
+  for (auto *x : select_sql.groupbys) {
+    Expression *field;
+    RC rc = FieldExpr::create(db, default_table, &table_map, x, field);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    if (field->type() != ExprType::FIELD) {
+      LOG_ERROR("FieldExpr::create not get field expr, get %s", field->type());
+      return RC::INTERNAL;
+    }
+    groupbys.insert(static_cast<FieldExpr *>(field)->field());
+    delete field;
+  }
+
   unique_ptr<TupleSchema> schema = make_unique<TupleSchema>();
+
+  unique_ptr<AggregationStmt> aggregation_stmt = make_unique<AggregationStmt>();
+
+  aggregation_stmt->group_fields() = groupbys;
+
+  ExprGenerator subexpr_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
+    // 处理named的情况，提取aggregation子句
+    if (node->type() != ExprType::NAMED) {
+      LOG_ERROR("subexpr_generator get node type %d", node->type());
+      return RC::INTERNAL;
+    }
+    auto named_node = node->get_named();
+    string name = named_node->name;
+    AggregationExprSqlNode *aggr_sql_node = named_node->child;
+    AggregationType type = aggr_sql_node->type;
+    auto &children = aggr_sql_node->children;
+    if (children.size() != 1) {
+      LOG_WARN("aggregation operator not support multiple arguments");
+      return RC::INVALID_ARGUMENT;
+    }
+    ExprSqlNode *sub_expr_sql_node = children[0];
+    Expression *sub_expr = nullptr;
+    if (sub_expr_sql_node->type() != ExprType::STAR) {
+      RC rc = Expression::create(db, default_table, &table_map, sub_expr_sql_node, sub_expr, nullptr);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to parse sub_expr");
+        return rc;
+      }
+    } else {
+      if (aggr_sql_node->type != AggregationType::AGGR_COUNT) {
+        LOG_WARN("aggregation on '*', type is not count");
+        return RC::INTERNAL;
+      }
+      sub_expr = new ValueExpr(Value(0));
+    }
+    AggregationUnit *aggr_unit = new AggregationUnit(name, type, sub_expr);
+    auto value_type = aggr_unit->value_type();
+    if (value_type == UNDEFINED) {
+      delete aggr_unit;
+      LOG_WARN("aggregate on unsupport type");
+      return RC::INVALID_ARGUMENT;
+    }
+    expr = new NamedExpr(value_type, TupleCellSpec(name.c_str()));
+    aggregation_stmt->add_aggregation_unit(aggr_unit);
+    return RC::SUCCESS;
+  };
 
   // collect query fields in `select` statement
   std::vector<std::unique_ptr<Expression>> expressions;
@@ -82,7 +142,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       }
     } else {
       Expression *expr;
-      RC rc = Expression::create(db, default_table, &table_map, expression, expr);
+      RC rc = Expression::create(db, default_table, &table_map, expression, expr, &subexpr_generator);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to parse expression, rc=%s", strrc(rc));
         return rc;
@@ -92,7 +152,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   vector<set<Field>> reference_fields(expressions.size());
-  set<Field> used_fields;
+  set<Field> used_fields = groupbys;
 
   for (int i = 0; i < expressions.size(); i++) {
     auto fields = expressions[i]->reference_fields();
@@ -106,17 +166,51 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     reference_fields[i].swap(fields);
   }
 
-  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
-
   // create filter statement in `where` statement
-  FilterStmt *filter_stmt = nullptr;
+  unique_ptr<FilterStmt> filter_stmt;
   if (select_sql.conditions != nullptr) {
-    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, filter_stmt);
+    FilterStmt *stmt = nullptr;
+    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, stmt, nullptr);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
     }
+    filter_stmt.reset(stmt);
   }
+
+  auto check_fields = [&](const set<Field> &fields) -> RC {
+    for (auto x : fields) {
+      if (groupbys.count(x) == 0) {
+        LOG_WARN("expressions use field not in groupby expression, use=%s.%s", x.table_name(), x.field_name());
+        return RC::FIELD_NOT_IN_GROUP_BY;
+      }
+    }
+    return RC::SUCCESS;
+  };
+
+  unique_ptr<FilterStmt> having_stmt;
+  if (select_sql.having_conditions != nullptr) {
+    FilterStmt *stmt = nullptr;
+    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.having_conditions, stmt, &subexpr_generator);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct filter stmt");
+      return rc;
+    }
+    auto fields = stmt->filter_expr()->reference_fields();
+    having_stmt.reset(stmt);
+    if ((rc = check_fields(fields)) != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
+  if (aggregation_stmt->has_aggregate()) {
+    RC rc = RC::SUCCESS;
+    if ((rc = check_fields(used_fields)) != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
+  LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
@@ -124,9 +218,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->tables_.swap(tables);
   select_stmt->used_fields_ = used_fields;
   select_stmt->reference_fields_.swap(reference_fields);
-  select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->filter_stmt_ = std::move(filter_stmt);
+  select_stmt->having_stmt_ = std::move(having_stmt);
   select_stmt->expressions_.swap(expressions);
-  select_stmt->schema_ = std::move(schema);
+  select_stmt->schema_.swap(schema);
+  select_stmt->aggregation_stmt_.swap(aggregation_stmt);
+
   stmt = select_stmt;
   return RC::SUCCESS;
 }

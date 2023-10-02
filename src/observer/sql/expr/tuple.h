@@ -222,13 +222,12 @@ public:
       return RC::INTERNAL;
     }
 
-    const TupleCellSpec *spec = speces_[index];
-    return tuple_->find_cell(*spec, cell);
+    return expressions_[index]->get_value(*tuple_, cell);
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
     for (int i = 0; i < expressions_.size(); i++) {
-      if (speces_[i] == spec) {
+      if (*speces_[i] == spec) {
         return expressions_[i]->get_value(*tuple_, cell);
       }
     }
@@ -291,6 +290,7 @@ public:
   virtual ~ValueListTuple() = default;
 
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
+  void set_speces(const std::vector<TupleCellSpec *> &speces) { speces_ = speces; }
 
   virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
 
@@ -303,10 +303,20 @@ public:
     return RC::SUCCESS;
   }
 
-  virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const override { return RC::INTERNAL; }
+  virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
+    if (cells_.size() != speces_.size())
+      return RC::INTERNAL;
+    for (int i = 0; i < cells_.size(); i++)
+      if (spec == *speces_[i]) {
+        cell = cells_[i];
+        return RC::SUCCESS;
+      }
+    return RC::NOTFOUND;
+  }
 
 private:
   std::vector<Value> cells_;
+  std::vector<TupleCellSpec *> speces_;
 };
 
 /**

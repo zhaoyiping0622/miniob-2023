@@ -12,10 +12,13 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/12/14.
 //
 
+#include <memory>
 #include <utility>
 
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
+#include "sql/operator/aggregate_logical_operator.h"
+#include "sql/operator/aggregate_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
@@ -27,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_physical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/join_physical_operator.h"
+#include "sql/operator/physical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
@@ -72,6 +76,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
   case LogicalOperatorType::JOIN: {
     return create_plan(static_cast<JoinLogicalOperator &>(logical_operator), oper);
+  } break;
+
+  case LogicalOperatorType::AGGREGATE: {
+    return create_plan(static_cast<AggregateLogicalOperator &>(logical_operator), oper);
   } break;
 
   default: {
@@ -286,4 +294,15 @@ RC PhysicalPlanGenerator::create_plan(CalcLogicalOperator &logical_oper, std::un
   CalcPhysicalOperator *calc_oper = new CalcPhysicalOperator(std::move(logical_oper.expressions()));
   oper.reset(calc_oper);
   return rc;
+}
+RC PhysicalPlanGenerator::create_plan(AggregateLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  unique_ptr<PhysicalOperator> child;
+  RC rc = create(*logical_oper.children()[0], child);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  auto ret =
+      std::make_unique<AggregatePhysicalOperator>(logical_oper.group_fields(), logical_oper.aggregation_units(), child);
+  oper = std::move(ret);
+  return RC::SUCCESS;
 }

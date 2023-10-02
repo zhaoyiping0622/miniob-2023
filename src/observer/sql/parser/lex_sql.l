@@ -77,13 +77,12 @@ QUOTE            [\'\"]
 {WHITE_SAPCE}                                        // ignore whitespace
 \n                                                   ;
 
-[\-]?{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
-[\-]?{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
+{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
 EXIT                                    RETURN_TOKEN(EXIT);
-QUIT                                    RETURN_TOKEN(EXIT);
 HELP                                    RETURN_TOKEN(HELP);
 DESC                                    RETURN_TOKEN(DESC);
 CREATE                                  RETURN_TOKEN(CREATE);
@@ -116,6 +115,16 @@ LOAD                                    RETURN_TOKEN(LOAD);
 DATA                                    RETURN_TOKEN(DATA);
 INFILE                                  RETURN_TOKEN(INFILE);
 EXPLAIN                                 RETURN_TOKEN(EXPLAIN);
+MIN                                     RETURN_TOKEN(MIN);
+MAX                                     RETURN_TOKEN(MAX);
+AVG                                     RETURN_TOKEN(AVG);
+COUNT                                   RETURN_TOKEN(COUNT);
+GROUP                                   RETURN_TOKEN(GROUP);
+BY                                      RETURN_TOKEN(BY);
+HAVING                                  RETURN_TOKEN(HAVING);
+LENGTH                                  RETURN_TOKEN(LENGTH);
+ROUND                                   RETURN_TOKEN(ROUND);
+DATE_FORMAT                             RETURN_TOKEN(DATE_FORMAT);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

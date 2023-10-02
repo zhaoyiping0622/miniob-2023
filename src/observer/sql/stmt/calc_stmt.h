@@ -41,7 +41,7 @@ public:
     CalcStmt *calc_stmt = new CalcStmt();
     for (ExprSqlNode *sql : calc_sql.expressions) {
       Expression *expr;
-      RC rc = Expression::create(nullptr, nullptr, nullptr, sql, expr);
+      RC rc = Expression::create(nullptr, nullptr, nullptr, sql, expr, nullptr);
       if (rc != RC::SUCCESS) {
         LOG_WARN("fail to create expression from expr sql node, rc=%s", strrc(rc));
         return rc;

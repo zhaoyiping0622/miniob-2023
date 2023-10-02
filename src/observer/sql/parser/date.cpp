@@ -24,10 +24,10 @@ bool valid_tm(const std::tm &tm) {
          tm.tm_wday == cpy.tm_wday;   // valid day of week
 }
 
-Date::Date(const std::string &s) {
+Date::Date(const std::string &s, const std::string &format) {
   std::tm tm;
   bzero(&tm, sizeof(tm));
-  char *tail = strptime(s.c_str(), "%F", &tm);
+  char *tail = strptime(s.c_str(), format.c_str(), &tm);
   if (tail != s.c_str() + s.size() || !valid_tm(tm)) {
     value = -1;
   } else {
@@ -35,13 +35,13 @@ Date::Date(const std::string &s) {
   }
 }
 
-std::string Date::to_string(const Date &date) {
+std::string Date::to_string(const Date &date, const std::string &format) {
   time_t t = date.value;
   t *= kSecondsInDay;
   struct tm tm;
   localtime_r(&t, &tm);
-  char buf[16];
-  sprintf(buf, "%04d-%02d-%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+  char buf[32];
+  strftime(buf, sizeof(buf), format.c_str(), &tm);
   return buf;
 }
 

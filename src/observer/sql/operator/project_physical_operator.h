@@ -26,10 +26,11 @@ public:
 
   virtual ~ProjectPhysicalOperator() = default;
 
+  void add_projection(const Field &field);
   void add_projection(const Table *table, const FieldMeta *field);
   void add_projection(const char *alias);
 
-  void add_expression(std::unique_ptr<Expression>& expression);
+  void add_expression(std::unique_ptr<Expression> &expression);
 
   PhysicalOperatorType type() const override { return PhysicalOperatorType::PROJECT; }
 

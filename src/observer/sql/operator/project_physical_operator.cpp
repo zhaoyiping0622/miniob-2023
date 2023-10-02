@@ -15,12 +15,17 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_physical_operator.h"
 #include "common/log/log.h"
 #include "sql/expr/tuple_cell.h"
+#include "sql/operator/string_list_physical_operator.h"
 #include "storage/record/record.h"
 #include "storage/table/table.h"
+#include <memory>
+#include <utility>
 
 RC ProjectPhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
-    return RC::SUCCESS;
+    auto string=make_unique<StringListPhysicalOperator>();
+    string->append("");
+    add_child(std::move(string));
   }
 
   PhysicalOperator *child = children_[0].get();
@@ -54,7 +59,7 @@ Tuple *ProjectPhysicalOperator::current_tuple() {
 void ProjectPhysicalOperator::add_projection(const Table *table, const FieldMeta *field_meta) {
   // 对单表来说，展示的(alias) 字段总是字段名称，
   // 对多表查询来说，展示的alias 需要带表名字
-  TupleCellSpec *spec = new TupleCellSpec(table->name(), field_meta->name(), field_meta->name());
+  TupleCellSpec *spec = new TupleCellSpec(table->name(), field_meta->name());
   tuple_.add_cell_spec(spec);
 }
 
@@ -62,6 +67,8 @@ void ProjectPhysicalOperator::add_projection(const char *alias) {
   TupleCellSpec *spec = new TupleCellSpec(alias);
   tuple_.add_cell_spec(spec);
 }
+
+void ProjectPhysicalOperator::add_projection(const Field &field) { add_projection(field.table(), field.meta()); }
 
 void ProjectPhysicalOperator::add_expression(std::unique_ptr<Expression> &expression) {
   tuple_.add_expression(expression);
