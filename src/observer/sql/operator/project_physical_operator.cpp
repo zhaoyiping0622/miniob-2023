@@ -23,7 +23,7 @@ See the Mulan PSL v2 for more details. */
 
 RC ProjectPhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
-    auto string=make_unique<StringListPhysicalOperator>();
+    auto string = make_unique<StringListPhysicalOperator>();
     string->append("");
     add_child(std::move(string));
   }

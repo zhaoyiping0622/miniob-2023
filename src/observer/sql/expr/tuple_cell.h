@@ -23,7 +23,7 @@ class TupleCellSpec {
 public:
   TupleCellSpec(const char *table_name, const char *field_name, const char *alias = nullptr);
   TupleCellSpec(const char *alias);
-  TupleCellSpec(const Field& field);
+  TupleCellSpec(const Field &field);
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }

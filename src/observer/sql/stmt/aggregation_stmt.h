@@ -19,7 +19,7 @@ public:
   std::unique_ptr<TupleCellSpec> &cell() { return cell_; }
   AttrType value_type();
   std::set<Field> reference_fields() { return fields_; }
-  AggregationType aggregation_type() const {return type_;}
+  AggregationType aggregation_type() const { return type_; }
 
 private:
   std::unique_ptr<Expression> expression_;

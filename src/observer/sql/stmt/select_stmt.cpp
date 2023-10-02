@@ -156,9 +156,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   vector<set<Field>> reference_fields(expressions.size());
   set<Field> attr_used_fields = groupbys;
 
-  auto append_cell=[&](Expression* expression) {
+  auto append_cell = [&](Expression *expression) {
     if (expression->type() == ExprType::FIELD) {
-      Field& field = static_cast<FieldExpr*>(expression)->field();
+      Field &field = static_cast<FieldExpr *>(expression)->field();
       schema->append_cell(field.table_name(), field.field_name());
     } else {
       schema->append_cell(expression->name().c_str());
