@@ -105,6 +105,8 @@ public:
   ExprType type() const override { return ExprType::FIELD; }
   AttrType value_type() const override { return field_.attr_type(); }
 
+  // std::string name() const override;
+
   Field &field() { return field_; }
 
   const Field &field() const { return field_; }

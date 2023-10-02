@@ -83,7 +83,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     delete field;
   }
 
-  unique_ptr<TupleSchema> schema = make_unique<TupleSchema>();
+  shared_ptr<TupleSchema> schema = make_shared<TupleSchema>();
 
   unique_ptr<AggregationStmt> aggregation_stmt = make_unique<AggregationStmt>();
 
@@ -151,20 +151,28 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
   }
 
-  vector<set<Field>> reference_fields(expressions.size());
   set<Field> used_fields = groupbys;
+
+  vector<set<Field>> reference_fields(expressions.size());
+  set<Field> attr_used_fields = groupbys;
+
+  auto append_cell = [&](Expression *expression) {
+    if (expression->type() == ExprType::FIELD) {
+      Field &field = static_cast<FieldExpr *>(expression)->field();
+      schema->append_cell(field.table_name(), field.field_name());
+    } else {
+      schema->append_cell(expression->name().c_str());
+    }
+  };
 
   for (int i = 0; i < expressions.size(); i++) {
     auto fields = expressions[i]->reference_fields();
-    used_fields.insert(fields.begin(), fields.end());
-    if (expressions[i]->type() == ExprType::FIELD) {
-      Field field = *fields.begin();
-      schema->append_cell(field.table_name(), field.field_name());
-    } else {
-      schema->append_cell(expressions[i]->name().c_str());
-    }
+    attr_used_fields.insert(fields.begin(), fields.end());
+    append_cell(expressions[i].get());
     reference_fields[i].swap(fields);
   }
+
+  set<Field> filter_used_fields;
 
   // create filter statement in `where` statement
   unique_ptr<FilterStmt> filter_stmt;
@@ -176,9 +184,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       return rc;
     }
     filter_stmt.reset(stmt);
+    auto &expr = filter_stmt->filter_expr();
+    filter_used_fields = expr->reference_fields();
   }
 
+  used_fields.insert(filter_used_fields.begin(), filter_used_fields.end());
+
   auto check_fields = [&](const set<Field> &fields) -> RC {
+    if (!aggregation_stmt->has_aggregate())
+      return RC::SUCCESS;
     for (auto x : fields) {
       if (groupbys.count(x) == 0) {
         LOG_WARN("expressions use field not in groupby expression, use=%s.%s", x.table_name(), x.field_name());
@@ -203,11 +217,30 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
   }
 
-  if (aggregation_stmt->has_aggregate()) {
-    RC rc = RC::SUCCESS;
-    if ((rc = check_fields(used_fields)) != RC::SUCCESS) {
+  RC rc = RC::SUCCESS;
+
+  unique_ptr<OrderByStmt> orderby(new OrderByStmt);
+  for (auto &node : select_sql.orderbys) {
+    OrderByUnit unit;
+    unit.order = node->order;
+    Expression *expr;
+    RC rc = FieldExpr::create(db, default_table, &table_map, node->field, expr);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to parse field expr");
       return rc;
     }
+    auto fields = expr->reference_fields();
+    if ((rc = check_fields(fields)) != RC::SUCCESS) {
+      LOG_WARN("orderby use fields not in groupby");
+      return rc;
+    }
+    used_fields.insert(fields.begin(), fields.end());
+    unit.expr.reset(expr);
+    orderby->add_order_by_unit(unit);
+  }
+
+  if ((rc = check_fields(attr_used_fields)) != RC::SUCCESS) {
+    return rc;
   }
 
   LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
@@ -223,6 +256,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->expressions_.swap(expressions);
   select_stmt->schema_.swap(schema);
   select_stmt->aggregation_stmt_.swap(aggregation_stmt);
+  select_stmt->orderby_stmt_.swap(orderby);
 
   stmt = select_stmt;
   return RC::SUCCESS;

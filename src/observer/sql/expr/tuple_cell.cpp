@@ -42,3 +42,5 @@ TupleCellSpec::TupleCellSpec(const char *alias) {
     alias_ = alias;
   }
 }
+
+TupleCellSpec::TupleCellSpec(const Field &field) : TupleCellSpec(field.table_name(), field.field_name()) {}

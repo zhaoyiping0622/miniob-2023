@@ -222,7 +222,7 @@ std::strong_ordering Value::operator<=>(const Value &value) const {
     return std::strong_ordering::less;
   }
   if (cmp > 0) {
-    return std::strong_ordering::equal;
+    return std::strong_ordering::greater;
   }
   return std::strong_ordering::equal;
 }
