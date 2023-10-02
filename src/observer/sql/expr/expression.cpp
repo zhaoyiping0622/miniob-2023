@@ -48,16 +48,9 @@ RC CastExpr::cast(const Value &value, Value &cast_value) const {
     return rc;
   }
 
-  switch (cast_type_) {
-  case BOOLEANS: {
-    bool val = value.get_boolean();
-    cast_value.set_boolean(val);
-  } break;
-  default: {
-    rc = RC::INTERNAL;
-    LOG_WARN("unsupported convert from type %d to %d", child_->value_type(), cast_type_);
-  }
-  }
+  Value ret = value;
+  Value::convert(cast_value.attr_type(), cast_type_, ret);
+  cast_value = ret;
   return rc;
 }
 
