@@ -75,8 +75,14 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::CONJUNCTION: delete expr_.conjunction; break;
   case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
   case ExprType::NAMED: delete expr_.named; break;
+  case ExprType::FUNCTION: delete expr_.function; break;
   default: break;
   }
+}
+
+FunctionExprSqlNode::~FunctionExprSqlNode() {
+  for (auto x : children)
+    delete x;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

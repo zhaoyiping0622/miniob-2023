@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/log/log.h"
 #include "sql/expr/tuple_cell.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
 #include "storage/db/db.h"
 #include "storage/field/field.h"
@@ -316,4 +317,26 @@ public:
 private:
   AttrType value_type_;
   TupleCellSpec spec_;
+};
+
+class FunctionExpr : public Expression {
+public:
+  FunctionExpr(FunctionType type, std::vector<std::unique_ptr<Expression>> &children);
+  FunctionType function_type() const { return function_type_; }
+  ExprType type() const override { return ExprType::FUNCTION; }
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC try_get_value(Value &value) const override;
+  AttrType value_type() const override;
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const FunctionExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
+
+  RC calc_value(Value &out, std::vector<const Value *> &in) const;
+
+  static RC check_function(FunctionType type, std::vector<AttrType> &attrs);
+  std::set<Field> reference_fields() const override;
+
+private:
+  FunctionType function_type_;
+  std::vector<std::unique_ptr<Expression>> children_;
 };

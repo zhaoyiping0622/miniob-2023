@@ -19,6 +19,9 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 
@@ -349,6 +352,9 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::ARITHMETIC:
     rc = ArithmeticExpr::create(db, default_table, tables, expr_node->get_arithmetic(), expr, fallback);
     break;
+  case ExprType::FUNCTION:
+    rc = FunctionExpr::create(db, default_table, tables, expr_node->get_function(), expr, fallback);
+    break;
   default:
     if (fallback) {
       rc = (*fallback)(expr_node, expr);
@@ -385,6 +391,96 @@ RC ArithmeticExpr::try_get_value(Value &value) const {
 
   return calc_value(left_value, right_value, value);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+static float round(float a, int bits) {
+  std::stringstream ss;
+  ss << fixed << setprecision(bits) << a;
+  float ret;
+  ss >> ret;
+  return ret;
+}
+RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs) {
+  switch (type) {
+  case FunctionType::LENGTH:
+    if (attrs.size() != 1 || attrs[0] != CHARS)
+      return RC::INVALID_ARGUMENT;
+    break;
+  case FunctionType::ROUND:
+    if (attrs.size() != 2 || attrs[0] != FLOATS)
+      return RC::INVALID_ARGUMENT;
+    break;
+  case FunctionType::DATE_FORMAT:
+    if (attrs.size() != 2 || attrs[0] != DATES || attrs[1] != CHARS)
+      return RC::INVALID_ARGUMENT;
+    break;
+  }
+  return RC::SUCCESS;
+}
+
+RC FunctionExpr::calc_value(Value &out, vector<const Value *> &in) const {
+  const Value *in1 = in[0];
+  const Value *in2 = nullptr;
+  if (in.size() > 1)
+    in2 = in[1];
+  switch (function_type_) {
+  case FunctionType::LENGTH: {
+    out.set_int(in1->length());
+    return RC::SUCCESS;
+  }
+  case FunctionType::ROUND: {
+    out.set_float(round(in1->get_float(), in2->get_int()));
+    return RC::SUCCESS;
+  }
+  case FunctionType::DATE_FORMAT: {
+    string str = Date::to_string(in1->get_date(), in2->get_string());
+    out.set_string(str.c_str());
+    return RC::SUCCESS;
+  }
+  }
+  return RC::INTERNAL;
+}
+
+RC FunctionExpr::get_value(const Tuple &tuple, Value &value) const {
+  vector<Value> in(children_.size());
+  vector<const Value *> inp(children_.size());
+  for (int i = 0; i < children_.size(); i++) {
+    RC rc = children_[i]->get_value(tuple, in[i]);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    inp[i] = &in[i];
+  }
+  return calc_value(value, inp);
+}
+
+RC FunctionExpr::try_get_value(Value &value) const {
+  vector<Value> in(children_.size());
+  vector<const Value *> inp(children_.size());
+  for (int i = 0; i < children_.size(); i++) {
+    RC rc = children_[i]->try_get_value(in[i]);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    inp[i] = &in[i];
+  }
+  return calc_value(value, inp);
+}
+
+AttrType FunctionExpr::value_type() const {
+  switch (function_type_) {
+  case FunctionType::LENGTH: return INTS;
+  case FunctionType::ROUND: return FLOATS;
+  case FunctionType::DATE_FORMAT: return CHARS;
+  }
+  return UNDEFINED;
+}
+
+FunctionExpr::FunctionExpr(FunctionType type, std::vector<std::unique_ptr<Expression>> &children)
+    : function_type_(type), children_(std::move(children)) {}
+
+////////////////////////////////////////////////////////////////////////////////
 
 RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                        const string &table_name, const string &field_name, Table *&table, const FieldMeta *&field) {
@@ -528,6 +624,44 @@ RC ArithmeticExpr::create(Db *db, Table *default_table, std::unordered_map<std::
   return RC::SUCCESS;
 }
 
+int function_args(FunctionType type) {
+  switch (type) {
+  case FunctionType::LENGTH: return 1;
+  case FunctionType::ROUND:
+  case FunctionType::DATE_FORMAT: return 2;
+  }
+  return -1;
+}
+
+RC FunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                        const FunctionExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  auto &children = expr_node->children;
+  auto type = expr_node->type;
+  if (children.size() != function_args(type)) {
+    LOG_WARN("function args size mismatch");
+    return RC::INVALID_ARGUMENT;
+  }
+  RC rc = RC::SUCCESS;
+  vector<unique_ptr<Expression>> children_expression;
+  vector<AttrType> types;
+  for (auto x : children) {
+    Expression *expr = nullptr;
+    rc = Expression::create(db, default_table, tables, x, expr, fallback);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    types.push_back(expr->value_type());
+    children_expression.emplace_back(expr);
+  }
+  rc = check_function(type, types);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("function type mismatch");
+    return rc;
+  }
+  expr = new FunctionExpr(type, children_expression);
+  return RC::SUCCESS;
+}
+
 static void join_fields(set<Field> &a, set<Field> &b) { a.insert(b.begin(), b.end()); }
 
 set<Field> FieldExpr::reference_fields() const { return {field_}; }
@@ -559,4 +693,13 @@ set<Field> ArithmeticExpr::reference_fields() const {
     a = right_->reference_fields();
   join_fields(a, b);
   return a;
+}
+
+set<Field> FunctionExpr::reference_fields() const {
+  set<Field> ret;
+  for (auto &x : children_) {
+    set<Field> se = x->reference_fields();
+    join_fields(ret, se);
+  }
+  return ret;
 }

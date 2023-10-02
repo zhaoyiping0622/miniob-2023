@@ -23,7 +23,7 @@ AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
     aggregation_speces_.push_back(new TupleCellSpec(x->name().c_str()));
     auto &expression = x->expression();
     if (expression->type() == ExprType::FIELD) {
-      FieldExpr& field_expr = static_cast<FieldExpr&>(*expression);
+      FieldExpr &field_expr = static_cast<FieldExpr &>(*expression);
       project->add_projection(field_expr.field());
     } else {
       project->add_projection(x->expression()->name().c_str());
@@ -156,4 +156,5 @@ Aggregator *Aggregator::create(AggregationType type, Value value) {
   case AggregationType::AGGR_MAX: return new MaxAggregator(value);
   case AggregationType::AGGR_AVG: return new AvgAggregator(value);
   }
+  return nullptr;
 }

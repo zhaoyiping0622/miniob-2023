@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <stddef.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sql/parser/value.h"
@@ -37,6 +38,7 @@ enum class ExprType {
   CONJUNCTION, ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,  ///< 算术运算
   NAMED,       ///< 聚合操作
+  FUNCTION,    ///< 函数操作
 };
 
 enum class ConjunctionType {
@@ -51,6 +53,12 @@ enum class ArithmeticType {
   MUL,
   DIV,
   NEGATIVE,
+};
+
+enum class FunctionType {
+  LENGTH,
+  ROUND,
+  DATE_FORMAT,
 };
 
 /**
@@ -80,6 +88,7 @@ struct ConjunctionExprSqlNode;
 struct ArithmeticExprSqlNode;
 struct AggregationExprSqlNode;
 struct NamedExprSqlNode;
+struct FunctionExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -92,6 +101,7 @@ private:
     ConjunctionExprSqlNode *conjunction;
     ArithmeticExprSqlNode *arithmetic;
     NamedExprSqlNode *named;
+    FunctionExprSqlNode *function;
   } expr_;
   std::string name_;
 
@@ -103,6 +113,7 @@ public:
   ExprSqlNode(ConjunctionExprSqlNode *conjunction) : type_(ExprType::CONJUNCTION) { expr_.conjunction = conjunction; }
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
   ExprSqlNode(NamedExprSqlNode *named) : type_(ExprType::NAMED) { expr_.named = named; }
+  ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -113,6 +124,7 @@ public:
   ConjunctionExprSqlNode *get_conjunction() const { return expr_.conjunction; }
   ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
   NamedExprSqlNode *get_named() const { return expr_.named; }
+  FunctionExprSqlNode *get_function() const { return expr_.function; }
 };
 
 struct StarExprSqlNode {};
@@ -185,6 +197,13 @@ struct AggregationExprSqlNode {
   template <typename T>
   AggregationExprSqlNode(AggregationType type, T *child) : type(type), child(get_expr_pointer(child)) {}
   ~AggregationExprSqlNode();
+};
+
+struct FunctionExprSqlNode {
+  FunctionType type;
+  std::vector<ExprSqlNode *> children;
+  FunctionExprSqlNode(FunctionType type, std::vector<ExprSqlNode *> *child) : type(type), children(std::move(*child)) {}
+  ~FunctionExprSqlNode();
 };
 
 /**

@@ -106,6 +106,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         GROUP
         BY
         HAVING
+        LENGTH
+        ROUND
+        DATE_FORMAT
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -115,6 +118,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   Value *                                       value;
   enum CompOp                                   comp;
   AggregationType                               aggr;
+  FunctionType                                  func;
   FieldExprSqlNode *                            rel_attr;
   std::vector<FieldExprSqlNode *> *             rel_attr_list;
   std::vector<AttrInfoSqlNode> *                attr_infos;
@@ -144,6 +148,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <number>              number
 %type <comp>                comp_op
 %type <aggr>                aggr_op
+%type <func>                func_op
 %type <rel_attr>            rel_attr
 %type <rel_attr_list>       rel_attr_list
 %type <rel_attr_list>       groupby
@@ -608,6 +613,13 @@ expression:
       $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, $3)));
       $$->set_name(name);
     }
+    | func_op LBRACE expression_list RBRACE {
+      std::string name = token_name(sql_string, &@$);
+      reverse($3->begin(), $3->end());
+      $$ = new ExprSqlNode(new FunctionExprSqlNode($1, $3));
+      delete $3;
+      $$->set_name(name);
+    }
     ;
 
 select_attr:
@@ -694,6 +706,11 @@ aggr_op:
     | MAX { $$ = AggregationType::AGGR_MAX; }
     | AVG { $$ = AggregationType::AGGR_AVG; }
     | COUNT { $$ = AggregationType::AGGR_COUNT; }
+
+func_op:
+      LENGTH { $$ = FunctionType::LENGTH; }
+    | ROUND { $$ = FunctionType::ROUND; }
+    | DATE_FORMAT { $$ = FunctionType::DATE_FORMAT; }
 
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
