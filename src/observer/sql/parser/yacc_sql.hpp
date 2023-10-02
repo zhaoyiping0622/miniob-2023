@@ -137,15 +137,14 @@ union YYSTYPE
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
   std::vector<ExprSqlNode *> *                  expression_list;
-  std::vector<ValueExprSqlNode> *               record;
-  std::vector<std::vector<ValueExprSqlNode>> *  record_list;
+  std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
   char *                                        string;
   int                                           number;
   float                                         floats;
 
-#line 149 "yacc_sql.hpp"
+#line 148 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

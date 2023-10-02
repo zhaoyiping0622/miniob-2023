@@ -125,8 +125,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
   std::vector<ExprSqlNode *> *                  expression_list;
-  std::vector<ValueExprSqlNode> *               record;
-  std::vector<std::vector<ValueExprSqlNode>> *  record_list;
+  std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
   char *                                        string;
@@ -154,8 +153,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <rel_attr_list>       groupby
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
-%type <record>              value_list
-%type <record>              record
+%type <expression_list>     record
 %type <record_list>         record_list
 %type <conjunction>         where
 %type <conjunction>         having
@@ -381,6 +379,7 @@ insert_stmt:        /*insert   语句的语法解析树*/
       $$->insertion.relation_name = $3;
       if ($6 != nullptr) {
         $$->insertion.values.swap(*$6);
+        delete $6;
       }
       $$->insertion.values.emplace_back(*$5);
       delete $5;
@@ -397,40 +396,22 @@ record_list:
       if ($3 != nullptr) {
         $$ = $3;
       } else {
-        $$ = new std::vector<std::vector<ValueExprSqlNode>>;
+        $$ = new std::vector<std::vector<ExprSqlNode *>>;
       }
       $$->emplace_back(*$2);
       delete $2;
     }
 
 record:
-    LBRACE value_expr value_list RBRACE
+    LBRACE expression_list_empty RBRACE
     {
-      if ($3 != nullptr) {
-        $$ = $3;
+      if ($2 != nullptr) {
+        $$ = $2;
       } else {
-        $$ = new std::vector<ValueExprSqlNode>;
+        $$ = new std::vector<ExprSqlNode *>;
       }
-      $$->emplace_back(*$2);
-      delete $2;
       reverse($$->begin(), $$->end());
     }
-
-value_list:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | COMMA value_expr value_list  { 
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<ValueExprSqlNode>;
-      }
-      $$->emplace_back(*$2);
-      delete $2;
-    }
-    ;
 
 value:
     NUMBER {

@@ -250,8 +250,13 @@ struct CalcSqlNode {
  * @details 于Selects类似，也做了很多简化
  */
 struct InsertSqlNode {
-  std::string relation_name;                         ///< Relation to insert into
-  std::vector<std::vector<ValueExprSqlNode>> values; ///< 要插入的值
+  std::string relation_name;                      ///< Relation to insert into
+  std::vector<std::vector<ExprSqlNode *>> values; ///< 要插入的值
+  ~InsertSqlNode() {
+    for (auto &x : values)
+      for (auto *y : x)
+        delete y;
+  }
 };
 
 /**

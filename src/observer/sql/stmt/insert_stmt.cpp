@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/insert_stmt.h"
 #include "common/log/log.h"
+#include "sql/expr/expression.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
@@ -40,8 +41,22 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   for (auto &record_expr : records) {
     vector<Value> record;
     record.reserve(record_expr.size());
-    for (int i = 0; i < record_expr.size(); i++)
-      record.push_back(record_expr[i].value);
+    for (int i = 0; i < record_expr.size(); i++) {
+      Value value;
+      Expression *expr;
+      rc = Expression::create(nullptr, nullptr, nullptr, record_expr[i], expr, nullptr);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("fail to create expression in insert value");
+        return rc;
+      }
+      rc = expr->try_get_value(value);
+      delete expr;
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("fail to get value in insert value");
+        return rc;
+      }
+      record.push_back(value);
+    }
     rc = check_record(table, record);
     if (rc != RC::SUCCESS) {
       return rc;
