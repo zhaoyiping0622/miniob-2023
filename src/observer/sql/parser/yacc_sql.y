@@ -165,6 +165,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <relation_list>       from
 %type <expression>          expression
 %type <expression_list>     expression_list
+%type <expression_list>     expression_list_empty
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -577,6 +578,14 @@ expression_list:
     }
     ;
 
+expression_list_empty:
+    {
+      $$ = nullptr;
+    }
+    | expression_list {
+      $$ = $1;
+    }
+
 expression:
     expression '+' expression {
       $$ = create_arithmetic_expression(ArithmeticType::ADD, $1, $3, sql_string, &@$);
@@ -608,12 +617,16 @@ expression:
       $$ = new ExprSqlNode($1);
       $$->set_name(token_name(sql_string, &@$));
     }
-    | aggr_op LBRACE expression_list RBRACE {
+    | aggr_op LBRACE expression_list_empty RBRACE {
       std::string name = token_name(sql_string, &@$);
-      $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, *$3)));
+      if ($3) {
+        $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, *$3)));
+      } else {
+        $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1)));
+      }
       $$->set_name(name);
     }
-    | func_op LBRACE expression_list RBRACE {
+    | func_op LBRACE expression_list_empty RBRACE {
       std::string name = token_name(sql_string, &@$);
       reverse($3->begin(), $3->end());
       $$ = new ExprSqlNode(new FunctionExprSqlNode($1, $3));

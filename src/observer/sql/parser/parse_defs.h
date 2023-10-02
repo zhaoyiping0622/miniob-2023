@@ -196,6 +196,7 @@ struct AggregationExprSqlNode {
   AggregationType type;
   AggregationExprSqlNode(AggregationType type, std::vector<ExprSqlNode *> &children)
       : type(type), children(std::move(children)) {}
+  AggregationExprSqlNode(AggregationType type) : type(type) {}
   ~AggregationExprSqlNode();
 };
 
