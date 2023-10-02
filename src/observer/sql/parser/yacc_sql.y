@@ -608,9 +608,9 @@ expression:
       $$ = new ExprSqlNode($1);
       $$->set_name(token_name(sql_string, &@$));
     }
-    | aggr_op LBRACE expression RBRACE {
+    | aggr_op LBRACE expression_list RBRACE {
       std::string name = token_name(sql_string, &@$);
-      $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, $3)));
+      $$ = new ExprSqlNode(new NamedExprSqlNode(name, new AggregationExprSqlNode($1, *$3)));
       $$->set_name(name);
     }
     | func_op LBRACE expression_list RBRACE {

@@ -192,10 +192,10 @@ enum class AggregationType {
 };
 
 struct AggregationExprSqlNode {
-  ExprSqlNode *child;
+  std::vector<ExprSqlNode *> children;
   AggregationType type;
-  template <typename T>
-  AggregationExprSqlNode(AggregationType type, T *child) : type(type), child(get_expr_pointer(child)) {}
+  AggregationExprSqlNode(AggregationType type, std::vector<ExprSqlNode *> &children)
+      : type(type), children(std::move(children)) {}
   ~AggregationExprSqlNode();
 };
 

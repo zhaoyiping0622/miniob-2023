@@ -57,7 +57,7 @@ ArithmeticExprSqlNode::~ArithmeticExprSqlNode() {
 }
 
 AggregationExprSqlNode::~AggregationExprSqlNode() {
-  if (child)
+  for (auto child : children)
     delete child;
 }
 

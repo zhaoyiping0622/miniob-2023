@@ -99,10 +99,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     string name = named_node->name;
     AggregationExprSqlNode *aggr_sql_node = named_node->child;
     AggregationType type = aggr_sql_node->type;
-    ExprSqlNode *sub_expr_sql_node = aggr_sql_node->child;
+    auto &children = aggr_sql_node->children;
+    if (children.size() != 1) {
+      LOG_WARN("aggregation operator not support multiple arguments");
+      return RC::INVALID_ARGUMENT;
+    }
+    ExprSqlNode *sub_expr_sql_node = children[0];
     Expression *sub_expr = nullptr;
     if (sub_expr_sql_node->type() != ExprType::STAR) {
-      RC rc = Expression::create(db, default_table, &table_map, aggr_sql_node->child, sub_expr, nullptr);
+      RC rc = Expression::create(db, default_table, &table_map, sub_expr_sql_node, sub_expr, nullptr);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to parse sub_expr");
         return rc;
