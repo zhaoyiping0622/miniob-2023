@@ -48,6 +48,11 @@ RC CastExpr::cast(const Value &value, Value &cast_value) const {
     return rc;
   }
 
+  if (value.attr_type() == NULLS) {
+    cast_value.set_null();
+    return rc;
+  }
+
   Value ret = value;
   Value::convert(cast_value.attr_type(), cast_type_, ret);
   cast_value = ret;
@@ -235,6 +240,11 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
   RC rc = RC::SUCCESS;
 
   const AttrType target_type = value_type();
+
+  if (left_value.attr_type() == NULLS || right_value.attr_type() == NULLS) {
+    value.set_null();
+    return rc;
+  }
 
   switch (arithmetic_type_) {
   case ArithmeticType::ADD: {

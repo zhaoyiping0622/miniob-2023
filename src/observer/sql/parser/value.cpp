@@ -166,6 +166,9 @@ std::string Value::to_string() const {
   case DATES: {
     os << Date::to_string(num_value_.date_value_);
   } break;
+  case NULLS: {
+    os << "NULL";
+  } break;
   default: {
     LOG_WARN("unsupported attr type: %d", attr_type_);
   } break;
