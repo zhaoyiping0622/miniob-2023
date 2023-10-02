@@ -106,8 +106,16 @@ void Value::set_date(Date date) {
   length_ = sizeof(date);
 }
 
+void Value::set_null() {
+  attr_type_ = NULLS;
+  length_ = 1;
+}
+
 void Value::set_value(const Value &value) {
   switch (value.attr_type()) {
+  case NULLS: {
+    set_null();
+  } break;
   case INTS: {
     set_int(value.get_int());
   } break;
@@ -350,6 +358,7 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
     std::swap(a, b);
   switch (a) {
   case UNDEFINED:
+  case NULLS: return NULLS;
   case CHARS: return b;
   case INTS: {
     if (b == DATES)
