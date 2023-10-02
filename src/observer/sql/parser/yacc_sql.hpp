@@ -103,17 +103,19 @@ extern int yydebug;
     AVG = 304,                     /* AVG  */
     COUNT = 305,                   /* COUNT  */
     GROUP = 306,                   /* GROUP  */
-    BY = 307,                      /* BY  */
-    HAVING = 308,                  /* HAVING  */
-    LENGTH = 309,                  /* LENGTH  */
-    ROUND = 310,                   /* ROUND  */
-    DATE_FORMAT = 311,             /* DATE_FORMAT  */
-    NUMBER = 312,                  /* NUMBER  */
-    FLOAT = 313,                   /* FLOAT  */
-    ID = 314,                      /* ID  */
-    SSS = 315,                     /* SSS  */
-    OR = 316,                      /* OR  */
-    UMINUS = 317                   /* UMINUS  */
+    ORDER = 307,                   /* ORDER  */
+    BY = 308,                      /* BY  */
+    ASC = 309,                     /* ASC  */
+    HAVING = 310,                  /* HAVING  */
+    LENGTH = 311,                  /* LENGTH  */
+    ROUND = 312,                   /* ROUND  */
+    DATE_FORMAT = 313,             /* DATE_FORMAT  */
+    NUMBER = 314,                  /* NUMBER  */
+    FLOAT = 315,                   /* FLOAT  */
+    ID = 316,                      /* ID  */
+    SSS = 317,                     /* SSS  */
+    OR = 318,                      /* OR  */
+    UMINUS = 319                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -122,7 +124,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 114 "yacc_sql.y"
+#line 116 "yacc_sql.y"
 
   ParsedSqlNode *                               sql_node;
   ComparisonExprSqlNode *                       condition;
@@ -140,11 +142,14 @@ union YYSTYPE
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  OrderBySqlNode *                              order_unit;
+  std::vector<OrderBySqlNode *> *               order_unit_list;
+  Order                                         order;
   char *                                        string;
   int                                           number;
   float                                         floats;
 
-#line 148 "yacc_sql.hpp"
+#line 153 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

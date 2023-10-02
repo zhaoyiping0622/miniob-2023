@@ -35,6 +35,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/project_physical_operator.h"
+#include "sql/operator/sort_physical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/table_scan_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
@@ -80,6 +81,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
   case LogicalOperatorType::AGGREGATE: {
     return create_plan(static_cast<AggregateLogicalOperator &>(logical_operator), oper);
+  } break;
+
+  case LogicalOperatorType::SORT: {
+    return create_plan(static_cast<SortLogicalOperator &>(logical_operator), oper);
   } break;
 
   default: {
@@ -304,5 +309,33 @@ RC PhysicalPlanGenerator::create_plan(AggregateLogicalOperator &logical_oper, st
   auto ret =
       std::make_unique<AggregatePhysicalOperator>(logical_oper.group_fields(), logical_oper.aggregation_units(), child);
   oper = std::move(ret);
+  return RC::SUCCESS;
+}
+
+RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  if (logical_oper.children().size() != 1) {
+    LOG_ERROR("sort logical operator should have one child");
+    return RC::INTERNAL;
+  }
+  std::unique_ptr<PhysicalOperator> child_oper;
+  RC rc = RC::SUCCESS;
+  rc = create(*logical_oper.children()[0], child_oper);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  auto &schema = logical_oper.schema();
+  auto sort_operator = make_unique<SortPhysicalOperator>();
+  sort_operator->add_child(std::move(child_oper));
+  sort_operator->orders_ = logical_oper.orders();
+  sort_operator->schema_ = schema;
+  auto &expressions = logical_oper.expressions();
+  for (int i = 0; i < expressions.size(); i++) {
+    if (expressions[i]->type() == ExprType::FIELD) {
+      sort_operator->speces_.emplace_back(static_cast<FieldExpr *>(expressions[i].get())->field());
+    } else {
+      sort_operator->speces_.emplace_back(expressions[i]->name().c_str());
+    }
+  }
+  oper.reset(sort_operator.release());
   return RC::SUCCESS;
 }

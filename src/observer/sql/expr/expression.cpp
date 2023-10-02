@@ -29,6 +29,8 @@ RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
 
+// string FieldExpr::name() const { return field_.meta()->name(); }
+
 RC ValueExpr::get_value(const Tuple &tuple, Value &value) const {
   value = value_;
   return RC::SUCCESS;

@@ -104,7 +104,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         AVG
         COUNT
         GROUP
+        ORDER
         BY
+        ASC
         HAVING
         LENGTH
         ROUND
@@ -128,6 +130,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  OrderBySqlNode *                              order_unit;
+  std::vector<OrderBySqlNode *> *               order_unit_list;
+  Order                                         order;
   char *                                        string;
   int                                           number;
   float                                         floats;
@@ -164,6 +169,10 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     expression_list_empty
+%type <order_unit_list>     order_unit_list
+%type <order_unit_list>     orderby
+%type <order_unit>          order_unit
+%type <order>               order
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -460,7 +469,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     ;
 
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr from where groupby having
+    SELECT select_attr from where groupby having orderby
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -476,6 +485,10 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $5;
       }
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
+      if ($7 != nullptr) {
+        $$->selection.orderbys.swap(*$7);
+        delete $7;
+      }
 
       $$->selection.conditions = $4;
       $$->selection.having_conditions=$6;
@@ -517,6 +530,45 @@ groupby:
       }
       $$->push_back($3);
       std::reverse($$->begin(), $$->end());
+    }
+
+orderby:
+    {
+      $$ = nullptr;
+    }
+    | ORDER BY order_unit_list {
+      $$ = $3;
+      std::reverse($$->begin(), $$->end());
+    }
+
+order_unit_list:
+    order_unit 
+    {
+      $$ = new std::vector<OrderBySqlNode *>();
+      $$->push_back($1);
+    }
+    | order_unit COMMA order_unit_list 
+    {
+      $$ = $3;
+      $$->push_back($1);
+    }
+
+order_unit:
+    rel_attr order {
+      $$ = new OrderBySqlNode;
+      $$->field = $1;
+      $$->order = $2;
+    }
+
+order:
+    {
+      $$ = Order::ASC;
+    }
+    | ASC {
+      $$ = Order::ASC;
+    }
+    | DESC {
+      $$ = Order::DESC;
     }
 
 rel_attr_list:
