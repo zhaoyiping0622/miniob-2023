@@ -221,6 +221,11 @@ struct OrderBySqlNode {
   }
 };
 
+struct JoinSqlNode {
+  std::vector<std::string> relations;                ///< 查询的表
+  ConjunctionExprSqlNode *join_conditions = nullptr; ///< join条件
+};
+
 /**
  * @brief 描述一个select语句
  * @ingroup SQLParser
@@ -234,9 +239,9 @@ struct OrderBySqlNode {
 
 struct SelectSqlNode {
   std::vector<ExprSqlNode *> attributes;               ///< attributes in select clause
-  std::vector<std::string> relations;                  ///< 查询的表
   std::vector<FieldExprSqlNode *> groupbys;            ///< groupbys
   std::vector<OrderBySqlNode *> orderbys;              ///< orderbys
+  JoinSqlNode *tables = nullptr;                       ///< 查询的表，以及join条件
   ConjunctionExprSqlNode *conditions = nullptr;        ///< 查询条件，使用AND串联起来多个条件
   ConjunctionExprSqlNode *having_conditions = nullptr; ///< having查询条件
   ~SelectSqlNode() {
@@ -246,10 +251,13 @@ struct SelectSqlNode {
       delete x;
     for (auto *x : orderbys)
       delete x;
+
     if (conditions)
       delete conditions;
     if (having_conditions)
       delete having_conditions;
+    if (tables)
+      delete tables;
   }
 };
 

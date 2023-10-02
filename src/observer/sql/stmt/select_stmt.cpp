@@ -45,21 +45,34 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
-  for (size_t i = 0; i < select_sql.relations.size(); i++) {
-    const char *table_name = select_sql.relations[i].c_str();
-    if (nullptr == table_name) {
-      LOG_WARN("invalid argument. relation name is null. index=%d", i);
-      return RC::INVALID_ARGUMENT;
+  ConjunctionExprSqlNode *conditions = nullptr;
+  auto add_conjunction = [&](ConjunctionExprSqlNode *node) {
+    if (conditions == nullptr)
+      conditions = node;
+    else {
+      conditions = new ConjunctionExprSqlNode(ConjunctionType::AND, conditions, node);
     }
+  };
+  if (select_sql.tables) {
+    auto &relations = select_sql.tables->relations;
+    for (size_t i = 0; i < relations.size(); i++) {
+      const char *table_name = relations[i].c_str();
+      if (nullptr == table_name) {
+        LOG_WARN("invalid argument. relation name is null. index=%d", i);
+        return RC::INVALID_ARGUMENT;
+      }
 
-    Table *table = db->find_table(table_name);
-    if (nullptr == table) {
-      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+      Table *table = db->find_table(table_name);
+      if (nullptr == table) {
+        LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+        return RC::SCHEMA_TABLE_NOT_EXIST;
+      }
+
+      tables.push_back(table);
+      table_map.insert(std::pair<std::string, Table *>(table_name, table));
     }
-
-    tables.push_back(table);
-    table_map.insert(std::pair<std::string, Table *>(table_name, table));
+    if (select_sql.tables->join_conditions != nullptr)
+      add_conjunction(select_sql.tables->join_conditions);
   }
 
   Table *default_table = nullptr;
@@ -177,8 +190,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   // create filter statement in `where` statement
   unique_ptr<FilterStmt> filter_stmt;
   if (select_sql.conditions != nullptr) {
+    add_conjunction(select_sql.conditions);
+  }
+  if (conditions != nullptr) {
     FilterStmt *stmt = nullptr;
-    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, stmt, nullptr);
+    RC rc = FilterStmt::create(db, default_table, &table_map, conditions, stmt, nullptr);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
