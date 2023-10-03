@@ -93,6 +93,8 @@ public:
    */
   virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const = 0;
 
+  virtual RC spec_at(int index, TupleCellSpec &spec) const = 0;
+
   virtual std::string to_string() const {
     std::string str;
     const int cell_num = this->cell_num();
@@ -149,6 +151,16 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    return RC::SUCCESS;
+  }
+
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      LOG_WARN("invalid argument. index=%d", index);
+      return RC::INVALID_ARGUMENT;
+    }
+    auto field_expr = speces_[index];
+    spec = TupleCellSpec(field_expr->table_name(), field_expr->field_name());
     return RC::SUCCESS;
   }
 
@@ -234,6 +246,14 @@ public:
     return RC::NOTFOUND;
   }
 
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      return RC::NOTFOUND;
+    }
+    spec = *speces_[index];
+    return RC::SUCCESS;
+  }
+
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {
@@ -275,6 +295,13 @@ public:
     }
     return RC::NOTFOUND;
   }
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    if (index < 0 || index >= static_cast<int>(expressions_.size())) {
+      return RC::NOTFOUND;
+    }
+    spec = TupleCellSpec(expressions_[index]->name().c_str());
+    return RC::SUCCESS;
+  }
 
 private:
   const std::vector<std::unique_ptr<Expression>> &expressions_;
@@ -290,7 +317,7 @@ public:
   virtual ~ValueListTuple() = default;
 
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
-  void set_speces(const std::vector<TupleCellSpec *> &speces) { speces_ = speces; }
+  void set_speces(const std::vector<TupleCellSpec> &speces) { speces_ = speces; }
 
   virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
 
@@ -307,16 +334,24 @@ public:
     if (cells_.size() != speces_.size())
       return RC::INTERNAL;
     for (int i = 0; i < cells_.size(); i++)
-      if (spec == *speces_[i]) {
+      if (spec == speces_[i]) {
         cell = cells_[i];
         return RC::SUCCESS;
       }
     return RC::NOTFOUND;
   }
 
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    if (index < 0 || index >= static_cast<int>(speces_.size())) {
+      return RC::NOTFOUND;
+    }
+    spec = speces_[index];
+    return RC::SUCCESS;
+  }
+
 private:
   std::vector<Value> cells_;
-  std::vector<TupleCellSpec *> speces_;
+  std::vector<TupleCellSpec> speces_;
 };
 
 /**
@@ -354,6 +389,19 @@ public:
     }
 
     return right_->find_cell(spec, value);
+  }
+
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    int left_num = left_->cell_num();
+    int right_num = right_->cell_num();
+    int num = left_num + right_num;
+    if (index < 0 || index >= num) {
+      return RC::NOTFOUND;
+    }
+    if (index < left_num) {
+      return left_->spec_at(index, spec);
+    }
+    return right_->spec_at(index - left_num, spec);
   }
 
 private:

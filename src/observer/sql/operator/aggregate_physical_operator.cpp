@@ -14,13 +14,13 @@ AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
   ProjectPhysicalOperator *project = new ProjectPhysicalOperator;
   project->add_child(std::move(child));
   for (auto &x : group_fields_) {
-    groupby_speces_.push_back(new TupleCellSpec(x.table_name(), x.field_name()));
+    groupby_speces_.push_back(TupleCellSpec(x.table_name(), x.field_name()));
     project->add_projection(x);
     auto field_expr = unique_ptr<Expression>(new FieldExpr(x));
     project->add_expression(field_expr);
   }
   for (auto &x : aggregation_units_) {
-    aggregation_speces_.push_back(new TupleCellSpec(x->name().c_str()));
+    aggregation_speces_.push_back(TupleCellSpec(x->name().c_str()));
     auto &expression = x->expression();
     if (expression->type() == ExprType::FIELD) {
       FieldExpr &field_expr = static_cast<FieldExpr &>(*expression);
@@ -35,14 +35,7 @@ AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
   valuelist_tuple_.set_speces(aggregation_speces_);
 }
 
-AggregatePhysicalOperator::~AggregatePhysicalOperator() {
-  for (auto x : groupby_speces_) {
-    delete x;
-  }
-  for (auto x : aggregation_speces_) {
-    delete x;
-  }
-}
+AggregatePhysicalOperator::~AggregatePhysicalOperator() {}
 
 RC AggregatePhysicalOperator::calculate_all() {
   auto &child = children_[0];

@@ -86,6 +86,8 @@ public:
 
   virtual std::set<Field> reference_fields() const = 0;
 
+  virtual std::string to_string() const = 0;
+
 private:
   std::string name_;
 };
@@ -122,6 +124,8 @@ public:
 
   virtual std::set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override { return string(table_name()) + "." + field_name(); }
+
 private:
   Field field_;
 };
@@ -155,6 +159,8 @@ public:
 
   set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override { return "Value(" + value_.to_string() + ")"; }
+
 private:
   Value value_;
 };
@@ -181,6 +187,8 @@ public:
   static RC create(AttrType target_type, Expression *&expr);
 
   set<Field> reference_fields() const override;
+
+  virtual std::string to_string() const override { return child_->to_string(); }
 
 private:
   RC cast(const Value &value, Value &cast_value) const;
@@ -227,6 +235,16 @@ public:
 
   set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override {
+    string ret;
+    if (left_)
+      ret += left_->to_string();
+    ret += " cmpop ";
+    if (right_)
+      ret += right_->to_string();
+    return "(" + ret + ")";
+  }
+
 private:
   CompOp comp_;
   std::unique_ptr<Expression> left_;
@@ -260,6 +278,16 @@ public:
 
   set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override {
+    string ret;
+    if (left_)
+      ret += left_->to_string();
+    ret += " conjop ";
+    if (right_)
+      ret += right_->to_string();
+    return "(" + ret + ")";
+  }
+
 private:
   ConjunctionType conjunction_type_;
   std::unique_ptr<Expression> left_;
@@ -292,6 +320,16 @@ public:
 
   set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override {
+    string ret;
+    if (left_)
+      ret += left_->to_string();
+    ret += " arithmetic op ";
+    if (right_)
+      ret += right_->to_string();
+    return "(" + ret + ")";
+  }
+
 private:
   RC calc_value(const Value &left_value, const Value &right_value, Value &value) const;
 
@@ -316,6 +354,8 @@ public:
   virtual AttrType value_type() const override;
   virtual std::set<Field> reference_fields() const override;
 
+  virtual std::string to_string() const override { return name(); }
+
 private:
   AttrType value_type_;
   TupleCellSpec spec_;
@@ -337,6 +377,8 @@ public:
 
   static RC check_function(FunctionType type, std::vector<AttrType> &attrs);
   std::set<Field> reference_fields() const override;
+
+  virtual std::string to_string() const override { return "func(" + children_[0]->to_string() + ")"; }
 
 private:
   FunctionType function_type_;

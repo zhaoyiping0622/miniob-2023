@@ -30,6 +30,7 @@ public:
   RC rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made) override;
 
 private:
-  RC get_exprs_can_pushdown(std::unique_ptr<Expression> &expr,
-                            std::vector<std::unique_ptr<Expression>> &pushdown_exprs);
+  RC get_compare_units(std::unique_ptr<Expression> *expr, std::vector<std::unique_ptr<Expression> *> &units);
+  RC apply_expression(LogicalOperator *father, std::unique_ptr<LogicalOperator> &oper,
+                      std::unique_ptr<Expression> &expr, bool &change_made);
 };

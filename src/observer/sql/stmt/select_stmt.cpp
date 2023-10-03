@@ -22,8 +22,11 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/value.h"
 #include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/filter_stmt.h"
+#include "sql/stmt/join_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <algorithm>
+#include <functional>
 #include <memory>
 
 SelectStmt::~SelectStmt() {}
@@ -45,22 +48,27 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
-  for (size_t i = 0; i < select_sql.relations.size(); i++) {
-    const char *table_name = select_sql.relations[i].c_str();
-    if (nullptr == table_name) {
-      LOG_WARN("invalid argument. relation name is null. index=%d", i);
-      return RC::INVALID_ARGUMENT;
+  ConjunctionExprSqlNode *conditions = nullptr;
+  auto add_conjunction = [&](ConjunctionExprSqlNode *node) {
+    if (conditions == nullptr)
+      conditions = node;
+    else {
+      conditions = new ConjunctionExprSqlNode(ConjunctionType::AND, conditions, node);
     }
-
-    Table *table = db->find_table(table_name);
-    if (nullptr == table) {
-      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-      return RC::SCHEMA_TABLE_NOT_EXIST;
+  };
+  RC rc = RC::SUCCESS;
+  unique_ptr<JoinStmt> join_stmt;
+  if (select_sql.tables) {
+    JoinStmt *join = nullptr;
+    rc = JoinStmt::create(db, select_sql.tables, join, tables, table_map);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create join stmt");
+      return rc;
     }
-
-    tables.push_back(table);
-    table_map.insert(std::pair<std::string, Table *>(table_name, table));
+    join_stmt.reset(join);
   }
+
+  reverse(tables.begin(), tables.end());
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {
@@ -172,13 +180,18 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     reference_fields[i].swap(fields);
   }
 
+  used_fields.insert(attr_used_fields.begin(), attr_used_fields.end());
+
   set<Field> filter_used_fields;
 
   // create filter statement in `where` statement
   unique_ptr<FilterStmt> filter_stmt;
   if (select_sql.conditions != nullptr) {
+    add_conjunction(select_sql.conditions);
+  }
+  if (conditions != nullptr) {
     FilterStmt *stmt = nullptr;
-    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.conditions, stmt, nullptr);
+    RC rc = FilterStmt::create(db, default_table, &table_map, conditions, stmt, nullptr);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
@@ -216,8 +229,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       return rc;
     }
   }
-
-  RC rc = RC::SUCCESS;
 
   unique_ptr<OrderByStmt> orderby(new OrderByStmt);
   for (auto &node : select_sql.orderbys) {
@@ -257,6 +268,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->schema_.swap(schema);
   select_stmt->aggregation_stmt_.swap(aggregation_stmt);
   select_stmt->orderby_stmt_.swap(orderby);
+  select_stmt->join_stmt_.swap(join_stmt);
 
   stmt = select_stmt;
   return RC::SUCCESS;

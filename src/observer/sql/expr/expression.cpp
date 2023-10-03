@@ -681,7 +681,7 @@ set<Field> ComparisonExpr::reference_fields() const {
   if (left_)
     a = left_->reference_fields();
   if (right_)
-    a = right_->reference_fields();
+    b = right_->reference_fields();
   join_fields(a, b);
   return a;
 }
@@ -690,7 +690,7 @@ set<Field> ConjunctionExpr::reference_fields() const {
   if (left_)
     a = left_->reference_fields();
   if (right_)
-    a = right_->reference_fields();
+    b = right_->reference_fields();
   join_fields(a, b);
   return a;
 }
@@ -699,7 +699,7 @@ set<Field> ArithmeticExpr::reference_fields() const {
   if (left_)
     a = left_->reference_fields();
   if (right_)
-    a = right_->reference_fields();
+    b = right_->reference_fields();
   join_fields(a, b);
   return a;
 }

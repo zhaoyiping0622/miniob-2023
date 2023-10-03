@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 #include "sql/stmt/aggregation_stmt.h"
+#include "sql/stmt/join_stmt.h"
 #include "sql/stmt/orderby_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
@@ -53,6 +54,7 @@ public:
   std::unique_ptr<FilterStmt> &filter_stmt() { return filter_stmt_; }
   std::unique_ptr<FilterStmt> &having_stmt() { return having_stmt_; }
   std::unique_ptr<OrderByStmt> &orderby_stmt() { return orderby_stmt_; }
+  std::unique_ptr<JoinStmt> &join_stmt() { return join_stmt_; }
   const std::shared_ptr<TupleSchema> &schema() const { return schema_; }
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
 
@@ -62,6 +64,7 @@ private:
   std::vector<std::unique_ptr<Expression>> expressions_;
   std::vector<Table *> tables_;
   std::shared_ptr<TupleSchema> schema_;
+  std::unique_ptr<JoinStmt> join_stmt_;
   std::unique_ptr<FilterStmt> filter_stmt_;
   std::unique_ptr<FilterStmt> having_stmt_;
   std::unique_ptr<AggregationStmt> aggregation_stmt_ = nullptr;

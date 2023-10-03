@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/optimizer/logical_plan_generator.h"
 
+#include "common/rc.h"
 #include "sql/operator/aggregate_logical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
@@ -68,6 +69,17 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
     rc = RC::UNIMPLENMENT;
   }
   }
+  if (rc == RC::SUCCESS) {
+    // 生成所有逻辑计划的依赖表
+    std::function<void(LogicalOperator *)> dfs = [&](LogicalOperator *oper) {
+      for (auto &x : oper->children()) {
+        dfs(x.get());
+      }
+      oper->gen_child_tables();
+      oper->add_current_table();
+    };
+    dfs(logical_operator.get());
+  }
   return rc;
 }
 
@@ -76,28 +88,48 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
   return RC::SUCCESS;
 }
 
+RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fields,
+                                     std::unique_ptr<LogicalOperator> &logical_operator) {
+  unique_ptr<LogicalOperator> table_oper;
+  vector<Field> current_fields;
+  Table *table = join_stmt->table();
+  for (auto field : fields) {
+    if (strcmp(table->name(), field.table_name()) == 0) {
+      current_fields.push_back(field);
+    }
+  }
+  table_oper.reset(new TableGetLogicalOperator(table, current_fields, true));
+  RC rc = RC::SUCCESS;
+  if (join_stmt->sub_join() == nullptr) {
+    logical_operator.swap(table_oper);
+    return rc;
+  }
+  unique_ptr<LogicalOperator> sub_op;
+  rc = create_plan(join_stmt->sub_join().get(), fields, sub_op);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+  join_oper->add_child(std::move(sub_op));
+  join_oper->add_child(std::move(table_oper));
+  if (join_stmt->condition() == nullptr) {
+    logical_operator.reset(join_oper);
+  } else {
+    logical_operator.reset(new PredicateLogicalOperator(std::move(join_stmt->condition())));
+    logical_operator->add_child(unique_ptr<LogicalOperator>(join_oper));
+  }
+  return rc;
+}
+
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator) {
   unique_ptr<LogicalOperator> table_oper(nullptr);
 
   const std::vector<Table *> &tables = select_stmt->tables();
   const std::set<Field> &all_fields = select_stmt->used_fields();
-  for (Table *table : tables) {
-    std::vector<Field> fields;
-    for (const Field &field : all_fields) {
-      if (0 == strcmp(field.table_name(), table->name())) {
-        fields.push_back(field);
-      }
-    }
 
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, true /*readonly*/));
-    if (table_oper == nullptr) {
-      table_oper = std::move(table_get_oper);
-    } else {
-      JoinLogicalOperator *join_oper = new JoinLogicalOperator;
-      join_oper->add_child(std::move(table_oper));
-      join_oper->add_child(std::move(table_get_oper));
-      table_oper = unique_ptr<LogicalOperator>(join_oper);
-    }
+  RC rc = create_plan(select_stmt->join_stmt().get(), all_fields, table_oper);
+  if (rc != RC::SUCCESS) {
+    return rc;
   }
 
   unique_ptr<LogicalOperator> predicate_oper;

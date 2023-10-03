@@ -111,6 +111,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         LENGTH
         ROUND
         DATE_FORMAT
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -130,6 +132,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  JoinSqlNode *                                 join;
   OrderBySqlNode *                              order_unit;
   std::vector<OrderBySqlNode *> *               order_unit_list;
   Order                                         order;
@@ -163,9 +166,12 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         where
 %type <conjunction>         having
 %type <conjunction>         conjunction
+%type <conjunction>         joined_on
 %type <expression_list>     select_attr
-%type <relation_list>       rel_list
-%type <relation_list>       from
+%type <join>                rel_list
+%type <join>                from
+%type <join>                joined_tables
+%type <join>                joined_tables_inner
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     expression_list_empty
@@ -477,14 +483,12 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $2;
       }
       if ($3 != nullptr) {
-        $$->selection.relations.swap(*$3);
-        delete $3;
+        $$->selection.tables=$3;
       }
       if ($5 != nullptr) {
         $$->selection.groupbys.swap(*$5);
         delete $5;
       }
-      std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
       if ($7 != nullptr) {
         $$->selection.orderbys.swap(*$7);
         delete $7;
@@ -499,15 +503,41 @@ from:
     {
       $$ = nullptr;
     }
-    | FROM ID rel_list {
-      $$ = $3;
-      if ($$ == nullptr) {
-        $$ = new std::vector<std::string>;
-      }
-      $$->push_back($2);
-      free($2);
+    | FROM rel_list {
+      $$ = $2;
+    }
+    | FROM joined_tables {
+      $$ = $2;
     }
     ;
+
+joined_tables:
+    joined_tables_inner INNER JOIN ID joined_on {
+      $$ = new JoinSqlNode;
+      $$->relation=$4;
+      free($4);
+      $$->sub_join=$1;
+      $$->join_conditions=$5;  
+    }
+
+joined_tables_inner:
+    ID {
+      $$ = new JoinSqlNode;
+      $$->relation = $1;
+      free($1);
+    }
+    | joined_tables_inner INNER JOIN ID joined_on {
+      $$ = new JoinSqlNode;
+      $$->relation=$4;
+      free($4);
+      $$->sub_join=$1;
+      $$->join_conditions=$5;  
+    }
+
+joined_on:
+    ON conjunction {
+      $$ = $2;
+    }
 
 having:
     {
@@ -692,18 +722,16 @@ rel_attr:
 
 rel_list:
     /* empty */
-    {
-      $$ = nullptr;
+    ID {
+      $$ = new JoinSqlNode;
+      $$->relation = $1;
+      free($1);
     }
-    | COMMA ID rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<std::string>;
-      }
-
-      $$->push_back($2);
-      free($2);
+    | rel_list COMMA ID  {
+      $$ = new JoinSqlNode;
+      $$->relation = $3;
+      free($3);
+      $$->sub_join = $1;
     }
     ;
 
