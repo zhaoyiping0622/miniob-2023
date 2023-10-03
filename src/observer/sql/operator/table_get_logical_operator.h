@@ -34,6 +34,8 @@ public:
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
   std::vector<std::unique_ptr<Expression>> &predicates() { return predicates_; }
 
+  void add_current_table() override { tables_.insert(table_->name()); }
+
 private:
   Table *table_ = nullptr;
   std::vector<Field> fields_;

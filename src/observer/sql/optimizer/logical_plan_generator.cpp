@@ -68,6 +68,17 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
     rc = RC::UNIMPLENMENT;
   }
   }
+  if (rc == RC::SUCCESS) {
+    // 生成所有逻辑计划的依赖表
+    std::function<void(LogicalOperator *)> dfs = [&](LogicalOperator *oper) {
+      for (auto &x : oper->children()) {
+        dfs(x.get());
+      }
+      oper->gen_child_tables();
+      oper->add_current_table();
+    };
+    dfs(logical_operator.get());
+  }
   return rc;
 }
 

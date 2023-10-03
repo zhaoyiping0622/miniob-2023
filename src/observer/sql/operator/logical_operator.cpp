@@ -20,3 +20,9 @@ void LogicalOperator::add_child(std::unique_ptr<LogicalOperator> oper) {
   if (oper)
     children_.emplace_back(std::move(oper));
 }
+void LogicalOperator::gen_child_tables() {
+  for (auto &x : children_) {
+    auto &se = x->tables();
+    tables_.insert(se.begin(), se.end());
+  }
+}
