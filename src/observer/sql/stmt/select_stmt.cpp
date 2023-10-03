@@ -22,8 +22,10 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/value.h"
 #include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/filter_stmt.h"
+#include "sql/stmt/join_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <functional>
 #include <memory>
 
 SelectStmt::~SelectStmt() {}
@@ -53,26 +55,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       conditions = new ConjunctionExprSqlNode(ConjunctionType::AND, conditions, node);
     }
   };
+  RC rc = RC::SUCCESS;
+  unique_ptr<JoinStmt> join_stmt;
   if (select_sql.tables) {
-    auto &relations = select_sql.tables->relations;
-    for (size_t i = 0; i < relations.size(); i++) {
-      const char *table_name = relations[i].c_str();
-      if (nullptr == table_name) {
-        LOG_WARN("invalid argument. relation name is null. index=%d", i);
-        return RC::INVALID_ARGUMENT;
-      }
-
-      Table *table = db->find_table(table_name);
-      if (nullptr == table) {
-        LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
-        return RC::SCHEMA_TABLE_NOT_EXIST;
-      }
-
-      tables.push_back(table);
-      table_map.insert(std::pair<std::string, Table *>(table_name, table));
+    JoinStmt *join = nullptr;
+    rc = JoinStmt::create(db, select_sql.tables, join, tables, table_map);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create join stmt");
     }
-    if (select_sql.tables->join_conditions != nullptr)
-      add_conjunction(select_sql.tables->join_conditions);
+    join_stmt.reset(join);
   }
 
   Table *default_table = nullptr;
@@ -233,8 +224,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
   }
 
-  RC rc = RC::SUCCESS;
-
   unique_ptr<OrderByStmt> orderby(new OrderByStmt);
   for (auto &node : select_sql.orderbys) {
     OrderByUnit unit;
@@ -273,6 +262,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->schema_.swap(schema);
   select_stmt->aggregation_stmt_.swap(aggregation_stmt);
   select_stmt->orderby_stmt_.swap(orderby);
+  select_stmt->join_stmt_.swap(join_stmt);
 
   stmt = select_stmt;
   return RC::SUCCESS;

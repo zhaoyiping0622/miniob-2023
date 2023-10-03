@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 
 #include "common/rc.h"
+#include "sql/stmt/join_stmt.h"
 
 class Stmt;
 class CalcStmt;
@@ -39,4 +40,5 @@ private:
   RC create_plan(InsertStmt *insert_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(DeleteStmt *delete_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(ExplainStmt *explain_stmt, std::unique_ptr<LogicalOperator> &logical_operator);
+  RC create_plan(JoinStmt *join_stmt, const set<Field> &fields, std::unique_ptr<LogicalOperator> &logical_operator);
 };

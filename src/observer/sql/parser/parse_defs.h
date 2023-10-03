@@ -222,7 +222,8 @@ struct OrderBySqlNode {
 };
 
 struct JoinSqlNode {
-  std::vector<std::string> relations;                ///< 查询的表
+  std::string relation;                              ///< 查询的表
+  JoinSqlNode *sub_join = nullptr;                   ///< 子join
   ConjunctionExprSqlNode *join_conditions = nullptr; ///< join条件
 };
 

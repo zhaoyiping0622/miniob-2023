@@ -168,9 +168,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         conjunction
 %type <conjunction>         joined_on
 %type <expression_list>     select_attr
-%type <relation_list>       rel_list
+%type <join>                rel_list
 %type <join>                from
-%type <relation_list>       joined_tables
+%type <join>                joined_tables
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     expression_list_empty
@@ -504,39 +504,31 @@ from:
     }
     | FROM ID rel_list {
       $$ = new JoinSqlNode;
-      if ($3 != nullptr) {
-        $$->relations.swap(*$3);
-        delete $3;
-      }
-      $$->relations.push_back($2);
+      $$->relation = $2;
+      $$->sub_join = $3;
       free($2);
-      std::reverse($$->relations.begin(), $$->relations.end());
     }
-    | FROM ID INNER JOIN ID joined_tables joined_on {
-    // TODO(zhaoyiping):
+    | FROM ID INNER JOIN joined_tables joined_on {
       $$ = new JoinSqlNode;
-      if ($6 != nullptr) {
-        $$->relations.swap(*$6);
-        delete $6;
-      }
-      $$->relations.push_back($5);
-      $$->relations.push_back($2);
-      reverse($$->relations.begin(), $$->relations.end());
-      $$->join_conditions = $7;
+      $$->relation=$2;
+      free($2);
+      $$->sub_join=$5;
+      $$->join_conditions=$6;
     }
     ;
 
 joined_tables:
-    {
-      $$ = nullptr;
+    ID {
+      $$ = new JoinSqlNode;
+      $$->relation = $1;
+      free($1);
     }
-    | INNER JOIN ID joined_tables {
-      $$ = $4;
-      if ($$ == nullptr) {
-        $$ = new std::vector<std::string>;
-      }
-      $$->push_back($3);
-      free($3);
+    | joined_tables INNER JOIN ID joined_on {
+      $$ = new JoinSqlNode;
+      $$->relation = $4;
+      free($4);
+      $$->sub_join = $1;
+      $$->join_conditions = $5;
     }
 
 joined_on:
@@ -731,14 +723,10 @@ rel_list:
       $$ = nullptr;
     }
     | COMMA ID rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<std::string>;
-      }
-
-      $$->push_back($2);
+      $$ = new JoinSqlNode;
+      $$->relation = $2;
       free($2);
+      $$->sub_join = $3;
     }
     ;
 

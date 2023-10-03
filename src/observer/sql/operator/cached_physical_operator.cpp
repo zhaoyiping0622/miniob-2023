@@ -76,4 +76,5 @@ RC cache_child_physical_operator(PhysicalOperator *oper) {
     oper->add_child(unique_ptr<PhysicalOperator>(x.release()));
     x.reset(oper);
   }
+  return RC::SUCCESS;
 }
