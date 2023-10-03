@@ -171,6 +171,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <join>                rel_list
 %type <join>                from
 %type <join>                joined_tables
+%type <join>                joined_tables_inner
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     expression_list_empty
@@ -508,27 +509,32 @@ from:
       $$->sub_join = $3;
       free($2);
     }
-    | FROM ID INNER JOIN joined_tables joined_on {
-      $$ = new JoinSqlNode;
-      $$->relation=$2;
-      free($2);
-      $$->sub_join=$5;
-      $$->join_conditions=$6;
+    | FROM joined_tables {
+      $$ = $2;
     }
     ;
 
 joined_tables:
+    joined_tables_inner INNER JOIN ID joined_on {
+      $$ = new JoinSqlNode;
+      $$->relation=$4;
+      free($4);
+      $$->sub_join=$1;
+      $$->join_conditions=$5;  
+    }
+
+joined_tables_inner:
     ID {
       $$ = new JoinSqlNode;
       $$->relation = $1;
       free($1);
     }
-    | joined_tables INNER JOIN ID joined_on {
+    | joined_tables_inner INNER JOIN ID joined_on {
       $$ = new JoinSqlNode;
-      $$->relation = $4;
+      $$->relation=$4;
       free($4);
-      $$->sub_join = $1;
-      $$->join_conditions = $5;
+      $$->sub_join=$1;
+      $$->join_conditions=$5;  
     }
 
 joined_on:

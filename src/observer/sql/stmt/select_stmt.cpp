@@ -62,6 +62,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     rc = JoinStmt::create(db, select_sql.tables, join, tables, table_map);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to create join stmt");
+      return rc;
     }
     join_stmt.reset(join);
   }
@@ -175,6 +176,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     append_cell(expressions[i].get());
     reference_fields[i].swap(fields);
   }
+
+  used_fields.insert(attr_used_fields.begin(), attr_used_fields.end());
 
   set<Field> filter_used_fields;
 

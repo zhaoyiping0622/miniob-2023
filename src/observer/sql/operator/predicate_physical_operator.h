@@ -38,6 +38,8 @@ public:
 
   Tuple *current_tuple() override;
 
+  virtual std::string param() const override { return expression_->to_string(); }
+
 private:
   std::unique_ptr<Expression> expression_;
 };
