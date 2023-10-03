@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/join_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <algorithm>
 #include <functional>
 #include <memory>
 
@@ -66,6 +67,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
     join_stmt.reset(join);
   }
+
+  reverse(tables.begin(), tables.end());
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {
