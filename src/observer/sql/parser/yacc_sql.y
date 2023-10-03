@@ -503,11 +503,8 @@ from:
     {
       $$ = nullptr;
     }
-    | FROM ID rel_list {
-      $$ = new JoinSqlNode;
-      $$->relation = $2;
-      $$->sub_join = $3;
-      free($2);
+    | FROM rel_list {
+      $$ = $2;
     }
     | FROM joined_tables {
       $$ = $2;
@@ -725,14 +722,16 @@ rel_attr:
 
 rel_list:
     /* empty */
-    {
-      $$ = nullptr;
-    }
-    | COMMA ID rel_list {
+    ID {
       $$ = new JoinSqlNode;
-      $$->relation = $2;
-      free($2);
-      $$->sub_join = $3;
+      $$->relation = $1;
+      free($1);
+    }
+    | rel_list COMMA ID  {
+      $$ = new JoinSqlNode;
+      $$->relation = $3;
+      free($3);
+      $$->sub_join = $1;
     }
     ;
 
