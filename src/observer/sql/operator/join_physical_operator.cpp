@@ -125,3 +125,4 @@ RC NestedLoopJoinPhysicalOperator::right_next() {
   joined_tuple_.set_right(right_tuple_);
   return rc;
 }
+

@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 
 class TupleCellSpec {
 public:
+  TupleCellSpec() = default;
   TupleCellSpec(const char *table_name, const char *field_name, const char *alias = nullptr);
   TupleCellSpec(const char *alias);
   TupleCellSpec(const Field &field);
@@ -30,9 +31,7 @@ public:
   const char *alias() const { return alias_.c_str(); }
 
   bool operator==(const TupleCellSpec &other) const {
-    if (alias_.size() && other.alias_.size())
-      return alias_ == other.alias_;
-    return table_name_ == other.table_name_ && field_name_ == other.field_name_;
+    return alias_ == other.alias_ || table_name_ == other.table_name_ && field_name_ == other.field_name_;
   }
 
 private:

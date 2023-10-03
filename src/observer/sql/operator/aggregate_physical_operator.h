@@ -32,8 +32,8 @@ private:
   JoinedTuple joined_tuple_;
   ValueListTuple groupby_tuple_;
   ValueListTuple valuelist_tuple_;
-  std::vector<TupleCellSpec *> groupby_speces_;
-  std::vector<TupleCellSpec *> aggregation_speces_;
+  std::vector<TupleCellSpec> groupby_speces_;
+  std::vector<TupleCellSpec> aggregation_speces_;
 
 private:
   std::map<std::vector<Value>, std::vector<std::unique_ptr<Aggregator>>> map_;
