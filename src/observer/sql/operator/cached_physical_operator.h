@@ -33,4 +33,4 @@ private:
   bool opened_ = false;
 };
 
-RC cache_child_physical_operator(PhysicalOperator* oper) ;
+RC cache_child_physical_operator(PhysicalOperator *oper);
