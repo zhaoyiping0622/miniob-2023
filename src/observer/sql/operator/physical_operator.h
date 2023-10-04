@@ -49,6 +49,7 @@ enum class PhysicalOperatorType {
   INSERT,
   AGGREGATE,
   SORT,
+  SUB_QUERY,
 };
 
 /**

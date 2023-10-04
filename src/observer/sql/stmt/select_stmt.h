@@ -43,7 +43,8 @@ public:
   StmtType type() const override { return StmtType::SELECT; }
 
 public:
-  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt);
+  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, const std::vector<Table *> *father_tables,
+                   std::set<Field> &father_fields);
 
 public:
   const std::vector<Table *> &tables() const { return tables_; }
@@ -57,16 +58,26 @@ public:
   std::unique_ptr<JoinStmt> &join_stmt() { return join_stmt_; }
   const std::shared_ptr<TupleSchema> &schema() const { return schema_; }
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
+  std::vector<std::unique_ptr<SelectStmt>> &sub_queries() { return sub_queries_; }
 
 private:
-  std::set<Field> used_fields_;
-  std::vector<std::set<Field>> reference_fields_;
-  std::vector<std::unique_ptr<Expression>> expressions_;
-  std::vector<Table *> tables_;
-  std::shared_ptr<TupleSchema> schema_;
   std::unique_ptr<JoinStmt> join_stmt_;
-  std::unique_ptr<FilterStmt> filter_stmt_;
-  std::unique_ptr<FilterStmt> having_stmt_;
-  std::unique_ptr<AggregationStmt> aggregation_stmt_ = nullptr;
-  std::unique_ptr<OrderByStmt> orderby_stmt_;
+
+  std::set<Field> used_fields_;                          // 所有用到的field
+  std::vector<std::set<Field>> reference_fields_;        // 每个表达式用到的field
+  std::vector<std::unique_ptr<Expression>> expressions_; // 所有表达式
+  std::vector<Table *> tables_;                          // 所有表名
+  std::vector<Table *> father_tables_;                   // 父节点的表名
+  std::shared_ptr<TupleSchema> schema_;                  // 所有要输出的tuple的schema
+
+  std::vector<std::unique_ptr<SelectStmt>> sub_queries_; // 子查询
+
+  std::unique_ptr<FilterStmt> filter_stmt_; // where子句
+  std::unique_ptr<FilterStmt> having_stmt_; // having子句
+
+  std::unique_ptr<AggregationStmt> aggregation_stmt_; // 聚合
+
+  std::unique_ptr<OrderByStmt> orderby_stmt_; // 排序
+
+  bool use_father_ = false;
 };

@@ -16,7 +16,10 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/date.h"
 #include <compare>
+#include <memory>
+#include <set>
 #include <string>
+#include <vector>
 
 /**
  * @brief 属性的类型
@@ -29,11 +32,14 @@ enum AttrType {
   DATES,    ///< 日期类型(4字节)
   FLOATS,   ///< 浮点数类型(4字节)
   NULLS,    ///< NULL
+  LISTS,    ///< 多行数据
   BOOLEANS, ///< boolean类型，当前不是由parser解析出来的，是程序内部使用的
 };
 
 const char *attr_type_to_string(AttrType type);
 AttrType attr_type_from_string(const char *s);
+
+class ValueList;
 
 /**
  * @brief 属性的值
@@ -50,6 +56,7 @@ public:
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
   explicit Value(Date date);
+  explicit Value(std::set<ValueList> &list);
 
   Value(const Value &other) = default;
   Value &operator=(const Value &other) = default;
@@ -64,6 +71,7 @@ public:
   void set_date(Date date);
   void set_value(const Value &value);
   void set_null();
+  void set_list(const std::set<ValueList> &list);
 
   std::string to_string() const;
 
@@ -86,6 +94,7 @@ public:
   std::string get_string() const;
   bool get_boolean() const;
   Date get_date() const;
+  std::shared_ptr<std::set<ValueList>> get_list() const;
 
 public:
   /**
@@ -106,6 +115,21 @@ private:
     Date date_value_;
   } num_value_;
   std::string str_value_;
+  std::shared_ptr<std::set<ValueList>> list_value_;
 };
 
 AttrType AttrTypeCompare(AttrType a, AttrType b);
+
+class ValueList {
+public:
+  ValueList(const Value &v) : list_(1, v) {}
+  std::vector<Value> &get_list() { return list_; }
+  const std::vector<Value> &get_list() const { return list_; }
+
+  std::string to_string() const;
+
+  std::strong_ordering operator<=>(const ValueList &other) const;
+
+private:
+  std::vector<Value> list_;
+};

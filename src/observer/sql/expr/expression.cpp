@@ -19,9 +19,11 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
+#include "sql/stmt/select_stmt.h"
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 using namespace std;
 
@@ -364,6 +366,9 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::FUNCTION:
     rc = FunctionExpr::create(db, default_table, tables, expr_node->get_function(), expr, fallback);
     break;
+  case ExprType::CONTAIN:
+    rc = ContainExpr::create(db, default_table, tables, expr_node->get_contain(), expr, fallback);
+    break;
   default:
     if (fallback) {
       rc = (*fallback)(expr_node, expr);
@@ -491,6 +496,48 @@ FunctionExpr::FunctionExpr(FunctionType type, std::vector<std::unique_ptr<Expres
 
 ////////////////////////////////////////////////////////////////////////////////
 
+ListExpr::ListExpr(SelectStmt *select, std::string name)
+    : NamedExpr(LISTS, TupleCellSpec(name.c_str())), select_(select), column_num_(select->schema()->cell_num()) {}
+
+////////////////////////////////////////////////////////////////////////////////
+
+RC ContainExpr::get_value(const Tuple &tuple, Value &value) const {
+  Value right_value;
+  Value left_value;
+  RC rc = RC::SUCCESS;
+  rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  rc = right_->get_value(tuple, right_value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  auto list = right_value.get_list();
+  ValueList tmp(left_value);
+  if (list->count(tmp) == 0) {
+    value.set_boolean(contain_type_ == ContainType::NOT_IN);
+  } else {
+    value.set_boolean(contain_type_ == ContainType::IN);
+  }
+  return RC::SUCCESS;
+}
+
+std::set<Field> ContainExpr::reference_fields() const { return left_->reference_fields(); }
+
+std::string ContainExpr::to_string() const {
+  stringstream ss;
+  ss << left_->to_string();
+  if (contain_type_ == ContainType::IN) {
+    ss << " in ";
+  } else {
+    ss << " not in ";
+  }
+  ss << right_->to_string();
+  return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                        const string &table_name, const string &field_name, Table *&table, const FieldMeta *&field) {
   if (common::is_blank(table_name.c_str())) {
@@ -668,6 +715,38 @@ RC FunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::st
     return rc;
   }
   expr = new FunctionExpr(type, children_expression);
+  return RC::SUCCESS;
+}
+
+static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                 const ContainExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  Expression *tmp;
+  unique_ptr<Expression> left, right;
+  RC rc = RC::SUCCESS;
+  rc = Expression::create(db, default_table, tables, expr_node->left, tmp, fallback);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  left.reset(tmp);
+  if (fallback == nullptr) {
+    LOG_WARN("list expr should be processed in fallback");
+    return RC::INTERNAL;
+  }
+  rc = Expression::create(db, default_table, tables, expr_node->right, tmp, fallback);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  right.reset(tmp);
+  if (right->type() != ExprType::LIST) {
+    LOG_WARN("contain right value is not list");
+    return RC::IN_WRONG_TYPE;
+  }
+  ListExpr *list_expr = static_cast<ListExpr *>(right.get());
+  if (list_expr->get_column_num() != 1) {
+    LOG_WARN("contain right value has multiple column");
+    return RC::IN_WRONG_TYPE;
+  }
+  expr = new ContainExpr(expr_node->type, std::move(left), std::move(right));
   return RC::SUCCESS;
 }
 
