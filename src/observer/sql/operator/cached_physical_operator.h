@@ -8,13 +8,13 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::CACHED; }
 
   RC open(Trx *trx) override;
-  RC next() override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
   Tuple *current_tuple() override { return &tuple_; }
 
-  std::vector<std::vector<Value>> &get_records() {
+  std::vector<std::vector<Value>> &get_records(Tuple *env_tuple) {
     if (!inited_) {
-      init();
+      init(env_tuple);
       inited_ = true;
     }
     return records_;
@@ -26,7 +26,7 @@ private:
   std::vector<Record> records_;
 
   bool inited_ = false;
-  RC init();
+  RC init(Tuple *env_tuple);
 
   ValueListTuple tuple_;
   PhysicalOperator *child_ = nullptr;

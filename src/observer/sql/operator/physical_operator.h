@@ -70,7 +70,7 @@ public:
   virtual PhysicalOperatorType type() const = 0;
 
   virtual RC open(Trx *trx) = 0;
-  virtual RC next() = 0;
+  virtual RC next(Tuple *env_tuple) = 0;
   virtual RC close() = 0;
 
   virtual Tuple *current_tuple() = 0;

@@ -37,10 +37,10 @@ AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
 
 AggregatePhysicalOperator::~AggregatePhysicalOperator() {}
 
-RC AggregatePhysicalOperator::calculate_all() {
+RC AggregatePhysicalOperator::calculate_all(Tuple *env_tuple) {
   auto &child = children_[0];
   RC rc = RC::SUCCESS;
-  while ((rc = child->next()) == RC::SUCCESS) {
+  while ((rc = child->next(env_tuple)) == RC::SUCCESS) {
     Tuple *tuple = child->current_tuple();
     vector<Value> record(groupby_speces_.size());
     vector<Value> values(aggregation_speces_.size());
@@ -85,9 +85,9 @@ RC AggregatePhysicalOperator::open(Trx *trx) {
   return child->open(trx);
 }
 
-RC AggregatePhysicalOperator::next() {
+RC AggregatePhysicalOperator::next(Tuple *env_tuple) {
   if (idx_ == -1)
-    calculate_all();
+    calculate_all(env_tuple);
   idx_++;
   if (idx_ == records_.size()) {
     return RC::RECORD_EOF;

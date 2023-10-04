@@ -27,7 +27,7 @@ RC TableScanPhysicalOperator::open(Trx *trx) {
   return rc;
 }
 
-RC TableScanPhysicalOperator::next() {
+RC TableScanPhysicalOperator::next(Tuple* env_tuple) {
   if (!record_scanner_.has_next()) {
     return RC::RECORD_EOF;
   }

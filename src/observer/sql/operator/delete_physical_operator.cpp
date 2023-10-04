@@ -36,14 +36,14 @@ RC DeletePhysicalOperator::open(Trx *trx) {
   return RC::SUCCESS;
 }
 
-RC DeletePhysicalOperator::next() {
+RC DeletePhysicalOperator::next(Tuple* env_tuple) {
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
 
   PhysicalOperator *child = children_[0].get();
-  while (RC::SUCCESS == (rc = child->next())) {
+  while (RC::SUCCESS == (rc = child->next(env_tuple))) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
       LOG_WARN("failed to get current record: %s", strrc(rc));

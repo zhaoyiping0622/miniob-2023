@@ -35,7 +35,7 @@ public:
   std::string param() const override;
 
   RC open(Trx *trx) override;
-  RC next() override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
 
   Tuple *current_tuple() override;

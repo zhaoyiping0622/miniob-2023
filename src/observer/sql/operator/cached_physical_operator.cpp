@@ -19,9 +19,9 @@ RC CachedPhysicalOperator::open(Trx *trx) {
   return RC::SUCCESS;
 }
 
-RC CachedPhysicalOperator::next() {
+RC CachedPhysicalOperator::next(Tuple *env_tuple) {
   if (!inited_) {
-    RC rc = init();
+    RC rc = init(env_tuple);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -43,9 +43,9 @@ RC CachedPhysicalOperator::close() {
   return RC::SUCCESS;
 }
 
-RC CachedPhysicalOperator::init() {
+RC CachedPhysicalOperator::init(Tuple* env_tuple) {
   RC rc = RC::SUCCESS;
-  while ((rc = child_->next()) == RC::SUCCESS) {
+  while ((rc = child_->next(env_tuple)) == RC::SUCCESS) {
     Tuple *sub_tuple = child_->current_tuple();
     if (tuple_.cell_num() != sub_tuple->cell_num()) {
       std::vector<TupleCellSpec> speces(sub_tuple->cell_num());

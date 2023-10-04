@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
+#include "sql/expr/tuple.h"
 #include "sql/operator/physical_operator.h"
 #include "storage/record/record_manager.h"
 
@@ -35,7 +36,7 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::TABLE_SCAN; }
 
   RC open(Trx *trx) override;
-  RC next() override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
 
   Tuple *current_tuple() override;

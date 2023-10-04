@@ -38,7 +38,7 @@ public:
 
   RC open(Trx *) override { return RC::SUCCESS; }
 
-  RC next() override {
+  RC next(Tuple* env_tuple) override {
     if (!started_) {
       started_ = true;
       iterator_ = strings_.begin();

@@ -31,7 +31,7 @@ RC ExplainPhysicalOperator::close() {
   return RC::SUCCESS;
 }
 
-RC ExplainPhysicalOperator::next() {
+RC ExplainPhysicalOperator::next(Tuple* env_tuple) {
   if (!physical_plan_.empty()) {
     return RC::RECORD_EOF;
   }
