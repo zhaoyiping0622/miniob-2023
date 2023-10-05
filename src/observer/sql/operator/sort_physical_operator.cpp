@@ -13,7 +13,7 @@ RC SortPhysicalOperator::open(Trx *trx) {
   return child->open(trx);
 }
 
-RC SortPhysicalOperator::next(Tuple* env_tuple) {
+RC SortPhysicalOperator::next(Tuple *env_tuple) {
   if (idx_ == -1) {
     init(env_tuple);
   }
@@ -29,7 +29,15 @@ RC SortPhysicalOperator::close() {
   return children_[0]->close();
 }
 
-RC SortPhysicalOperator::init(Tuple* env_tuple) {
+RC SortPhysicalOperator::init(Tuple *env_tuple) {
+  if (speces_.size() != schema_->cell_num()) {
+    int num = schema_->cell_num();
+    speces_.resize(num);
+    for (int i = 0; i < num; i++) {
+      speces_[i] = schema_->cell_at(i);
+    }
+    tuple_.set_speces(speces_);
+  }
   RC rc = read_all(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
@@ -53,7 +61,7 @@ RC SortPhysicalOperator::init(Tuple* env_tuple) {
   return RC::SUCCESS;
 }
 
-RC SortPhysicalOperator::read_all(Tuple* env_tuple) {
+RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
   while ((rc = children_[0]->next(env_tuple)) == RC::SUCCESS) {
     auto *subtuple = children_[0]->current_tuple();
