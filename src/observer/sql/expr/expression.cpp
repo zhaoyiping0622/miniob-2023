@@ -514,7 +514,7 @@ RC ContainExpr::get_value(const Tuple &tuple, Value &value) const {
     return rc;
   }
   if (right_value.attr_type() == NULLS) {
-    value.set_boolean(false);
+    value.set_boolean(contain_type_ == ContainType::NOT_IN);
     return RC::SUCCESS;
   }
   auto list = right_value.get_list();
