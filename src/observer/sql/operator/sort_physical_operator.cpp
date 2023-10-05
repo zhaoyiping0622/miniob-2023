@@ -30,14 +30,12 @@ RC SortPhysicalOperator::close() {
 }
 
 RC SortPhysicalOperator::init(Tuple *env_tuple) {
-  if (speces_.size() != schema_->cell_num()) {
-    int num = schema_->cell_num();
-    speces_.resize(num);
-    for (int i = 0; i < num; i++) {
-      speces_[i] = schema_->cell_at(i);
-    }
-    tuple_.set_speces(speces_);
+  int num = schema_->cell_num();
+  speces_.resize(num);
+  for (int i = 0; i < num; i++) {
+    speces_[i] = schema_->cell_at(i);
   }
+  tuple_.set_speces(speces_);
   RC rc = read_all(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
