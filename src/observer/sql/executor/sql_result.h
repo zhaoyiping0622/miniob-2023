@@ -55,4 +55,7 @@ private:
   TupleSchema tuple_schema_;                   ///< 返回的表头信息。可能有也可能没有
   RC return_code_ = RC::SUCCESS;
   std::string state_string_;
+  std::vector<std::vector<Value>> records_;
+  ValueListTuple tuple_;
+  int idx_{-1};
 };

@@ -29,7 +29,24 @@ RC SqlResult::open() {
 
   Trx *trx = session_->current_trx();
   trx->start_if_need();
-  return operator_->open(trx);
+  RC rc = operator_->open(trx);
+  if (rc != RC::SUCCESS)
+    return rc;
+  while ((rc = operator_->next(nullptr)) == RC::SUCCESS) {
+    std::vector<Value> values(tuple_schema_.cell_num());
+    Tuple *sub_tuple = operator_->current_tuple();
+    for (int i = 0; i < values.size(); i++) {
+      auto spec = tuple_schema_.cell_at(i);
+      rc = sub_tuple->find_cell(spec, values[i]);
+      if (rc != RC::SUCCESS)
+        return rc;
+    }
+    records_.push_back(values);
+  }
+  if (rc != RC::RECORD_EOF) {
+    return rc;
+  }
+  return RC::SUCCESS;
 }
 
 RC SqlResult::close() {
@@ -61,8 +78,17 @@ RC SqlResult::next_tuple(Tuple *&tuple) {
   if (rc != RC::SUCCESS) {
     return rc;
   }
-
-  tuple = operator_->current_tuple();
+  idx_++;
+  if (idx_ == records_.size())
+    return RC::RECORD_EOF;
+  if (idx_ == 0) {
+    vector<TupleCellSpec> speces(tuple_schema_.cell_num());
+    for (int i = 0; i < speces.size(); i++)
+      speces[i] = tuple_schema_.cell_at(i);
+    tuple_.set_speces(speces);
+  }
+  tuple_.set_cells(records_[idx_]);
+  tuple = &tuple_;
   return rc;
 }
 
