@@ -431,3 +431,19 @@ std::string ValueList::to_string() const {
   ss << "}";
   return ss.str();
 }
+
+std::strong_ordering ValueList::operator<=>(const ValueList &other) const {
+  int size = std::min(list_.size(), other.list_.size());
+  for (int i = 0; i < size; i++) {
+    auto cmp = list_[i] <=> other.list_[i];
+    if (cmp != std::strong_ordering::equal) {
+      return cmp;
+    }
+  }
+  if (list_.size() < other.list_.size())
+    return std::strong_ordering::less;
+  else if (list_.size() == other.list_.size())
+    return std::strong_ordering::equal;
+  else
+    return std::strong_ordering::greater;
+}

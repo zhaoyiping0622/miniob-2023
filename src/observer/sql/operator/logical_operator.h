@@ -42,6 +42,7 @@ enum class LogicalOperatorType {
   AGGREGATE,  ///< 聚合
   SORT,       ///< 排序
   SUB_QUERY,  ///< 子查询
+  CACHED,     ///< 缓存
 };
 
 /**

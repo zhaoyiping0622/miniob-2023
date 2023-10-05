@@ -125,6 +125,19 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
       sub_queries.emplace_back(select_stmt);
       expr = new ListExpr(select_stmt, node->name());
       // 提取一些子查询用到的字段
+      for (auto field : fields) {
+        bool found = false;
+        for (auto *table : tables) {
+          if (field.table() == table) {
+            found = true;
+          }
+        }
+        if (found) {
+          used_fields.insert(field);
+        } else {
+          father_fields.insert(field);
+        }
+      }
       used_fields.insert(fields.begin(), fields.end());
       return rc;
     }
@@ -290,16 +303,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
     return rc;
   }
 
-  for (auto field : used_fields) {
-    bool found = false;
-    for (auto table : tables) {
-      if (table == field.table())
-        found = true;
-    }
-    if (!found)
-      father_fields.insert(field);
-  }
-
   LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
 
   // everything alright
@@ -325,7 +328,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   select_stmt->orderby_stmt_.swap(orderby);
 
   select_stmt->use_father_ = !father_fields.empty();
-
 
   stmt = select_stmt;
   return RC::SUCCESS;

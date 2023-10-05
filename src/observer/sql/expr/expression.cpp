@@ -718,6 +718,29 @@ RC FunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::st
   return RC::SUCCESS;
 }
 
+RC ContainExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                       const ContainExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  std::unique_ptr<Expression> left, right;
+  Expression *tmp;
+  RC rc = RC::SUCCESS;
+  rc = Expression::create(db, default_table, tables, expr_node->left, tmp, fallback);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  left.reset(tmp);
+  rc = Expression::create(db, default_table, tables, expr_node->right, tmp, fallback);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  right.reset(tmp);
+  if (tmp->value_type() != LISTS) {
+    LOG_WARN("contain expr right attr type should be LISTS");
+    return RC::INVALID_ARGUMENT;
+  }
+  expr = new ContainExpr(expr_node->type, std::move(left), std::move(right));
+  return RC::SUCCESS;
+}
+
 static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                  const ContainExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   Expression *tmp;

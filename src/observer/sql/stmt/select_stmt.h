@@ -59,11 +59,12 @@ public:
   const std::shared_ptr<TupleSchema> &schema() const { return schema_; }
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
   std::vector<std::unique_ptr<SelectStmt>> &sub_queries() { return sub_queries_; }
+  bool use_father() const { return use_father_; }
 
 private:
   std::unique_ptr<JoinStmt> join_stmt_;
 
-  std::set<Field> used_fields_;                          // 所有用到的field
+  std::set<Field> used_fields_;                          // 当前查询会生成的scan中所有用到的field
   std::vector<std::set<Field>> reference_fields_;        // 每个表达式用到的field
   std::vector<std::unique_ptr<Expression>> expressions_; // 所有表达式
   std::vector<Table *> tables_;                          // 所有表名
