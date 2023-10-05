@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <utility>
 
@@ -97,7 +98,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
     return RC::SUCCESS;
   }
   int cmp_result = left.compare(right);
-  if (cmp_result == -2) {
+  if (cmp_result == std::numeric_limits<int>::min()) {
     LOG_WARN("unable to compare");
     return RC::INVALID_ARGUMENT;
   }

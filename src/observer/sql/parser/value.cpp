@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "storage/field/field.h"
 #include <compare>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -246,7 +247,7 @@ int Value::compare(const Value &other) const {
     } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
-      return -2;
+      return std::numeric_limits<int>::min();
     }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
@@ -264,16 +265,16 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == LISTS) {
     auto list = get_list();
     if (list->size() != 1)
-      return -2;
+      return std::numeric_limits<int>::min();
     return list->begin()->get_list().begin()->compare(other);
   } else if (other.attr_type_ == LISTS) {
     auto list = other.get_list();
     if (list->size() != 1)
-      return -2;
+      return std::numeric_limits<int>::min();
     return this->compare(*list->begin()->get_list().begin());
   }
   LOG_WARN("not supported");
-  return -2; // TODO return rc?
+  return std::numeric_limits<int>::min();
 }
 
 std::strong_ordering Value::operator<=>(const Value &value) const {
