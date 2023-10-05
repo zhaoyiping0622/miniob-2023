@@ -246,6 +246,7 @@ int Value::compare(const Value &other) const {
     } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
+      return -2;
     }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
@@ -263,16 +264,16 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == LISTS) {
     auto list = get_list();
     if (list->size() != 1)
-      return -1;
+      return -2;
     return list->begin()->get_list().begin()->compare(other);
   } else if (other.attr_type_ == LISTS) {
     auto list = other.get_list();
     if (list->size() != 1)
-      return -1;
+      return -2;
     return this->compare(*list->begin()->get_list().begin());
   }
   LOG_WARN("not supported");
-  return -1; // TODO return rc?
+  return -2; // TODO return rc?
 }
 
 std::strong_ordering Value::operator<=>(const Value &value) const {
