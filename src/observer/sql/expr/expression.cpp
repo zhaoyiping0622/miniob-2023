@@ -97,7 +97,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
     return RC::SUCCESS;
   }
   int cmp_result = left.compare(right);
-  if (cmp_result) {
+  if (cmp_result == -2) {
     LOG_WARN("unable to compare");
     return RC::INVALID_ARGUMENT;
   }
