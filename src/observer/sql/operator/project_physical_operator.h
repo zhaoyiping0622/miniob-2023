@@ -35,7 +35,7 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::PROJECT; }
 
   RC open(Trx *trx) override;
-  RC next(Tuple* env_tuple) override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
 
   int cell_num() const { return tuple_.cell_num(); }

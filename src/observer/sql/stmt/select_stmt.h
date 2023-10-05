@@ -23,8 +23,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/join_stmt.h"
 #include "sql/stmt/orderby_stmt.h"
-#include "sql/stmt/sub_query_stmt.h"
 #include "sql/stmt/stmt.h"
+#include "sql/stmt/sub_query_stmt.h"
 #include "storage/field/field.h"
 
 class FieldMeta;

@@ -19,7 +19,7 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::AGGREGATE; }
 
   RC open(Trx *trx) override;
-  RC next(Tuple* env_tuple) override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
 
   Tuple *current_tuple() override { return &joined_tuple_; }
@@ -40,7 +40,7 @@ private:
   std::vector<std::vector<Value>> records_;
   int idx_ = -1;
 
-  RC calculate_all(Tuple* env_tuple);
+  RC calculate_all(Tuple *env_tuple);
 };
 
 class Aggregator {

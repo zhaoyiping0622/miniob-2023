@@ -30,7 +30,7 @@ public:
   std::string param() const override { return ""; }
 
   RC open(Trx *trx) override { return RC::SUCCESS; }
-  RC next(Tuple* env_tuple) override {
+  RC next(Tuple *env_tuple) override {
     RC rc = RC::SUCCESS;
     if (emitted_) {
       rc = RC::RECORD_EOF;

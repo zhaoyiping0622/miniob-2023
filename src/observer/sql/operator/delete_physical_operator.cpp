@@ -36,7 +36,7 @@ RC DeletePhysicalOperator::open(Trx *trx) {
   return RC::SUCCESS;
 }
 
-RC DeletePhysicalOperator::next(Tuple* env_tuple) {
+RC DeletePhysicalOperator::next(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
     return RC::RECORD_EOF;

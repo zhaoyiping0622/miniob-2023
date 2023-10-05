@@ -387,7 +387,7 @@ class SelectStmt;
 
 class ListExpr : public NamedExpr {
 public:
-  ListExpr(SelectStmt* select, std::string name);
+  ListExpr(SelectStmt *select, std::string name);
 
   ExprType type() const override { return ExprType::LIST; }
   SelectStmt *get_select() { return select_; }
