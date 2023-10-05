@@ -48,7 +48,11 @@ RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
       }
       records.emplace(tmp);
     }
-    values[i].set_list(records);
+    if (records.size()) {
+      values[i].set_list(records);
+    } else {
+      values[i].set_null();
+    }
   }
   list_tuple_.set_cells(values);
   result_.set_right(&env_);
