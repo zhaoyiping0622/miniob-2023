@@ -36,8 +36,7 @@ RC SqlResult::open() {
     std::vector<Value> values(tuple_schema_.cell_num());
     Tuple *sub_tuple = operator_->current_tuple();
     for (int i = 0; i < values.size(); i++) {
-      auto spec = tuple_schema_.cell_at(i);
-      rc = sub_tuple->find_cell(spec, values[i]);
+      rc = sub_tuple->cell_at(i, values[i]);
       if (rc != RC::SUCCESS)
         return rc;
     }

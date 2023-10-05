@@ -319,7 +319,7 @@ public:
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
   void set_speces(const std::vector<TupleCellSpec> &speces) { speces_ = speces; }
 
-  virtual int cell_num() const override { return static_cast<int>(speces_.size()); }
+  virtual int cell_num() const override { return static_cast<int>(std::max(speces_.size(), cells_.size())); }
 
   virtual RC cell_at(int index, Value &cell) const override {
     if (index < 0 || index >= cell_num()) {
