@@ -199,6 +199,28 @@ std::string Value::to_string() const {
   return os.str();
 }
 
+int compare_by_ordering(std::strong_ordering order) {
+  if (order == std::strong_ordering::equal || order == std::strong_ordering::equivalent) {
+    return 0;
+  } else if (order == std::strong_ordering::less) {
+    return -1;
+  } else if (order == std::strong_ordering::greater) {
+    return 1;
+  }
+  return -1;
+}
+
+int compare_by_ordering(std::weak_ordering order) {
+  if (order == std::weak_ordering::equivalent) {
+    return 0;
+  } else if (order == std::weak_ordering::less) {
+    return -1;
+  } else if (order == std::weak_ordering::greater) {
+    return 1;
+  }
+  return -1;
+}
+
 int Value::compare(const Value &other) const {
   if (this->attr_type() == other.attr_type()) {
     switch (this->attr_type_) {
@@ -220,13 +242,7 @@ int Value::compare(const Value &other) const {
     } break;
     case LISTS: {
       auto order = (*list_value_) <=> (*other.list_value_);
-      if (order == std::strong_ordering::equal) {
-        return 0;
-      } else if (order == std::strong_ordering::less) {
-        return -1;
-      } else if (order == std::strong_ordering::greater) {
-        return 1;
-      }
+      return compare_by_ordering(order);
     } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
@@ -244,6 +260,16 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
     Date b = other.get_date();
     return Date::compare_date(&num_value_.date_value_, &b);
+  } else if (this->attr_type_ == LISTS) {
+    auto list = get_list();
+    if (list->size() != 1)
+      return -1;
+    return list->begin()->get_list().begin()->compare(other);
+  } else if (other.attr_type_ == LISTS) {
+    auto list = other.get_list();
+    if (list->size() != 1)
+      return -1;
+    return this->compare(*list->begin()->get_list().begin());
   }
   LOG_WARN("not supported");
   return -1; // TODO return rc?
