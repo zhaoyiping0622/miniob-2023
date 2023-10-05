@@ -120,6 +120,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
       if (rc != RC::SUCCESS)
         return rc;
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
+      if (select_stmt->schema()->cell_num() != 1) {
+        // 现在只处理子查询只有一列的情况，多列直接报错
+        LOG_WARN("sub query should only have one column");
+        delete stmt;
+        return RC::INVALID_ARGUMENT;
+      }
       sub_queries.push_back(SubQueryStmt(std::unique_ptr<SelectStmt>(select_stmt), node->name()));
       expr = new ListExpr(select_stmt, node->name());
       // 提取一些子查询用到的字段
