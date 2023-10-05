@@ -106,6 +106,8 @@ RC AggregatePhysicalOperator::close() {
   map_.clear();
   records_.resize(0);
   idx_ = -1;
+  valuelist_tuple_.set_cells(std::vector<Value>());
+  groupby_tuple_.set_cells(std::vector<Value>());
   auto &child = children_[0];
   return child->close();
 }

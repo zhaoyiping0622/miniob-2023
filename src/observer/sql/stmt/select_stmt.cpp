@@ -307,6 +307,20 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
     return rc;
   }
 
+  for (auto it = used_fields.begin(); it != used_fields.end();) {
+    bool found = false;
+    for (auto *table : tables) {
+      if (table == it->table()) {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+      father_fields.insert(*it), it = used_fields.erase(it);
+    else
+      it++;
+  }
+
   LOG_INFO("got %d tables in from stmt and %d fields in query stmt", tables.size(), expressions.size());
 
   // everything alright

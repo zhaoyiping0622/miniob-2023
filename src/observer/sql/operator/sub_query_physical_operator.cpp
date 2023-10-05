@@ -26,12 +26,12 @@ RC SubQueryPhysicalOperator::open(Trx *trx) {
   return RC::SUCCESS;
 }
 RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
-  env_.set_left(env_tuple);
   RC rc = RC::SUCCESS;
   rc = main_->next(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
-  env_.set_right(main_->current_tuple());
+  env_.set_left(main_->current_tuple());
+  env_.set_right(env_tuple);
   vector<Value> values(speces_.size());
   for (int i = 0; i < children_.size(); i++) {
     auto &child = children_[i];
@@ -48,10 +48,17 @@ RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
       }
       records.emplace(tmp);
     }
+    if (rc != RC::RECORD_EOF) {
+      return rc;
+    }
     if (records.size()) {
       values[i].set_list(records);
     } else {
       values[i].set_null();
+    }
+    rc = child->close();
+    if (rc != RC::SUCCESS) {
+      return rc;
     }
   }
   list_tuple_.set_cells(values);
