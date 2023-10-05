@@ -343,9 +343,9 @@ RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &logical_oper, std::un
   auto &expressions = logical_oper.expressions();
   for (int i = 0; i < expressions.size(); i++) {
     if (expressions[i]->type() == ExprType::FIELD) {
-      sort_operator->speces_.emplace_back(static_cast<FieldExpr *>(expressions[i].get())->field());
+      sort_operator->sort_speces_.emplace_back(static_cast<FieldExpr *>(expressions[i].get())->field());
     } else {
-      sort_operator->speces_.emplace_back(expressions[i]->name().c_str());
+      sort_operator->sort_speces_.emplace_back(expressions[i]->name().c_str());
     }
   }
   oper.reset(sort_operator.release());

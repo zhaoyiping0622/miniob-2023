@@ -22,7 +22,7 @@ private:
   std::vector<pair<Record, Record>> values_;
 
   std::shared_ptr<TupleSchema> schema_;
-  std::vector<TupleCellSpec> speces_;
+  std::vector<TupleCellSpec> sort_speces_;
   std::vector<Order> orders_;
   ValueListTuple tuple_;
   friend class PhysicalPlanGenerator;

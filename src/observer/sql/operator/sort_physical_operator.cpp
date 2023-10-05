@@ -31,11 +31,12 @@ RC SortPhysicalOperator::close() {
 
 RC SortPhysicalOperator::init(Tuple *env_tuple) {
   int num = schema_->cell_num();
-  speces_.resize(num);
+  vector<TupleCellSpec> speces;
+  speces.resize(num);
   for (int i = 0; i < num; i++) {
-    speces_[i] = schema_->cell_at(i);
+    speces[i] = schema_->cell_at(i);
   }
-  tuple_.set_speces(speces_);
+  tuple_.set_speces(speces);
   RC rc = read_all(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
@@ -72,9 +73,9 @@ RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
         return rc;
       }
     }
-    Record key(speces_.size());
+    Record key(sort_speces_.size());
     for (int i = 0; i < orders_.size(); i++) {
-      rc = subtuple->find_cell(speces_[i], key[i]);
+      rc = subtuple->find_cell(sort_speces_[i], key[i]);
       if (rc != RC::SUCCESS) {
         LOG_WARN("fail to sort, cannot read sort fields");
         return rc;
