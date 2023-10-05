@@ -1,16 +1,13 @@
 #include "sql/operator/cached_physical_operator.h"
+#include "common/rc.h"
 #include "history.h"
 #include "sql/operator/physical_operator.h"
 
-CachedPhysicalOperator::CachedPhysicalOperator() {
+RC CachedPhysicalOperator::open(Trx *trx) {
   if (children_.size() != 1) {
     LOG_ERROR("cached physical operator does not have one child physical operator");
-    child_ = children_[0].get();
   }
-  index_ = -1;
-}
-
-RC CachedPhysicalOperator::open(Trx *trx) {
+  child_ = children_[0].get();
   index_ = -1;
   if (!inited_) {
     opened_ = true;
@@ -43,7 +40,7 @@ RC CachedPhysicalOperator::close() {
   return RC::SUCCESS;
 }
 
-RC CachedPhysicalOperator::init(Tuple* env_tuple) {
+RC CachedPhysicalOperator::init(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
   while ((rc = child_->next(env_tuple)) == RC::SUCCESS) {
     Tuple *sub_tuple = child_->current_tuple();
@@ -57,24 +54,16 @@ RC CachedPhysicalOperator::init(Tuple* env_tuple) {
       }
       tuple_.set_speces(speces);
     }
-    Record record(tuple_.cell_num());
-    for (int i = 0; i < tuple_.cell_num(); i++) {
-      sub_tuple->cell_at(i, record[i]);
+    Record record(sub_tuple->cell_num());
+    for (int i = 0; i < sub_tuple->cell_num(); i++) {
+      rc = sub_tuple->cell_at(i, record[i]);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
     }
     records_.push_back(record);
   }
   if (rc == RC::RECORD_EOF)
     return RC::SUCCESS;
   return rc;
-}
-
-RC cache_child_physical_operator(PhysicalOperator *oper) {
-  for (auto &x : oper->children()) {
-    if (x->type() == PhysicalOperatorType::CACHED)
-      continue;
-    auto *oper = new CachedPhysicalOperator();
-    oper->add_child(unique_ptr<PhysicalOperator>(x.release()));
-    x.reset(oper);
-  }
-  return RC::SUCCESS;
 }

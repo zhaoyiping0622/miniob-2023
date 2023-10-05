@@ -353,24 +353,25 @@ RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &logical_oper, std::un
 }
 RC PhysicalPlanGenerator::create_plan(SubQueryLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
   auto &children = logical_oper.children();
-  if (children.size() <= 1) {
-    LOG_ERROR("sub query should have at least 2 child");
+  if (children.empty()) {
+    LOG_ERROR("sub query should have at least 1 child");
     return RC::INTERNAL;
   }
   std::unique_ptr<PhysicalOperator> tmp;
   RC rc = RC::SUCCESS;
-  rc = create(*children[0], tmp);
+  rc = create(*logical_oper.main_oper(), tmp);
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  oper.reset(new SubQueryPhysicalOperator(std::move(tmp)));
-  for (int i = 1; i < children.size(); i++) {
+  auto *sub_query = new SubQueryPhysicalOperator(std::move(tmp));
+  for (int i = 0; i < children.size(); i++) {
     rc = create(*children[i], tmp);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-    oper->add_child(std::move(tmp));
+    sub_query->add_sub_query(std::move(tmp), logical_oper.names()[i]);
   }
+  oper.reset(sub_query);
   return rc;
 }
 
@@ -385,7 +386,6 @@ RC PhysicalPlanGenerator::create_plan(CachedLogicalOperator &logical_oper, std::
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  oper.reset(new CachedPhysicalOperator());
-  oper->add_child(std::move(oper));
+  oper.reset(new CachedPhysicalOperator(std::move(child)));
   return rc;
 }

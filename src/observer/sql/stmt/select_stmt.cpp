@@ -107,13 +107,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
 
   aggregation_stmt->group_fields() = groupbys;
 
-  vector<unique_ptr<SelectStmt>> sub_queries;
+  vector<SubQueryStmt> sub_queries;
 
   set<Field> used_fields = groupbys;
 
-  ExprGenerator subexpr_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
-    RC rc = RC::SUCCESS;
-
+  ExprGenerator sub_query_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
     if (node->type() == ExprType::LIST) {
       auto *list_node = node->get_list();
       Stmt *stmt = nullptr;
@@ -122,7 +120,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
       if (rc != RC::SUCCESS)
         return rc;
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
-      sub_queries.emplace_back(select_stmt);
+      sub_queries.push_back(SubQueryStmt(std::unique_ptr<SelectStmt>(select_stmt), node->name()));
       expr = new ListExpr(select_stmt, node->name());
       // 提取一些子查询用到的字段
       for (auto field : fields) {
@@ -141,6 +139,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
       used_fields.insert(fields.begin(), fields.end());
       return rc;
     }
+    return RC::INTERNAL;
+  };
+
+  ExprGenerator aggregator_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
+    RC rc = RC::SUCCESS;
 
     // 处理named的情况，提取aggregation子句
 
@@ -201,7 +204,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
       }
     } else {
       Expression *expr;
-      RC rc = Expression::create(db, default_table, &table_map, expression, expr, &subexpr_generator);
+      RC rc = Expression::create(db, default_table, &table_map, expression, expr, &aggregator_generator);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to parse expression, rc=%s", strrc(rc));
         return rc;
@@ -240,7 +243,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   }
   if (conditions != nullptr) {
     FilterStmt *stmt = nullptr;
-    RC rc = FilterStmt::create(db, default_table, &table_map, conditions, stmt, nullptr);
+    RC rc = FilterStmt::create(db, default_table, &table_map, conditions, stmt, &sub_query_generator);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
@@ -267,7 +270,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   unique_ptr<FilterStmt> having_stmt;
   if (select_sql.having_conditions != nullptr) {
     FilterStmt *stmt = nullptr;
-    RC rc = FilterStmt::create(db, default_table, &table_map, select_sql.having_conditions, stmt, &subexpr_generator);
+    RC rc =
+        FilterStmt::create(db, default_table, &table_map, select_sql.having_conditions, stmt, &aggregator_generator);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;

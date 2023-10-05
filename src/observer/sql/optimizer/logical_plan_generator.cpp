@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_logical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/logical_operator.h"
+#include "sql/operator/physical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/sort_logical_operator.h"
@@ -37,6 +38,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/insert_stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
+#include <memory>
 #include <utility>
 
 using namespace std;
@@ -136,21 +138,21 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   if (select_stmt->sub_queries().size()) {
-    unique_ptr<LogicalOperator> sub_query_operator(new SubQueryLogicalOperator(table_oper));
+    unique_ptr<SubQueryLogicalOperator> sub_query_operator(new SubQueryLogicalOperator(table_oper));
     for (auto &x : select_stmt->sub_queries()) {
       unique_ptr<LogicalOperator> sub_query;
-      rc = create_plan(x.get(), sub_query);
+      rc = create_plan(x.stmt().get(), sub_query);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to generate sub query");
         return rc;
       }
-      if (!x->use_father()) {
+      if (!x.stmt()->use_father()) {
         unique_ptr<LogicalOperator> cached_opeartor(new CachedLogicalOperator(sub_query));
         sub_query.swap(cached_opeartor);
       }
-      sub_query_operator->add_child(std::move(sub_query));
+      sub_query_operator->add_sub_query(std::move(sub_query), x.name());
     }
-    table_oper.swap(sub_query_operator);
+    table_oper.reset(sub_query_operator.release());
   }
 
   unique_ptr<LogicalOperator> predicate_oper;

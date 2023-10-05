@@ -20,4 +20,5 @@ private:
   JoinedTuple result_;
   ValueListTuple list_tuple_;
   std::vector<TupleCellSpec> speces_;
+  Trx *trx_;
 };

@@ -1,8 +1,9 @@
 #include "sql/expr/tuple.h"
 #include "sql/operator/physical_operator.h"
+#include <utility>
 class CachedPhysicalOperator : public PhysicalOperator {
 public:
-  CachedPhysicalOperator();
+  CachedPhysicalOperator(std::unique_ptr<PhysicalOperator> oper) { add_child(std::move(oper)); }
   virtual ~CachedPhysicalOperator() = default;
 
   PhysicalOperatorType type() const override { return PhysicalOperatorType::CACHED; }

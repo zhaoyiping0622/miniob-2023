@@ -4,9 +4,8 @@
 #include <memory>
 #include <utility>
 
-SubQueryPhysicalOperator::SubQueryPhysicalOperator(std::unique_ptr<PhysicalOperator> main_op) {
-  add_child(std::move(main_op));
-}
+SubQueryPhysicalOperator::SubQueryPhysicalOperator(std::unique_ptr<PhysicalOperator> main_op)
+    : main_(std::move(main_op)) {}
 
 RC SubQueryPhysicalOperator::add_sub_query(std::unique_ptr<PhysicalOperator> sub_query, std::string name) {
   add_child(std::move(sub_query));
@@ -15,34 +14,41 @@ RC SubQueryPhysicalOperator::add_sub_query(std::unique_ptr<PhysicalOperator> sub
 }
 
 RC SubQueryPhysicalOperator::open(Trx *trx) {
-  if (children_.size() < 2) {
+  if (children_.size() < 1) {
     LOG_ERROR("sub query physical operator has no sub queries");
     return RC::INVALID_ARGUMENT;
   }
-  for (int i = 0; i < children_.size(); i++) {
-    RC rc = children_[i]->open(trx);
-    if (rc != RC::SUCCESS)
-      return rc;
-  }
+  RC rc = main_->open(trx);
+  if (rc != RC::SUCCESS)
+    return rc;
   list_tuple_.set_speces(speces_);
+  trx_ = trx;
   return RC::SUCCESS;
 }
 RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
   env_.set_left(env_tuple);
   RC rc = RC::SUCCESS;
-  rc = children_[0]->next(env_tuple);
+  rc = main_->next(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
-  env_.set_right(children_[0]->current_tuple());
+  env_.set_right(main_->current_tuple());
   vector<Value> values(speces_.size());
-  for (int i = 1; i < children_.size(); i++) {
-    rc = children_[i]->next(&env_);
+  for (int i = 0; i < children_.size(); i++) {
+    auto &child = children_[i];
+    rc = child->open(trx_);
     if (rc != RC::SUCCESS)
       return rc;
-    auto *tuple = children_[i]->current_tuple();
-    rc = tuple->cell_at(0, values[i - 1]);
-    if (rc != RC::SUCCESS)
-      return rc;
+    std::set<ValueList> records;
+    while ((rc = child->next(&env_)) == RC::SUCCESS) {
+      Tuple *sub_tuple = child->current_tuple();
+      Value tmp;
+      rc = sub_tuple->cell_at(0, tmp);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      records.emplace(tmp);
+    }
+    values[i].set_list(records);
   }
   list_tuple_.set_cells(values);
   result_.set_right(&env_);
