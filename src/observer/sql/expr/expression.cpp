@@ -513,6 +513,10 @@ RC ContainExpr::get_value(const Tuple &tuple, Value &value) const {
   if (rc != RC::SUCCESS) {
     return rc;
   }
+  if (right_value.attr_type() == NULLS) {
+    value.set_boolean(false);
+    return RC::SUCCESS;
+  }
   auto list = right_value.get_list();
   ValueList tmp(left_value);
   if (list->count(tmp) == 0) {
