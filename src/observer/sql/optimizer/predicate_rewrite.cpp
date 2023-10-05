@@ -48,10 +48,11 @@ RC PredicateRewriteRule::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &c
     for (auto &grand_child_oper : grand_child_opers) {
       oper->add_child(std::move(grand_child_oper));
     }
+    change_made = true;
   } else {
-    child_opers.clear();
+    // child_opers.clear();
   }
 
-  change_made = true;
+  // change_made = true;
   return RC::SUCCESS;
 }
