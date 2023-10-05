@@ -74,10 +74,7 @@ RC SqlResult::close() {
 }
 
 RC SqlResult::next_tuple(Tuple *&tuple) {
-  RC rc = operator_->next(nullptr);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
+  RC rc = RC::SUCCESS;
   idx_++;
   if (idx_ == records_.size())
     return RC::RECORD_EOF;
