@@ -38,11 +38,11 @@ RC ProjectPhysicalOperator::open(Trx *trx) {
   return RC::SUCCESS;
 }
 
-RC ProjectPhysicalOperator::next() {
+RC ProjectPhysicalOperator::next(Tuple *env_tuple) {
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
-  return children_[0]->next();
+  return children_[0]->next(env_tuple);
 }
 
 RC ProjectPhysicalOperator::close() {

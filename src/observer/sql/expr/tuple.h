@@ -319,7 +319,7 @@ public:
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
   void set_speces(const std::vector<TupleCellSpec> &speces) { speces_ = speces; }
 
-  virtual int cell_num() const override { return static_cast<int>(cells_.size()); }
+  virtual int cell_num() const override { return static_cast<int>(speces_.size()); }
 
   virtual RC cell_at(int index, Value &cell) const override {
     if (index < 0 || index >= cell_num()) {
@@ -367,15 +367,16 @@ public:
   void set_left(Tuple *left) { left_ = left; }
   void set_right(Tuple *right) { right_ = right; }
 
-  int cell_num() const override { return left_->cell_num() + right_->cell_num(); }
+  int cell_num() const override { return (left_ ? left_->cell_num() : 0) + (right_ ? right_->cell_num() : 0); }
 
   RC cell_at(int index, Value &value) const override {
-    const int left_cell_num = left_->cell_num();
+    const int left_cell_num = (left_ ? left_->cell_num() : 0);
     if (index > 0 && index < left_cell_num) {
       return left_->cell_at(index, value);
     }
 
-    if (index >= left_cell_num && index < left_cell_num + right_->cell_num()) {
+    const int right_cell_num = (right_ ? right_->cell_num() : 0);
+    if (index >= left_cell_num && index < left_cell_num + right_cell_num) {
       return right_->cell_at(index - left_cell_num, value);
     }
 
@@ -383,25 +384,27 @@ public:
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &value) const override {
-    RC rc = left_->find_cell(spec, value);
+    RC rc = (left_ ? left_->find_cell(spec, value) : RC::NOTFOUND);
     if (rc == RC::SUCCESS || rc != RC::NOTFOUND) {
       return rc;
     }
 
-    return right_->find_cell(spec, value);
+    return (right_ ? right_->find_cell(spec, value) : RC::NOTFOUND);
   }
 
   RC spec_at(int index, TupleCellSpec &spec) const override {
-    int left_num = left_->cell_num();
-    int right_num = right_->cell_num();
-    int num = left_num + right_num;
+    const int left_cell_num = (left_ ? left_->cell_num() : 0);
+    const int right_cell_num = (right_ ? right_->cell_num() : 0);
+    int num = left_cell_num + right_cell_num;
     if (index < 0 || index >= num) {
       return RC::NOTFOUND;
     }
-    if (index < left_num) {
+    if (index < left_cell_num) {
       return left_->spec_at(index, spec);
     }
-    return right_->spec_at(index - left_num, spec);
+    if (index >= left_cell_num)
+      return right_->spec_at(index - left_cell_num, spec);
+    return RC::NOTFOUND;
   }
 
 private:

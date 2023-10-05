@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include <string.h>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "common/log/log.h"
 #include "sql/expr/tuple_cell.h"
@@ -294,6 +295,27 @@ private:
   std::unique_ptr<Expression> right_;
 };
 
+class ContainExpr : public Expression {
+public:
+  ContainExpr(ContainType type, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
+      : contain_type_(type), left_(std::move(left)), right_(std::move(right)) {}
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  ExprType type() const override { return ExprType::CONTAIN; }
+  AttrType value_type() const override { return BOOLEANS; }
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ContainExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
+
+  virtual std::set<Field> reference_fields() const override;
+
+  virtual std::string to_string() const override;
+
+private:
+  ContainType contain_type_;
+  std::unique_ptr<Expression> left_;
+  std::unique_ptr<Expression> right_;
+};
+
 /**
  * @brief 算术表达式
  * @ingroup Expression
@@ -359,6 +381,21 @@ public:
 private:
   AttrType value_type_;
   TupleCellSpec spec_;
+};
+
+class SelectStmt;
+
+class ListExpr : public NamedExpr {
+public:
+  ListExpr(SelectStmt *select, std::string name);
+
+  ExprType type() const override { return ExprType::LIST; }
+  SelectStmt *get_select() { return select_; }
+  int get_column_num() { return column_num_; }
+
+private:
+  SelectStmt *select_;
+  int column_num_;
 };
 
 class FunctionExpr : public Expression {

@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "sql/expr/expression.h"
+#include "sql/expr/tuple.h"
 #include "sql/operator/physical_operator.h"
 #include <memory>
 
@@ -33,7 +34,7 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::PREDICATE; }
 
   RC open(Trx *trx) override;
-  RC next() override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
 
   Tuple *current_tuple() override;
@@ -42,4 +43,5 @@ public:
 
 private:
   std::unique_ptr<Expression> expression_;
+  JoinedTuple filter_tuple_;
 };

@@ -23,9 +23,11 @@ string token_name(const char *sql_string, YYLTYPE *llocp)
 int yyerror(YYLTYPE *llocp, const char *sql_string, ParsedSqlResult *sql_result, yyscan_t scanner, const char *msg)
 {
   std::unique_ptr<ParsedSqlNode> error_sql_node = std::make_unique<ParsedSqlNode>(SCF_ERROR);
-  error_sql_node->error.error_msg = msg;
-  error_sql_node->error.line = llocp->first_line;
-  error_sql_node->error.column = llocp->first_column;
+  ErrorSqlNode *error = new ErrorSqlNode;
+  error->error_msg = msg;
+  error->line = llocp->first_line;
+  error->column = llocp->first_column;
+  error_sql_node->node.error=error;
   sql_result->add_sql_node(std::move(error_sql_node));
   return 0;
 }
@@ -113,6 +115,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         DATE_FORMAT
         INNER
         JOIN
+        NOT
+        IN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -121,6 +125,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   ValueExprSqlNode *                            value_expr;
   Value *                                       value;
   enum CompOp                                   comp;
+  ContainType                                   contain_op;
+  ContainExprSqlNode *                          contain;
+  ListExprSqlNode *                             list;
   AggregationType                               aggr;
   FunctionType                                  func;
   FieldExprSqlNode *                            rel_attr;
@@ -156,6 +163,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <comp>                comp_op
 %type <aggr>                aggr_op
 %type <func>                func_op
+%type <contain_op>          contain_op;
 %type <rel_attr>            rel_attr
 %type <rel_attr_list>       rel_attr_list
 %type <rel_attr_list>       groupby
@@ -167,6 +175,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         having
 %type <conjunction>         conjunction
 %type <conjunction>         joined_on
+%type <contain>             contain
+%type <list>                list_expr
 %type <expression_list>     select_attr
 %type <join>                rel_list
 %type <join>                from
@@ -278,7 +288,9 @@ rollback_stmt:
 drop_table_stmt:    /*drop table 语句的语法解析树*/
     DROP TABLE ID {
       $$ = new ParsedSqlNode(SCF_DROP_TABLE);
-      $$->drop_table.relation_name = $3;
+      auto *drop_table = new DropTableSqlNode;
+      $$->node.drop_table = drop_table;
+      drop_table->relation_name = $3;
       free($3);
     };
 
@@ -291,7 +303,9 @@ show_tables_stmt:
 desc_table_stmt:
     DESC ID  {
       $$ = new ParsedSqlNode(SCF_DESC_TABLE);
-      $$->desc_table.relation_name = $2;
+      auto *desc_table = new DescTableSqlNode;
+      $$->node.desc_table = desc_table;
+      desc_table->relation_name = $2;
       free($2);
     }
     ;
@@ -300,10 +314,11 @@ create_index_stmt:    /*create index 语句的语法解析树*/
     CREATE INDEX ID ON ID LBRACE ID RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
-      CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.index_name = $3;
-      create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      CreateIndexSqlNode *create_index = new CreateIndexSqlNode;
+      $$->node.create_index = create_index;
+      create_index->index_name = $3;
+      create_index->relation_name = $5;
+      create_index->attribute_name = $7;
       free($3);
       free($5);
       free($7);
@@ -314,8 +329,10 @@ drop_index_stmt:      /*drop index 语句的语法解析树*/
     DROP INDEX ID ON ID
     {
       $$ = new ParsedSqlNode(SCF_DROP_INDEX);
-      $$->drop_index.index_name = $3;
-      $$->drop_index.relation_name = $5;
+      auto *drop_index = new DropIndexSqlNode;
+      $$->node.drop_index = drop_index;
+      drop_index->index_name = $3;
+      drop_index->relation_name = $5;
       free($3);
       free($5);
     }
@@ -325,17 +342,18 @@ create_table_stmt:    /*create table 语句的语法解析树*/
     CREATE TABLE ID LBRACE attr_def attr_def_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_TABLE);
-      CreateTableSqlNode &create_table = $$->create_table;
-      create_table.relation_name = $3;
+      CreateTableSqlNode *create_table = new CreateTableSqlNode;
+      $$->node.create_table = create_table;
+      create_table->relation_name = $3;
       free($3);
 
       std::vector<AttrInfoSqlNode> *src_attrs = $6;
 
       if (src_attrs != nullptr) {
-        create_table.attr_infos.swap(*src_attrs);
+        create_table->attr_infos.swap(*src_attrs);
       }
-      create_table.attr_infos.emplace_back(*$5);
-      std::reverse(create_table.attr_infos.begin(), create_table.attr_infos.end());
+      create_table->attr_infos.emplace_back(*$5);
+      std::reverse(create_table->attr_infos.begin(), create_table->attr_infos.end());
       delete $5;
     }
     ;
@@ -391,14 +409,16 @@ insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES record record_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
-      $$->insertion.relation_name = $3;
+      auto *insertion = new InsertSqlNode;
+      $$->node.insertion = insertion;
+      insertion->relation_name = $3;
       if ($6 != nullptr) {
-        $$->insertion.values.swap(*$6);
+        insertion->values.swap(*$6);
         delete $6;
       }
-      $$->insertion.values.emplace_back(*$5);
+      insertion->values.emplace_back(*$5);
       delete $5;
-      std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
+      std::reverse(insertion->values.begin(), insertion->values.end());
       free($3);
     }
     ;
@@ -455,8 +475,10 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     DELETE FROM ID where 
     {
       $$ = new ParsedSqlNode(SCF_DELETE);
-      $$->deletion.relation_name = $3;
-      $$->deletion.conditions = $4;
+      auto *deletion = new DeleteSqlNode;
+      $$->node.deletion = deletion;
+      deletion->relation_name = $3;
+      deletion->conditions = $4;
       free($3);
     }
     ;
@@ -465,10 +487,12 @@ update_stmt:      /*  update 语句的语法解析树*/
     UPDATE ID SET ID EQ value_expr where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
-      $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      $$->update.conditions = $7;
+      auto *update = new UpdateSqlNode;
+      $$->node.update = update;
+      update->relation_name = $2;
+      update->attribute_name = $4;
+      update->value = *$6;
+      update->conditions = $7;
       free($2);
       free($4);
     }
@@ -478,24 +502,26 @@ select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr from where groupby having orderby
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
+      auto* selection = new SelectSqlNode;
+      $$->node.selection = selection;
       if ($2 != nullptr) {
-        $$->selection.attributes.swap(*$2);
+        selection->attributes.swap(*$2);
         delete $2;
       }
       if ($3 != nullptr) {
-        $$->selection.tables=$3;
+        selection->tables=$3;
       }
       if ($5 != nullptr) {
-        $$->selection.groupbys.swap(*$5);
+        selection->groupbys.swap(*$5);
         delete $5;
       }
       if ($7 != nullptr) {
-        $$->selection.orderbys.swap(*$7);
+        selection->orderbys.swap(*$7);
         delete $7;
       }
 
-      $$->selection.conditions = $4;
-      $$->selection.having_conditions=$6;
+      selection->conditions = $4;
+      selection->having_conditions=$6;
     }
     ;
 
@@ -618,8 +644,10 @@ calc_stmt:
     CALC expression_list
     {
       $$ = new ParsedSqlNode(SCF_CALC);
+      auto *tmp = new CalcSqlNode;
+      $$->node.calc = tmp;
       std::reverse($2->begin(), $2->end());
-      $$->calc.expressions.swap(*$2);
+      tmp->expressions.swap(*$2);
       delete $2;
     }
     ;
@@ -696,6 +724,11 @@ expression:
       delete $3;
       $$->set_name(name);
     }
+    | list_expr {
+      $$ = new ExprSqlNode($1);
+      std::string name = token_name(sql_string, &@$);
+      $$->set_name(name);
+    }
     ;
 
 select_attr:
@@ -704,6 +737,13 @@ select_attr:
       $$ = $1;
     }
     ;
+
+list_expr:
+    LBRACE select_stmt RBRACE {
+      $$ = new ListExprSqlNode($2->node.selection);
+      $2->node.selection = nullptr;
+      delete $2;
+    }
 
 rel_attr:
     ID {
@@ -749,6 +789,9 @@ conjunction:
     {
       $$ = nullptr;
     }
+    | contain {
+      $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
+    }
     | condition {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
     }
@@ -766,6 +809,12 @@ condition:
     }
     ;
 
+contain:
+    expression contain_op expression {
+      $$ = new ContainExprSqlNode($2, $1, $3);
+    }
+    ;
+
 comp_op:
       EQ { $$ = EQUAL_TO; }
     | LT { $$ = LESS_THAN; }
@@ -774,6 +823,10 @@ comp_op:
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
     ;
+
+contain_op:
+      IN { $$ = ContainType::IN; }
+    | NOT IN { $$ = ContainType::NOT_IN; }
 
 aggr_op:
       MIN { $$ = AggregationType::AGGR_MIN; }
@@ -792,8 +845,10 @@ load_data_stmt:
       char *tmp_file_name = common::substr($4, 1, strlen($4) - 2);
       
       $$ = new ParsedSqlNode(SCF_LOAD_DATA);
-      $$->load_data.relation_name = $7;
-      $$->load_data.file_name = tmp_file_name;
+      auto *load_data = new LoadDataSqlNode;
+      $$->node.load_data = load_data;
+      load_data->relation_name = $7;
+      load_data->file_name = tmp_file_name;
       free($7);
       free(tmp_file_name);
     }
@@ -803,7 +858,8 @@ explain_stmt:
     EXPLAIN command_wrapper
     {
       $$ = new ParsedSqlNode(SCF_EXPLAIN);
-      $$->explain.sql_node = std::unique_ptr<ParsedSqlNode>($2);
+      $$->node.explain = new ExplainSqlNode;
+      $$->node.explain->sql_node = std::unique_ptr<ParsedSqlNode>($2);
     }
     ;
 
@@ -811,8 +867,10 @@ set_variable_stmt:
     SET ID EQ value
     {
       $$ = new ParsedSqlNode(SCF_SET_VARIABLE);
-      $$->set_variable.name  = $2;
-      $$->set_variable.value = *$4;
+      auto *set_variable = new SetVariableSqlNode;
+      $$->node.set_variable = set_variable;
+      set_variable->name  = $2;
+      set_variable->value = *$4;
       free($2);
       delete $4;
     }

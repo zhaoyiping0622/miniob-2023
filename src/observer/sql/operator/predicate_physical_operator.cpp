@@ -31,11 +31,13 @@ RC PredicatePhysicalOperator::open(Trx *trx) {
   return children_[0]->open(trx);
 }
 
-RC PredicatePhysicalOperator::next() {
+RC PredicatePhysicalOperator::next(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
   PhysicalOperator *oper = children_.front().get();
 
-  while (RC::SUCCESS == (rc = oper->next())) {
+  filter_tuple_.set_right(env_tuple);
+
+  while (RC::SUCCESS == (rc = oper->next(env_tuple))) {
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
@@ -43,8 +45,10 @@ RC PredicatePhysicalOperator::next() {
       break;
     }
 
+    filter_tuple_.set_left(tuple);
+
     Value value;
-    rc = expression_->get_value(*tuple, value);
+    rc = expression_->get_value(filter_tuple_, value);
     if (rc != RC::SUCCESS) {
       return rc;
     }

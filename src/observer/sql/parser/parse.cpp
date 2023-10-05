@@ -27,9 +27,9 @@ CalcSqlNode::~CalcSqlNode() {
   expressions.clear();
 }
 
-ParsedSqlNode::ParsedSqlNode() : flag(SCF_ERROR) {}
+ParsedSqlNode::ParsedSqlNode() : flag(SCF_ERROR) { node.error = nullptr; }
 
-ParsedSqlNode::ParsedSqlNode(SqlCommandFlag _flag) : flag(_flag) {}
+ParsedSqlNode::ParsedSqlNode(SqlCommandFlag _flag) : flag(_flag) { node.error = nullptr; }
 
 void ParsedSqlResult::add_sql_node(std::unique_ptr<ParsedSqlNode> sql_node) {
   sql_nodes_.emplace_back(std::move(sql_node));
@@ -62,8 +62,11 @@ AggregationExprSqlNode::~AggregationExprSqlNode() {
 }
 
 NamedExprSqlNode::~NamedExprSqlNode() {
-  if (child)
-    delete child;
+  switch (type) {
+  case NamedType::AGGREGATION: delete child.aggr; break;
+  case NamedType::SUBQUERY: {
+  }
+  }
 }
 
 ExprSqlNode::~ExprSqlNode() {
@@ -76,6 +79,7 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::ARITHMETIC: delete expr_.arithmetic; break;
   case ExprType::NAMED: delete expr_.named; break;
   case ExprType::FUNCTION: delete expr_.function; break;
+  case ExprType::CONTAIN: delete expr_.contain; break;
   default: break;
   }
 }
@@ -83,6 +87,41 @@ ExprSqlNode::~ExprSqlNode() {
 FunctionExprSqlNode::~FunctionExprSqlNode() {
   for (auto x : children)
     delete x;
+}
+
+ContainExprSqlNode::~ContainExprSqlNode() {
+  if (left)
+    delete left;
+  if (right)
+    delete right;
+}
+
+ListExprSqlNode::~ListExprSqlNode() {
+  if (select)
+    delete select;
+}
+
+ParsedSqlNode::~ParsedSqlNode() {
+  void *tmp = reinterpret_cast<void *>(node.error);
+  if (tmp == nullptr)
+    return;
+  switch (flag) {
+  case SCF_ERROR: delete node.error; break;
+  case SCF_CALC: delete node.calc; break;
+  case SCF_SELECT: delete node.selection; break;
+  case SCF_INSERT: delete node.insertion; break;
+  case SCF_UPDATE: delete node.update; break;
+  case SCF_DELETE: delete node.deletion; break;
+  case SCF_CREATE_TABLE: delete node.create_table; break;
+  case SCF_DROP_TABLE: delete node.drop_table; break;
+  case SCF_CREATE_INDEX: delete node.create_index; break;
+  case SCF_DROP_INDEX: delete node.drop_index; break;
+  case SCF_DESC_TABLE: delete node.desc_table; break;
+  case SCF_LOAD_DATA: delete node.load_data; break;
+  case SCF_EXPLAIN: delete node.explain; break;
+  case SCF_SET_VARIABLE: delete node.set_variable; break;
+  default:;
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

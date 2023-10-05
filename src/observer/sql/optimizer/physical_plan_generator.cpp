@@ -16,9 +16,12 @@ See the Mulan PSL v2 for more details. */
 #include <utility>
 
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/operator/aggregate_logical_operator.h"
 #include "sql/operator/aggregate_physical_operator.h"
+#include "sql/operator/cached_logical_operator.h"
+#include "sql/operator/cached_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
@@ -35,7 +38,10 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/project_physical_operator.h"
+#include "sql/operator/sort_logical_operator.h"
 #include "sql/operator/sort_physical_operator.h"
+#include "sql/operator/sub_query_logical_operator.h"
+#include "sql/operator/sub_query_physical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/table_scan_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
@@ -85,6 +91,12 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
   case LogicalOperatorType::SORT: {
     return create_plan(static_cast<SortLogicalOperator &>(logical_operator), oper);
+  } break;
+  case LogicalOperatorType::SUB_QUERY: {
+    return create_plan(static_cast<SubQueryLogicalOperator &>(logical_operator), oper);
+  } break;
+  case LogicalOperatorType::CACHED: {
+    return create_plan(static_cast<CachedLogicalOperator &>(logical_operator), oper);
   } break;
 
   default: {
@@ -331,11 +343,49 @@ RC PhysicalPlanGenerator::create_plan(SortLogicalOperator &logical_oper, std::un
   auto &expressions = logical_oper.expressions();
   for (int i = 0; i < expressions.size(); i++) {
     if (expressions[i]->type() == ExprType::FIELD) {
-      sort_operator->speces_.emplace_back(static_cast<FieldExpr *>(expressions[i].get())->field());
+      sort_operator->sort_speces_.emplace_back(static_cast<FieldExpr *>(expressions[i].get())->field());
     } else {
-      sort_operator->speces_.emplace_back(expressions[i]->name().c_str());
+      sort_operator->sort_speces_.emplace_back(expressions[i]->name().c_str());
     }
   }
   oper.reset(sort_operator.release());
   return RC::SUCCESS;
+}
+RC PhysicalPlanGenerator::create_plan(SubQueryLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  auto &children = logical_oper.children();
+  if (children.empty()) {
+    LOG_ERROR("sub query should have at least 1 child");
+    return RC::INTERNAL;
+  }
+  std::unique_ptr<PhysicalOperator> tmp;
+  RC rc = RC::SUCCESS;
+  rc = create(*logical_oper.main_oper(), tmp);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  auto *sub_query = new SubQueryPhysicalOperator(std::move(tmp));
+  for (int i = 0; i < children.size(); i++) {
+    rc = create(*children[i], tmp);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    sub_query->add_sub_query(std::move(tmp), logical_oper.names()[i]);
+  }
+  oper.reset(sub_query);
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(CachedLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  if (logical_oper.children().size() != 1) {
+    LOG_ERROR("cached logical operator should have one child");
+    return RC::INTERNAL;
+  }
+  std::unique_ptr<PhysicalOperator> child;
+  RC rc = RC::SUCCESS;
+  rc = create(*logical_oper.children()[0], child);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  oper.reset(new CachedPhysicalOperator(std::move(child)));
+  return rc;
 }

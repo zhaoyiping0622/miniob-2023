@@ -19,9 +19,12 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "storage/field/field.h"
 #include <compare>
+#include <limits>
+#include <memory>
 #include <sstream>
+#include <vector>
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "nulls", "lists", "booleans"};
 
 const char *attr_type_to_string(AttrType type) {
   if (type >= UNDEFINED && type <= BOOLEANS) {
@@ -47,6 +50,8 @@ Value::Value(bool val) { set_boolean(val); }
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
 Value::Value(Date date) { set_date(date); }
+
+Value::Value(std::set<ValueList> &list) { set_list(list); }
 
 void Value::set_data(char *data, int length) {
   switch (attr_type()) {
@@ -111,6 +116,11 @@ void Value::set_null() {
   length_ = 1;
 }
 
+void Value::set_list(const std::set<ValueList> &list) {
+  attr_type_ = LISTS;
+  list_value_ = std::make_shared<std::set<ValueList>>(list);
+}
+
 void Value::set_value(const Value &value) {
   switch (value.attr_type()) {
   case NULLS: {
@@ -133,6 +143,9 @@ void Value::set_value(const Value &value) {
   } break;
   case UNDEFINED: {
     ASSERT(false, "got an invalid value type");
+  } break;
+  case LISTS: {
+    set_list(*value.get_list());
   } break;
   }
 }
@@ -169,11 +182,44 @@ std::string Value::to_string() const {
   case NULLS: {
     os << "NULL";
   } break;
+  case LISTS: {
+    os << "{";
+    bool sep = false;
+    for (auto &x : *list_value_) {
+      if (sep)
+        os << ",";
+      os << x.to_string();
+      sep = true;
+    }
+    os << "{";
+  } break;
   default: {
     LOG_WARN("unsupported attr type: %d", attr_type_);
   } break;
   }
   return os.str();
+}
+
+int compare_by_ordering(std::strong_ordering order) {
+  if (order == std::strong_ordering::equal || order == std::strong_ordering::equivalent) {
+    return 0;
+  } else if (order == std::strong_ordering::less) {
+    return -1;
+  } else if (order == std::strong_ordering::greater) {
+    return 1;
+  }
+  return -1;
+}
+
+int compare_by_ordering(std::weak_ordering order) {
+  if (order == std::weak_ordering::equivalent) {
+    return 0;
+  } else if (order == std::weak_ordering::less) {
+    return -1;
+  } else if (order == std::weak_ordering::greater) {
+    return 1;
+  }
+  return -1;
 }
 
 int Value::compare(const Value &other) const {
@@ -195,8 +241,13 @@ int Value::compare(const Value &other) const {
     case DATES: {
       return Date::compare_date(&num_value_.date_value_, &other.num_value_.date_value_);
     } break;
+    case LISTS: {
+      auto order = (*list_value_) <=> (*other.list_value_);
+      return compare_by_ordering(order);
+    } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
+      return std::numeric_limits<int>::min();
     }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
@@ -211,9 +262,19 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
     Date b = other.get_date();
     return Date::compare_date(&num_value_.date_value_, &b);
+  } else if (this->attr_type_ == LISTS) {
+    auto list = get_list();
+    if (list->size() != 1)
+      return std::numeric_limits<int>::min();
+    return list->begin()->get_list().begin()->compare(other);
+  } else if (other.attr_type_ == LISTS) {
+    auto list = other.get_list();
+    if (list->size() != 1)
+      return std::numeric_limits<int>::min();
+    return this->compare(*list->begin()->get_list().begin());
   }
   LOG_WARN("not supported");
-  return -1; // TODO return rc?
+  return std::numeric_limits<int>::min();
 }
 
 std::strong_ordering Value::operator<=>(const Value &value) const {
@@ -324,6 +385,8 @@ bool Value::get_boolean() const {
   return false;
 }
 
+std::shared_ptr<std::set<ValueList>> Value::get_list() const { return list_value_; }
+
 bool Value::convert(AttrType from, AttrType to, Value &value) {
   if (from == to) {
     return true;
@@ -359,6 +422,9 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
     return a;
   if (a > b)
     std::swap(a, b);
+  if (a == LISTS || b == LISTS) {
+    return UNDEFINED;
+  }
   switch (a) {
   case UNDEFINED:
   case NULLS: return NULLS;
@@ -370,6 +436,7 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
   }
   case DATES: return UNDEFINED;
   case FLOATS:
+  case LISTS: return UNDEFINED;
   case BOOLEANS: return BOOLEANS;
   }
   return UNDEFINED;
@@ -377,4 +444,34 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
 
 bool Value::check_value(const Value &v) {
   return v.attr_type() != UNDEFINED && (v.attr_type() != CHARS || v.get_date() != INVALID_DATE);
+}
+
+std::string ValueList::to_string() const {
+  std::stringstream ss;
+  ss << "{";
+  bool sep = false;
+  for (auto x : list_) {
+    if (sep)
+      ss << ",";
+    ss << x.to_string();
+    sep = true;
+  }
+  ss << "}";
+  return ss.str();
+}
+
+std::strong_ordering ValueList::operator<=>(const ValueList &other) const {
+  int size = std::min(list_.size(), other.list_.size());
+  for (int i = 0; i < size; i++) {
+    auto cmp = list_[i] <=> other.list_[i];
+    if (cmp != std::strong_ordering::equal) {
+      return cmp;
+    }
+  }
+  if (list_.size() < other.list_.size())
+    return std::strong_ordering::less;
+  else if (list_.size() == other.list_.size())
+    return std::strong_ordering::equal;
+  else
+    return std::strong_ordering::greater;
 }

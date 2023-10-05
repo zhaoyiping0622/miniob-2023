@@ -13,9 +13,9 @@ RC SortPhysicalOperator::open(Trx *trx) {
   return child->open(trx);
 }
 
-RC SortPhysicalOperator::next() {
+RC SortPhysicalOperator::next(Tuple *env_tuple) {
   if (idx_ == -1) {
-    init();
+    init(env_tuple);
   }
   idx_++;
   if (idx_ == values_.size())
@@ -29,8 +29,15 @@ RC SortPhysicalOperator::close() {
   return children_[0]->close();
 }
 
-RC SortPhysicalOperator::init() {
-  RC rc = read_all();
+RC SortPhysicalOperator::init(Tuple *env_tuple) {
+  int num = schema_->cell_num();
+  vector<TupleCellSpec> speces;
+  speces.resize(num);
+  for (int i = 0; i < num; i++) {
+    speces[i] = schema_->cell_at(i);
+  }
+  tuple_.set_speces(speces);
+  RC rc = read_all(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
   // sort
@@ -53,9 +60,9 @@ RC SortPhysicalOperator::init() {
   return RC::SUCCESS;
 }
 
-RC SortPhysicalOperator::read_all() {
+RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
-  while ((rc = children_[0]->next()) == RC::SUCCESS) {
+  while ((rc = children_[0]->next(env_tuple)) == RC::SUCCESS) {
     auto *subtuple = children_[0]->current_tuple();
     Record record(schema_->cell_num());
     for (int i = 0; i < schema_->cell_num(); i++) {
@@ -66,9 +73,9 @@ RC SortPhysicalOperator::read_all() {
         return rc;
       }
     }
-    Record key(speces_.size());
+    Record key(sort_speces_.size());
     for (int i = 0; i < orders_.size(); i++) {
-      rc = subtuple->find_cell(speces_[i], key[i]);
+      rc = subtuple->find_cell(sort_speces_[i], key[i]);
       if (rc != RC::SUCCESS) {
         LOG_WARN("fail to sort, cannot read sort fields");
         return rc;

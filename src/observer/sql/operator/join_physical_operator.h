@@ -30,13 +30,13 @@ public:
   PhysicalOperatorType type() const override { return PhysicalOperatorType::NESTED_LOOP_JOIN; }
 
   RC open(Trx *trx) override;
-  RC next() override;
+  RC next(Tuple *env_tuple) override;
   RC close() override;
   Tuple *current_tuple() override;
 
 private:
-  RC left_next();  //! 左表遍历下一条数据
-  RC right_next(); //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
+  RC left_next(Tuple *env_tuple);  //! 左表遍历下一条数据
+  RC right_next(Tuple *env_tuple); //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
 
 private:
   Trx *trx_ = nullptr;

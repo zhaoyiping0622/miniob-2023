@@ -39,6 +39,8 @@ enum class ExprType {
   ARITHMETIC,  ///< 算术运算
   NAMED,       ///< 聚合操作
   FUNCTION,    ///< 函数操作
+  CONTAIN,     ///< in和not in操作
+  LIST,        ///<
 };
 
 enum class ConjunctionType {
@@ -59,6 +61,11 @@ enum class FunctionType {
   LENGTH,
   ROUND,
   DATE_FORMAT,
+};
+
+enum class ContainType {
+  IN,
+  NOT_IN,
 };
 
 enum class Order {
@@ -94,6 +101,9 @@ struct ArithmeticExprSqlNode;
 struct AggregationExprSqlNode;
 struct NamedExprSqlNode;
 struct FunctionExprSqlNode;
+struct SelectSqlNode;
+struct ContainExprSqlNode;
+struct ListExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -107,6 +117,8 @@ private:
     ArithmeticExprSqlNode *arithmetic;
     NamedExprSqlNode *named;
     FunctionExprSqlNode *function;
+    ContainExprSqlNode *contain;
+    ListExprSqlNode *list;
   } expr_;
   std::string name_;
 
@@ -119,6 +131,8 @@ public:
   ExprSqlNode(ArithmeticExprSqlNode *arithmetic) : type_(ExprType::ARITHMETIC) { expr_.arithmetic = arithmetic; }
   ExprSqlNode(NamedExprSqlNode *named) : type_(ExprType::NAMED) { expr_.named = named; }
   ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
+  ExprSqlNode(ContainExprSqlNode *contain) : type_(ExprType::CONTAIN) { expr_.contain = contain; }
+  ExprSqlNode(ListExprSqlNode *list) : type_(ExprType::LIST) { expr_.list = list; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -130,6 +144,8 @@ public:
   ArithmeticExprSqlNode *get_arithmetic() const { return expr_.arithmetic; }
   NamedExprSqlNode *get_named() const { return expr_.named; }
   FunctionExprSqlNode *get_function() const { return expr_.function; }
+  ContainExprSqlNode *get_contain() const { return expr_.contain; }
+  ListExprSqlNode *get_list() const { return expr_.list; }
 };
 
 struct StarExprSqlNode {};
@@ -182,10 +198,20 @@ struct ArithmeticExprSqlNode {
   ~ArithmeticExprSqlNode();
 };
 
+enum class NamedType {
+  AGGREGATION,
+  SUBQUERY,
+};
+
 struct NamedExprSqlNode {
   std::string name;
-  AggregationExprSqlNode *child;
-  NamedExprSqlNode(std::string name, AggregationExprSqlNode *child) : name(name), child(child) {}
+  union {
+    AggregationExprSqlNode *aggr;
+  } child;
+  NamedType type;
+  NamedExprSqlNode(std::string name, AggregationExprSqlNode *aggr) : name(name), type(NamedType::AGGREGATION) {
+    child.aggr = aggr;
+  }
   ~NamedExprSqlNode();
 };
 
@@ -210,6 +236,22 @@ struct FunctionExprSqlNode {
   std::vector<ExprSqlNode *> children;
   FunctionExprSqlNode(FunctionType type, std::vector<ExprSqlNode *> *child) : type(type), children(std::move(*child)) {}
   ~FunctionExprSqlNode();
+};
+
+struct ContainExprSqlNode {
+  ContainType type;
+  ExprSqlNode *left = nullptr;
+  ExprSqlNode *right = nullptr;
+  template <typename T1, typename T2>
+  ContainExprSqlNode(ContainType type, T1 *left, T2 *right)
+      : type(type), left(get_expr_pointer(left)), right(get_expr_pointer(right)) {}
+  ~ContainExprSqlNode();
+};
+
+struct ListExprSqlNode {
+  SelectSqlNode *select = nullptr;
+  ListExprSqlNode(SelectSqlNode *select) : select(select) {}
+  ~ListExprSqlNode();
 };
 
 struct OrderBySqlNode {
@@ -455,24 +497,27 @@ enum SqlCommandFlag {
 class ParsedSqlNode {
 public:
   enum SqlCommandFlag flag;
-  ErrorSqlNode error;
-  CalcSqlNode calc;
-  SelectSqlNode selection;
-  InsertSqlNode insertion;
-  DeleteSqlNode deletion;
-  UpdateSqlNode update;
-  CreateTableSqlNode create_table;
-  DropTableSqlNode drop_table;
-  CreateIndexSqlNode create_index;
-  DropIndexSqlNode drop_index;
-  DescTableSqlNode desc_table;
-  LoadDataSqlNode load_data;
-  ExplainSqlNode explain;
-  SetVariableSqlNode set_variable;
+  union {
+    ErrorSqlNode *error;
+    CalcSqlNode *calc;
+    SelectSqlNode *selection;
+    InsertSqlNode *insertion;
+    DeleteSqlNode *deletion;
+    UpdateSqlNode *update;
+    CreateTableSqlNode *create_table;
+    DropTableSqlNode *drop_table;
+    CreateIndexSqlNode *create_index;
+    DropIndexSqlNode *drop_index;
+    DescTableSqlNode *desc_table;
+    LoadDataSqlNode *load_data;
+    ExplainSqlNode *explain;
+    SetVariableSqlNode *set_variable;
+  } node;
 
 public:
   ParsedSqlNode();
   explicit ParsedSqlNode(SqlCommandFlag flag);
+  ~ParsedSqlNode();
 };
 
 /**
