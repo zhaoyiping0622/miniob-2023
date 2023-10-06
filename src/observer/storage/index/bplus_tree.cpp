@@ -1763,6 +1763,13 @@ int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type) 
   case DATES: {
     return Date::compare_date((const Date *)v1, (const Date *)v2);
   }
+  case TEXTS: {
+    Value a, b;
+    Table *table = const_cast<Table *>(table_);
+    table->get_text(*(int *)v1, a);
+    table->get_text(*(int *)v2, b);
+    return common::compare_string(a.get_string().data(), TEXT_SIZE, b.get_string().data(), TEXT_SIZE);
+  }
   default: {
     ASSERT(false, "unknown attr type. %d", attr_type_);
     return 0;
@@ -1782,7 +1789,7 @@ int AttrComparator::operator()(const char *v1, const char *v2) const {
   return 0;
 }
 
-void AttrComparator::init(const Table *table, const IndexMeta& meta) {
+void AttrComparator::init(const Table *table, const IndexMeta &meta) {
   table_ = table;
   meta_ = meta;
   attr_length_ = 0;

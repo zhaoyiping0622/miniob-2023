@@ -13,11 +13,14 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/index_scan_physical_operator.h"
+#include "common/log/log.h"
+#include "common/rc.h"
 #include "storage/index/index.h"
 #include "storage/trx/trx.h"
 #include <cstring>
 
-std::vector<char> IndexScanPhysicalOperator::make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta) {
+RC IndexScanPhysicalOperator::make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table,
+                                        std::vector<char> &out) {
   std::vector<char> ret;
   int size = 0;
   for (auto &field : meta) {
@@ -26,12 +29,21 @@ std::vector<char> IndexScanPhysicalOperator::make_data(const std::vector<Value> 
   ret.resize(size);
   char *beg = ret.data();
   for (int i = 0; i < values.size() && i < meta.size(); i++) {
-    Value value = values[i];
-    Value::convert(value.attr_type(), meta[i].type(), value);
+    Value &value = const_cast<Value &>(values[i]);
+    if (value.attr_type() == TEXTS) {
+      int offset;
+      RC rc = table->add_text(value.get_string().c_str(), offset);
+      if (rc != RC::SUCCESS)
+        return rc;
+      value.set_int(offset);
+    } else {
+      Value::convert(value.attr_type(), meta[i].type(), value);
+    }
     memcpy(beg, value.data(), meta[i].len());
     beg += meta[i].len();
   }
-  return ret;
+  out.swap(ret);
+  return RC::SUCCESS;
 }
 
 IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, bool readonly,
@@ -47,8 +59,15 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
   auto &table_meta = table_->table_meta();
   left_value_.resize(size_);
   right_value_.resize(size_);
-  left_value_ = make_data(left_value, fields);
-  right_value_ = make_data(right_value, fields);
+  RC rc = RC::SUCCESS;
+  rc = make_data(left_value, fields, table, left_value_);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("fail to make data");
+  }
+  rc = make_data(right_value, fields, table, right_value_);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("fail to make data");
+  }
 }
 
 RC IndexScanPhysicalOperator::open(Trx *trx) {

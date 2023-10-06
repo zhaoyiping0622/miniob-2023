@@ -68,5 +68,5 @@ private:
 
   int size_ = 0;
 
-  static std::vector<char> make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta);
+  static RC make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, std::vector<char>& out);
 };

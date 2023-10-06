@@ -103,6 +103,15 @@ private:
   RC init_record_handler(const char *base_dir);
 
 public:
+  RC get_text(int offset, Value &value);
+  RC add_text(const char *data, int &offset);
+
+private:
+  DiskBufferPool *text_buffer_pool_ = nullptr; /// text文件关联的buffer pool
+  int text_num_ = 0;                           ///
+  RC init_text_buffer_pool(const char *base_dir);
+
+public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
   Index *find_index_by_fields(std::vector<const char *> fields) const;

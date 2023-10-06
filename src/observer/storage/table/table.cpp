@@ -22,7 +22,9 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/parser/value.h"
 #include "storage/buffer/disk_buffer_pool.h"
+#include "storage/buffer/page.h"
 #include "storage/common/meta_util.h"
 #include "storage/field/field.h"
 #include "storage/index/bplus_tree_index.h"
@@ -41,6 +43,11 @@ Table::~Table() {
   if (data_buffer_pool_ != nullptr) {
     data_buffer_pool_->close_file();
     data_buffer_pool_ = nullptr;
+  }
+
+  if (text_buffer_pool_ != nullptr) {
+    text_buffer_pool_->close_file();
+    text_buffer_pool_ = nullptr;
   }
 
   for (std::vector<Index *>::iterator it = indexes_.begin(); it != indexes_.end(); ++it) {
@@ -114,6 +121,19 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
     return rc;
   }
 
+  auto text_file = table_text_file(base_dir, name);
+  rc = bpm.create_file(text_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create disk buffer pool of text file. file name=%s", text_file.c_str());
+    return rc;
+  }
+
+  rc = init_text_buffer_pool(base_dir);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create table %s due to init text buffer pool failed.", name);
+    return rc;
+  }
+
   base_dir_ = base_dir;
   LOG_INFO("Successfully create table %s:%s", base_dir, name);
   return rc;
@@ -140,6 +160,12 @@ RC Table::open(const char *meta_file, const char *base_dir) {
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to open table %s due to init record handler failed.", base_dir);
     // don't need to remove the data_file
+    return rc;
+  }
+
+  rc = init_text_buffer_pool(base_dir);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create table %s due to init text buffer pool failed.", base_dir);
     return rc;
   }
 
@@ -250,10 +276,19 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
   }
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  RC rc = RC::SUCCESS;
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     Value &value = const_cast<Value &>(values[i]);
-    if (field->type() != value.attr_type()) {
+    if (field->type() == TEXTS) {
+      if (value.get_string().size()) {
+        int offset;
+        rc = add_text(value.get_string().c_str(), offset);
+        if (rc != RC::SUCCESS)
+          return rc;
+        value.set_int(offset);
+      }
+    } else if (field->type() != value.attr_type()) {
       if (!Value::convert(value.attr_type(), field->type(), value)) {
         LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d", table_meta_.name(),
                   field->name(), field->type(), value.attr_type());
@@ -546,5 +581,66 @@ RC Table::flush_table_meta_file(TableMeta &new_table_meta) {
 
   table_meta_.swap(new_table_meta);
 
+  return RC::SUCCESS;
+}
+
+RC Table::init_text_buffer_pool(const char *base_dir) {
+  std::string text_file = table_text_file(base_dir, table_meta_.name());
+
+  RC rc = BufferPoolManager::instance().open_file(text_file.c_str(), text_buffer_pool_);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", text_file.c_str(), rc, strrc(rc));
+    return rc;
+  }
+
+  Frame *frame = nullptr;
+  rc = text_buffer_pool_->allocate_page(&frame);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  text_num_ = frame->page_num() * BP_PAGE_SIZE;
+  frame->unpin();
+  return rc;
+}
+
+RC Table::get_text(int offset, Value &value) {
+  int page_num = offset / BP_PAGE_SIZE;
+  int idx = offset % BP_PAGE_SIZE;
+  Frame *frame = nullptr;
+  RC rc = text_buffer_pool_->get_this_page(page_num, &frame);
+  if (rc != RC::SUCCESS)
+    return rc;
+  value.set_text(frame->data() + idx);
+  frame->unpin();
+  return RC::SUCCESS;
+}
+
+RC Table::add_text(const char *data, int &offset) {
+  int page_num = text_num_ / BP_PAGE_SIZE;
+  int page_of = text_num_ % BP_PAGE_SIZE;
+  Frame *frame = nullptr;
+  RC rc = RC::SUCCESS;
+  if (page_num == text_buffer_pool_->page_num()) {
+    rc = text_buffer_pool_->allocate_page(&frame);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    if (frame->page_num() != page_num) {
+      LOG_ERROR("failed to alloc new page");
+      frame->unpin();
+      return rc;
+    }
+  } else {
+    rc = text_buffer_pool_->get_this_page(page_num, &frame);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+  memset(frame->data() + page_of, 0, TEXT_SIZE);
+  strncpy(frame->data() + page_of, data, TEXT_SIZE);
+  frame->mark_dirty();
+  offset = text_num_;
+  text_num_ += TEXT_SIZE;
+  frame->unpin();
   return RC::SUCCESS;
 }

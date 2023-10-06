@@ -29,7 +29,16 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
-  return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  RC rc = tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  if (field_.attr_type() == TEXTS) {
+    rc = table_->get_text(value.get_int(), value);
+    if (rc != RC::SUCCESS)
+      return rc;
+  }
+  return rc;
 }
 
 // string FieldExpr::name() const { return field_.meta()->name(); }
