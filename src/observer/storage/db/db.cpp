@@ -115,7 +115,7 @@ RC Db::drop_table(Trx *trx, const char *table_name) {
   opened_tables_.erase(it);
   auto table_file_name = table_data_file(path_.c_str(), table_name);
   auto table_meta_name = table_meta_file(path_.c_str(), table_name);
-  auto table_text_name = table_meta_file(path_.c_str(), table_name);
+  auto table_text_name = table_text_file(path_.c_str(), table_name);
   if (unlink(table_file_name.c_str()) == -1) {
     LOG_ERROR("Failed to delete table (%s) data file %s.", table_name, table_file_name.c_str());
     return RC::IOERR_UNLINK;
