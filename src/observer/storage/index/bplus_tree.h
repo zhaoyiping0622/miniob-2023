@@ -50,37 +50,17 @@ enum class BplusTreeOperationType {
  */
 class AttrComparator {
 public:
-  void init(AttrType type, int length) {
-    attr_type_ = type;
-    attr_length_ = length;
-  }
+  void init(const Table *table,const  IndexMeta& meta);
 
   int attr_length() const { return attr_length_; }
 
-  int operator()(const char *v1, const char *v2) const {
-    switch (attr_type_) {
-    case INTS: {
-      return common::compare_int((void *)v1, (void *)v2);
-    } break;
-    case FLOATS: {
-      return common::compare_float((void *)v1, (void *)v2);
-    }
-    case CHARS: {
-      return common::compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
-    }
-    case DATES: {
-      return Date::compare_date((const Date *)v1, (const Date *)v2);
-    }
-    default: {
-      ASSERT(false, "unknown attr type. %d", attr_type_);
-      return 0;
-    }
-    }
-  }
+  int operator()(const char *v1, const char *v2) const;
 
 private:
-  AttrType attr_type_;
+  int compare_data(const char *v1, const char *v2, AttrType type) const;
   int attr_length_;
+  const Table *table_;
+  IndexMeta meta_;
 };
 
 /**
@@ -90,7 +70,7 @@ private:
  */
 class KeyComparator {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(const Table *table, const IndexMeta &meta) { attr_comparator_.init(table, meta); }
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -191,14 +171,12 @@ struct IndexFileHeader {
   int32_t leaf_max_size;     ///< 叶子节点最大的键值对数
   int32_t attr_length;       ///< 键值的长度
   int32_t key_length;        ///< attr length + sizeof(RID)
-  AttrType attr_type;        ///< 键值的类型
 
   const std::string to_string() {
     std::stringstream ss;
 
     ss << "attr_length:" << attr_length << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type << ","
        << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
@@ -424,15 +402,14 @@ public:
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, AttrType attr_type, int attr_length, int internal_max_size = -1,
-            int leaf_max_size = -1);
+  RC create(const char *file_name, const Table *table, const IndexMeta &meta, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * 打开名为fileName的索引文件。
    * 如果方法调用成功，则indexHandle为指向被打开的索引句柄的指针。
    * 索引句柄用于在索引中插入或删除索引项，也可用于索引的扫描
    */
-  RC open(const char *file_name);
+  RC open(const char *file_name, const Table* table, const IndexMeta& meta);
 
   /**
    * 关闭句柄indexHandle对应的索引文件
@@ -532,7 +509,6 @@ protected:
   common::SharedMutex root_lock_;
 
   KeyComparator key_comparator_;
-  KeyPrinter key_printer_;
 
   std::unique_ptr<common::MemPoolItem> mem_pool_item_;
 
@@ -570,7 +546,7 @@ private:
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive);
+  // RC fix_user_key(const char *user_key, int key_len, bool want_greater, char **fixed_key, bool *should_inclusive);
 
   void fetch_item(RID &rid);
   bool touch_end();

@@ -22,7 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
-const int INVALID_COMPARE=std::numeric_limits<int>::min();
+const int INVALID_COMPARE = std::numeric_limits<int>::min();
 /**
  * @brief 属性的类型
  * 
@@ -38,6 +38,7 @@ enum AttrType {
   BOOLEANS, ///< boolean类型，当前不是由parser解析出来的，是程序内部使用的
 };
 
+int attr_type_to_size(AttrType type);
 const char *attr_type_to_string(AttrType type);
 AttrType attr_type_from_string(const char *s);
 
@@ -97,6 +98,7 @@ public:
   bool get_boolean() const;
   Date get_date() const;
   std::shared_ptr<std::set<ValueList>> get_list() const;
+  char* get_fiexed_string() const;
 
 public:
   /**
@@ -115,6 +117,7 @@ private:
     float float_value_;
     bool bool_value_;
     Date date_value_;
+    char str_value_[4];
   } num_value_;
   std::string str_value_;
   std::shared_ptr<std::set<ValueList>> list_value_;

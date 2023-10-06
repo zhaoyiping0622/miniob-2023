@@ -149,6 +149,7 @@ union YYSTYPE
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  std::vector<std::string> *                    id_list;
   JoinSqlNode *                                 join;
   OrderBySqlNode *                              order_unit;
   std::vector<OrderBySqlNode *> *               order_unit_list;
@@ -157,7 +158,7 @@ union YYSTYPE
   int                                           number;
   float                                         floats;
 
-#line 161 "yacc_sql.hpp"
+#line 162 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/os/path.h"
 #include "storage/clog/clog.h"
 #include "storage/common/meta_util.h"
+#include "storage/field/field.h"
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"

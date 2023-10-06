@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <common/lang/string.h>
 
 #include "common/log/log.h"
+#include "storage/field/field.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
 #include "json/json.h"
@@ -152,11 +153,40 @@ const IndexMeta *TableMeta::index(const char *name) const {
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const {
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
+    if (0 == strcmp(index.fields()[0].name(), field)) {
       return &index;
     }
   }
   return nullptr;
+}
+
+const IndexMeta *TableMeta::find_index_by_fields(std::vector<const char *> fields) const {
+  // 找到一个命中字段最多的索引
+  vector<int> cnts;
+  int nmax = 0;
+  const IndexMeta *ret = nullptr;
+  for (const IndexMeta &index : indexes_) {
+    auto index_fields = index.fields();
+    int cnt = 0;
+    for (auto &field : index_fields) {
+      bool found = false;
+      for (auto f : fields)
+        if (strcmp(field.name(), f) == 0) {
+          found = true;
+        }
+      if (found)
+        cnt++;
+      else
+        break;
+    }
+    if (cnt == index_fields.size()) {
+      return &index;
+    }
+    cnts.push_back(cnt);
+    if (nmax < cnts.back())
+      nmax = cnts.back(), ret = &index;
+  }
+  return ret;
 }
 
 const IndexMeta *TableMeta::index(int i) const { return &indexes_[i]; }

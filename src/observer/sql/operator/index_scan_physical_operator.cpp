@@ -17,23 +17,38 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include <cstring>
 
-IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, bool readonly, const Value *left_value,
-                                                     bool left_inclusive, const Value *right_value,
-                                                     bool right_inclusive)
+std::vector<char> IndexScanPhysicalOperator::make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta) {
+  std::vector<char> ret;
+  int size = 0;
+  for (auto &field : meta) {
+    size += field.len();
+  }
+  ret.resize(size);
+  char *beg = ret.data();
+  for (int i = 0; i < values.size() && i < meta.size(); i++) {
+    Value value = values[i];
+    Value::convert(value.attr_type(), meta[i].type(), value);
+    memcpy(beg, value.data(), meta[i].len());
+    beg += meta[i].len();
+  }
+  return ret;
+}
+
+IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, bool readonly,
+                                                     const std::vector<Value> &left_value, bool left_inclusive,
+                                                     const std::vector<Value> &right_value, bool right_inclusive)
     : table_(table), index_(index), readonly_(readonly), left_inclusive_(left_inclusive),
       right_inclusive_(right_inclusive) {
-  const char *field_name = index_->index_meta().field();
+  std::vector<FieldMeta> fields = index_->index_meta().fields();
+  size_ = 0;
+  for (auto &field : fields) {
+    size_ += field.len();
+  }
   auto &table_meta = table_->table_meta();
-  auto *field_meta = table_meta.field(field_name);
-  field_type_ = field_meta->type();
-  if (left_value) {
-    left_value_ = *left_value;
-    Value::convert(left_value_.attr_type(), field_type_, left_value_);
-  }
-  if (right_value) {
-    right_value_ = *right_value;
-    Value::convert(right_value_.attr_type(), field_type_, right_value_);
-  }
+  left_value_.resize(size_);
+  right_value_.resize(size_);
+  left_value_ = make_data(left_value, fields);
+  right_value_ = make_data(right_value, fields);
 }
 
 RC IndexScanPhysicalOperator::open(Trx *trx) {
@@ -41,8 +56,9 @@ RC IndexScanPhysicalOperator::open(Trx *trx) {
     return RC::INTERNAL;
   }
 
-  IndexScanner *index_scanner = index_->create_scanner(left_value_.data(), left_value_.length(), left_inclusive_,
-                                                       right_value_.data(), right_value_.length(), right_inclusive_);
+  // TODO(zhaoyiping): 这里要改
+  IndexScanner *index_scanner =
+      index_->create_scanner(left_value_.data(), size_, left_inclusive_, right_value_.data(), size_, right_inclusive_);
   if (nullptr == index_scanner) {
     LOG_WARN("failed to create index scanner");
     return RC::INTERNAL;

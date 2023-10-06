@@ -139,6 +139,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  std::vector<std::string> *                    id_list;
   JoinSqlNode *                                 join;
   OrderBySqlNode *                              order_unit;
   std::vector<OrderBySqlNode *> *               order_unit_list;
@@ -187,6 +188,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <expression_list>     expression_list_empty
 %type <order_unit_list>     order_unit_list
 %type <order_unit_list>     orderby
+%type <id_list>             ids
 %type <order_unit>          order_unit
 %type <order>               order
 %type <sql_node>            calc_stmt
@@ -311,19 +313,32 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE INDEX ID ON ID LBRACE ID ids RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode *create_index = new CreateIndexSqlNode;
       $$->node.create_index = create_index;
       create_index->index_name = $3;
       create_index->relation_name = $5;
-      create_index->attribute_name = $7;
+      $8->push_back($7);
+      create_index->attribute_names.swap(*$8);
+      delete $8;
+      std::reverse(create_index->attribute_names.begin(), create_index->attribute_names.end());
       free($3);
       free($5);
       free($7);
     }
     ;
+
+ids:
+   {
+      $$ = new std::vector<std::string>();
+   }
+   | COMMA ID ids {
+      $3->push_back($2);
+      free($2);
+      $$ = $3;
+   }
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
     DROP INDEX ID ON ID
