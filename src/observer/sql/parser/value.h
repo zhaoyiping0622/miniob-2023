@@ -16,11 +16,13 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/date.h"
 #include <compare>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
+const int INVALID_COMPARE=std::numeric_limits<int>::min();
 /**
  * @brief 属性的类型
  * 
