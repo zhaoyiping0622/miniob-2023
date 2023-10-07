@@ -20,6 +20,10 @@ See the Mulan PSL v2 for more details. */
 
 RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   Table *table = db->find_table(update.relation_name.c_str());
+  if (table == nullptr) {
+    LOG_WARN("table %s not exists", update.relation_name.c_str());
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
   const FieldMeta *field_meta;
   RC rc = RC::SUCCESS;
   field_meta = table->table_meta().field(update.attribute_name.c_str());
