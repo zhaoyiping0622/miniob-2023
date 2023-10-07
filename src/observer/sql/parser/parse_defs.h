@@ -368,6 +368,7 @@ struct AttrInfoSqlNode {
   AttrType type;    ///< Type of attribute
   std::string name; ///< Attribute name
   size_t length;    ///< Length of attribute
+  bool nullable;    ///< nullable
 };
 
 /**
@@ -395,8 +396,8 @@ struct DropTableSqlNode {
  * 正常的SQL语句中，一个索引可能包含了多个字段，这里仅支持一个字段。
  */
 struct CreateIndexSqlNode {
-  std::string index_name;     ///< Index name
-  std::string relation_name;  ///< Relation name
+  std::string index_name;                   ///< Index name
+  std::string relation_name;                ///< Relation name
   std::vector<std::string> attribute_names; ///< Attribute name
 };
 

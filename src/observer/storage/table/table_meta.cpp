@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <common/lang/string.h>
 
 #include "common/log/log.h"
+#include "sql/parser/value.h"
 #include "storage/field/field.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
@@ -36,6 +37,7 @@ void TableMeta::swap(TableMeta &other) noexcept {
   fields_.swap(other.fields_);
   indexes_.swap(other.indexes_);
   std::swap(record_size_, other.record_size_);
+  table_meta_fields_.swap(other.table_meta_fields_);
 }
 
 RC TableMeta::init(int32_t table_id, const char *name, int field_num, const AttrInfoSqlNode attributes[]) {
@@ -55,23 +57,29 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
   int trx_field_num = 0;
   const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
   if (trx_fields != nullptr) {
-    fields_.resize(field_num + trx_fields->size());
+    fields_.resize(trx_fields->size());
 
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
-      fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset, field_meta.len(), false /*visible*/);
+      fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset, field_meta.len(), false /*visible*/,
+                             field_meta.visible());
       field_offset += field_meta.len();
     }
 
     trx_field_num = static_cast<int>(trx_fields->size());
-  } else {
-    fields_.resize(field_num);
   }
+
+  table_meta_fields_.resize(1);
+  table_meta_fields_[0] = FieldMeta("table_meta_null_", INTS, field_offset, attr_type_to_size(INTS), false, false);
+  field_offset += attr_type_to_size(INTS);
+  int meta_field_num = table_meta_fields_.size();
+  fields_.insert(fields_.end(), table_meta_fields_.begin(), table_meta_fields_.end());
+  fields_.resize(fields_.size() + field_num);
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
-    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length,
-                                         true /*visible*/);
+    rc = fields_[i + trx_field_num + meta_field_num].init(attr_info.name.c_str(), attr_info.type, field_offset,
+                                                          attr_info.length, true /*visible*/, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;
@@ -108,7 +116,7 @@ const char *TableMeta::name() const { return name_.c_str(); }
 const FieldMeta *TableMeta::trx_field() const { return &fields_[0]; }
 
 const std::pair<const FieldMeta *, int> TableMeta::trx_fields() const {
-  return std::pair<const FieldMeta *, int>{fields_.data(), sys_field_num()};
+  return std::pair<const FieldMeta *, int>{fields_.data(), trx_field_num()};
 }
 
 const FieldMeta *TableMeta::field(int index) const { return &fields_[index]; }
@@ -134,13 +142,15 @@ const FieldMeta *TableMeta::find_field_by_offset(int offset) const {
 }
 int TableMeta::field_num() const { return fields_.size(); }
 
-int TableMeta::sys_field_num() const {
+int TableMeta::trx_field_num() const {
   const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
   if (nullptr == trx_fields) {
     return 0;
   }
   return static_cast<int>(trx_fields->size());
 }
+
+int TableMeta::sys_field_num() const { return static_cast<int>(trx_field_num() + table_meta_fields_.size()); }
 
 const IndexMeta *TableMeta::index(const char *name) const {
   for (const IndexMeta &index : indexes_) {
@@ -274,6 +284,12 @@ int TableMeta::deserialize(std::istream &is) {
       LOG_ERROR("Failed to deserialize table meta. table name =%s", table_name.c_str());
       return -1;
     }
+  }
+
+  int meta_fields_begin = trx_field_num();
+  int meta_fields_end = meta_fields_begin + 1;
+  for (int i = meta_fields_begin; i < meta_fields_end; i++) {
+    table_meta_fields_.push_back(fields[i]);
   }
 
   auto comparator = [](const FieldMeta &f1, const FieldMeta &f2) { return f1.offset() < f2.offset(); };

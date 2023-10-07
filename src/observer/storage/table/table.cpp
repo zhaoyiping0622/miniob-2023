@@ -288,6 +288,11 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
           return rc;
         value.set_int(offset);
       }
+    } else if (value.attr_type() == NULLS) {
+      if (!field->nullable()) {
+        LOG_ERROR("unreachable should be checked in caller");
+        return RC::INVALID_ARGUMENT;
+      }
     } else if (field->type() != value.attr_type()) {
       if (!Value::convert(value.attr_type(), field->type(), value)) {
         LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d", table_meta_.name(),
@@ -300,18 +305,21 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record_data = (char *)malloc(record_size);
+  memset(record_data, 0, record_size);
 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
-      const size_t data_len = value.length();
-      if (copy_len > data_len) {
-        copy_len = data_len + 1;
-      }
+    if (value.attr_type() == NULLS) {
+      int null_offset = table_meta_.null_field_meta()->offset();
+      int &null_value = *(int *)(record_data + null_offset);
+      null_value |= 1 << (i + table_meta_.sys_field_num());
+    } else if (field->type() == CHARS) {
+      memcpy(record_data + field->offset(), value.get_fiexed_string(), 4);
+    } else {
+      memcpy(record_data + field->offset(), value.data(), copy_len);
     }
-    memcpy(record_data + field->offset(), value.data(), copy_len);
   }
 
   record.set_data_owner(record_data, record_size);

@@ -118,6 +118,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         JOIN
         NOT
         IN
+        NULL_V
+        NULLABLE
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -148,6 +150,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   char *                                        string;
   int                                           number;
   float                                         floats;
+  bool                                          bools;
 }
 
 %token <number> NUMBER
@@ -192,6 +195,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <id_list>             ids
 %type <order_unit>          order_unit
 %type <order>               order
+%type <bools>               null_def
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -392,23 +396,36 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable = $6;
       free($1);
     }
-    | ID type
+    | ID type null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
+      $$->nullable = $3;
       free($1);
     }
     ;
+
+null_def:
+    {
+      $$ = false;
+    }
+    | NOT NULL_V {
+      $$ = false;
+    }
+    | NULLABLE {
+      $$ = true;
+    }
 
 number:
     NUMBER {$$ = $1;}
@@ -478,6 +495,10 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
+    }
+    | NULL_V {
+      $$ = new Value;
+      $$->set_null();
     }
     ;
     

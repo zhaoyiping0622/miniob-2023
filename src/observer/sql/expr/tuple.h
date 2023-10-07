@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
@@ -149,11 +150,20 @@ public:
 
     FieldExpr *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
-    if (field_meta->type() != TEXTS)
+    const FieldMeta *null_meta = table_->table_meta().null_field_meta();
+    int null_flag = *(int *)(this->record_->data() + null_meta->offset());
+    if (null_flag & (1 << index)) {
+      cell.set_null();
+    } else if (field_meta->type() == TEXTS) {
+      int offset = *(int *)(this->record_->data() + field_meta->offset());
+      RC rc = const_cast<Table *>(table_)->get_text(offset, cell);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+    } else {
       cell.set_type(field_meta->type());
-    else 
-      cell.set_type(INTS);
-    cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+      cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    }
     return RC::SUCCESS;
   }
 

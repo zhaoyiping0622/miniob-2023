@@ -30,9 +30,10 @@ MvccTrxKit::~MvccTrxKit() {
 }
 
 RC MvccTrxKit::init() {
-  fields_ = vector<FieldMeta>{
-      FieldMeta("__trx_xid_begin", AttrType::INTS, 0 /*attr_offset*/, 4 /*attr_len*/, false /*visible*/),
-      FieldMeta("__trx_xid_end", AttrType::INTS, 0 /*attr_offset*/, 4 /*attr_len*/, false /*visible*/)};
+  fields_ = vector<FieldMeta>{FieldMeta("__trx_xid_begin", AttrType::INTS, 0 /*attr_offset*/, 4 /*attr_len*/,
+                                        false /*visible*/, false /*nullable*/),
+                              FieldMeta("__trx_xid_end", AttrType::INTS, 0 /*attr_offset*/, 4 /*attr_len*/,
+                                        false /*visible*/, false /*nullable*/)};
 
   LOG_INFO("init mvcc trx kit done.");
   return RC::SUCCESS;
