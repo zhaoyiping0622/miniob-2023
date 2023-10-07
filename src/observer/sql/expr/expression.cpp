@@ -651,6 +651,12 @@ RC ComparisonExpr::create(Db *db, Table *default_table, std::unordered_map<std::
     delete left;
     return rc;
   }
+  if (left->value_type() == NULLS || right->value_type() == NULLS) {
+    expr = new ValueExpr(Value(false));
+    delete left;
+    delete right;
+    return RC::SUCCESS;
+  }
   AttrType target_type = AttrTypeCompare(left->value_type(), right->value_type());
   if (target_type == UNDEFINED && left->value_type() != LISTS && right->value_type() != LISTS ||
       (rc = CastExpr::create(target_type, left)) != RC::SUCCESS ||
