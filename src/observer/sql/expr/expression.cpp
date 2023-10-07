@@ -374,6 +374,9 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::CONTAIN:
     rc = ContainExpr::create(db, default_table, tables, expr_node->get_contain(), expr, fallback);
     break;
+  case ExprType::NULL_CHECK:
+    rc = NullCheckExpr::create(db, default_table, tables, expr_node->get_null(), expr, fallback);
+    break;
   default:
     if (fallback) {
       rc = (*fallback)(expr_node, expr);
@@ -544,6 +547,27 @@ std::string ContainExpr::to_string() const {
   }
   ss << right_->to_string();
   return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+RC NullCheckExpr ::get_value(const Tuple &tuple, Value &value) const {
+  RC rc = RC::SUCCESS;
+  rc = left_->get_value(tuple, value);
+  if (rc != RC::SUCCESS)
+    return rc;
+  value.set_boolean(value.is_null() == is_null_);
+  return rc;
+}
+
+std::set<Field> NullCheckExpr::reference_fields() const { return left_->reference_fields(); }
+std::string NullCheckExpr::to_string() const {
+  auto ret = left_->to_string();
+  if (is_null_)
+    ret += " is null";
+  else
+    ret += " is not null";
+  return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -748,6 +772,20 @@ RC ContainExpr::create(Db *db, Table *default_table, std::unordered_map<std::str
     return RC::INVALID_ARGUMENT;
   }
   expr = new ContainExpr(expr_node->type, std::move(left), std::move(right));
+  return RC::SUCCESS;
+}
+
+RC NullCheckExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                         const NullCheckExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  std::unique_ptr<Expression> left;
+  Expression *tmp;
+  RC rc = RC::SUCCESS;
+  rc = Expression::create(db, default_table, tables, expr_node->left, tmp, fallback);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  left.reset(tmp);
+  expr = new NullCheckExpr(expr_node->is_null, std::move(left));
   return RC::SUCCESS;
 }
 

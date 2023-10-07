@@ -120,6 +120,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         IN
         NULL_V
         NULLABLE
+        IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -196,6 +197,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <order_unit>          order_unit
 %type <order>               order
 %type <bools>               null_def
+%type <bools>               null_check
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -833,6 +835,9 @@ conjunction:
     | condition {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
     }
+    | expression null_check {
+      $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new NullCheckExprSqlNode($2, $1), static_cast<ExprSqlNode *>(nullptr));
+    }
     | conjunction AND conjunction {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::AND, $1, $3);
     }
@@ -840,6 +845,14 @@ conjunction:
       $$ = new ConjunctionExprSqlNode(ConjunctionType::OR, $1, $3);
     }
     ;
+
+null_check: 
+    IS NULL_V {
+      $$ = true;
+    }
+    | IS NOT NULL_V {
+      $$ = false;
+    }
 
 condition:
     expression comp_op expression {

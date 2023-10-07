@@ -134,6 +134,7 @@ NOT                                     RETURN_TOKEN(NOT);
 IN                                      RETURN_TOKEN(IN);
 NULL                                    RETURN_TOKEN(NULL_V);
 NULLABLE                                RETURN_TOKEN(NULLABLE);
+IS                                      RETURN_TOKEN(IS);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);
