@@ -103,6 +103,7 @@ public:
   Date get_date() const;
   std::shared_ptr<std::set<ValueList>> get_list() const;
   char *get_fiexed_string() const;
+  bool is_null() const;
 
 public:
   /**

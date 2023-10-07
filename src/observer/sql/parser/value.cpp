@@ -267,6 +267,9 @@ int Value::compare(const Value &other) const {
       auto order = (*list_value_) <=> (*other.list_value_);
       return compare_by_ordering(order);
     } break;
+    case NULLS: {
+      return 0;
+    } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
       return INVALID_COMPARE;
@@ -415,6 +418,8 @@ bool Value::get_boolean() const {
   }
   return false;
 }
+
+bool Value::is_null() const { return attr_type_ == NULLS; }
 
 std::shared_ptr<std::set<ValueList>> Value::get_list() const { return list_value_; }
 
