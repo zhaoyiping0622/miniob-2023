@@ -255,8 +255,7 @@ struct ContainExprSqlNode {
 struct NullCheckExprSqlNode {
   bool is_null;
   ExprSqlNode *left = nullptr;
-  template <typename T>
-  NullCheckExprSqlNode(bool is_null, T *left) : is_null(is_null), left(get_expr_pointer(left)) {}
+  template <typename T> NullCheckExprSqlNode(bool is_null, T *left) : is_null(is_null), left(get_expr_pointer(left)) {}
   ~NullCheckExprSqlNode();
 };
 
