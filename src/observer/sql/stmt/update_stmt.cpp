@@ -37,11 +37,13 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   rc = value_expr->try_get_value(value);
   if (rc != RC::SUCCESS)
     return rc;
-  FilterStmt *filter;
-  rc = FilterStmt::create(db, table, &table_map, update.conditions, filter, nullptr);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("fail to create filter stmt");
-    return rc;
+  FilterStmt *filter = nullptr;
+  if (update.conditions) {
+    rc = FilterStmt::create(db, table, &table_map, update.conditions, filter, nullptr);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("fail to create filter stmt");
+      return rc;
+    }
   }
   if (field_meta->type() != value.attr_type()) {
     if (field_meta->type() == TEXTS) {
@@ -58,7 +60,8 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
       }
     }
   }
-  if(value.attr_type()==CHARS) value.get_fiexed_string();
+  if (value.attr_type() == CHARS)
+    value.get_fiexed_string();
   auto *update_stmt = new UpdateStmt();
   update_stmt->table_ = table;
   update_stmt->field_ = Field(table, field_meta);
