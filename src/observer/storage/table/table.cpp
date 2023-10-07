@@ -357,14 +357,14 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const std::vector<FieldMeta> field_meta, const char *index_name) {
+RC Table::create_index(Trx *trx, const std::vector<FieldMeta> field_meta, const char *index_name, bool unique) {
   if (common::is_blank(index_name) || field_meta.empty()) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, field_meta);
+  RC rc = new_index_meta.init(index_name, field_meta, unique);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s", name(), index_name);
     return rc;
@@ -512,6 +512,11 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_NOT_EXIST) {
+        if (error_on_not_exists)
+          return rc;
+        return RC::SUCCESS;
+      }
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;
       }
@@ -601,13 +606,7 @@ RC Table::init_text_buffer_pool(const char *base_dir) {
     return rc;
   }
 
-  Frame *frame = nullptr;
-  rc = text_buffer_pool_->allocate_page(&frame);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-  text_num_ = frame->page_num() * BP_PAGE_SIZE;
-  frame->unpin();
+  text_num_ = text_buffer_pool_->page_num() * BP_PAGE_SIZE;
   return rc;
 }
 

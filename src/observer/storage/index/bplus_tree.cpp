@@ -156,6 +156,15 @@ char *LeafIndexNodeHandler::value_at(int index) {
   return __value_at(index);
 }
 
+int LeafIndexNodeHandler::lookup_unique(const KeyComparator &comparator, const char *key,
+                                        bool *found /* = nullptr */) const {
+  const int size = this->size();
+  common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
+  common::BinaryIterator<char> iter_end(item_size(), __key_at(size));
+  common::BinaryIterator<char> iter = lower_bound(iter_begin, iter_end, key, comparator.attr_comparator(), found);
+  return iter - iter_begin;
+}
+
 int LeafIndexNodeHandler::lookup(const KeyComparator &comparator, const char *key, bool *found /* = nullptr */) const {
   const int size = this->size();
   common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
@@ -710,6 +719,8 @@ RC BplusTreeHandler::create(const char *file_name, const Table *table, const Ind
     return RC::NOMEM;
   }
 
+  unique_ = meta.unique();
+
   key_comparator_.init(table, meta);
   LOG_INFO("Successfully create index %s", file_name);
   return RC::SUCCESS;
@@ -753,6 +764,9 @@ RC BplusTreeHandler::open(const char *file_name, const Table *table, const Index
   disk_buffer_pool->unpin_page(frame);
 
   key_comparator_.init(table, meta);
+
+  unique_ = meta.unique();
+
   LOG_INFO("Successfully open index %s", file_name);
   return RC::SUCCESS;
 }
@@ -1030,7 +1044,12 @@ RC BplusTreeHandler::crabing_protocal_fetch_page(LatchMemo &latch_memo, BplusTre
 RC BplusTreeHandler::insert_entry_into_leaf_node(LatchMemo &latch_memo, Frame *frame, const char *key, const RID *rid) {
   LeafIndexNodeHandler leaf_node(file_header_, frame);
   bool exists = false; // 该数据是否已经存在指定的叶子节点中了
-  int insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  int insert_position;
+  if (unique_) {
+    leaf_node.lookup_unique(key_comparator_, key, &exists);
+  } else {
+    leaf_node.lookup(key_comparator_, key, &exists);
+  }
   if (exists) {
     LOG_TRACE("entry exists");
     return RC::RECORD_DUPLICATE_KEY;

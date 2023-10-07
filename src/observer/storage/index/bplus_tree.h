@@ -304,6 +304,8 @@ public:
    */
   int lookup(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
 
+  int lookup_unique(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
+
   void insert(int index, const char *key, const char *value);
   void remove(int index);
   int remove(const char *key, const KeyComparator &comparator);
@@ -499,6 +501,9 @@ protected:
 private:
   common::MemPoolItem::unique_ptr make_key(const char *user_key, const RID &rid);
   void free_key(char *key);
+
+private:
+  bool unique_ = false;
 
 protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;

@@ -36,12 +36,13 @@ class IndexMeta {
 public:
   IndexMeta();
 
-  RC init(const char *name, const std::vector<FieldMeta> &fields);
+  RC init(const char *name, const std::vector<FieldMeta> &fields, bool unique);
 
 public:
   const char *name() const;
   const std::vector<FieldMeta> &fields() const { return fields_; }
   const std::string &fields_name() const { return fields_name_; }
+  bool unique() const { return unique_; }
 
   void desc(std::ostream &os) const;
 
@@ -53,4 +54,5 @@ protected:
   std::string name_; // index's name
   std::vector<FieldMeta> fields_;
   std::string fields_name_;
+  bool unique_ = false;
 };

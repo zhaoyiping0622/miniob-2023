@@ -63,6 +63,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         TABLE
         TABLES
         INDEX
+        UNIQUE
         CALC
         SELECT
         DESC
@@ -198,6 +199,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <order>               order
 %type <bools>               null_def
 %type <bools>               null_check
+%type <bools>               unique
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -320,22 +322,31 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID ids RBRACE
+    CREATE unique INDEX ID ON ID LBRACE ID ids RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode *create_index = new CreateIndexSqlNode;
       $$->node.create_index = create_index;
-      create_index->index_name = $3;
-      create_index->relation_name = $5;
-      $8->push_back($7);
-      create_index->attribute_names.swap(*$8);
-      delete $8;
+      create_index->unique = $2;
+      create_index->index_name = $4;
+      create_index->relation_name = $6;
+      $9->push_back($8);
+      create_index->attribute_names.swap(*$9);
+      delete $9;
       std::reverse(create_index->attribute_names.begin(), create_index->attribute_names.end());
-      free($3);
-      free($5);
-      free($7);
+      free($4);
+      free($6);
+      free($8);
     }
     ;
+
+unique:
+    {
+      $$ = false;
+    }
+    | UNIQUE {
+      $$ = true;
+    }
 
 ids:
    {
