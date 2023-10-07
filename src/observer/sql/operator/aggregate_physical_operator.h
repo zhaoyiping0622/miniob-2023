@@ -61,7 +61,7 @@ public:
 
 class CountAggregator : public Aggregator {
 public:
-  CountAggregator(Value init_value) : count_(1) {}
+  CountAggregator(Value init_value) : count_(!init_value.is_null()) {}
   AggregationType type() const override { return AggregationType::AGGR_COUNT; }
   RC add_value(Value value) override;
   Value get_value() const override;

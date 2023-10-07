@@ -133,7 +133,8 @@ RC AggregatePhysicalOperator::close() {
 /////////////////////////////////////////////////////////////////////////////////
 
 RC CountAggregator::add_value(Value value) {
-  count_++;
+  if (!value.is_null())
+    count_++;
   return RC::SUCCESS;
 }
 
