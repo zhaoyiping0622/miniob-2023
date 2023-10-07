@@ -225,7 +225,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   auto append_cell = [&](Expression *expression) {
     if (expression->type() == ExprType::FIELD) {
       Field &field = static_cast<FieldExpr *>(expression)->field();
-      schema->append_cell(field.table_name(), field.field_name());
+      if (father_tables == nullptr && all_tables.size() == 1) {
+        schema->append_cell(field.field_name());
+      } else {
+        schema->append_cell(field.table_name(), field.field_name());
+      }
     } else {
       schema->append_cell(expression->name().c_str());
     }
