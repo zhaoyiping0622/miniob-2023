@@ -43,6 +43,7 @@ enum class LogicalOperatorType {
   SORT,       ///< 排序
   SUB_QUERY,  ///< 子查询
   CACHED,     ///< 缓存
+  UPDATE,     ///< 更新
 };
 
 /**

@@ -66,6 +66,8 @@ public:
    */
   RC make_record(int value_num, const Value *values, Record &record);
 
+  RC make_record(char* data, int len, Record& record);
+
   /**
    * @brief 在当前的表中插入一条记录
    * @details 在表文件和索引中插入关联数据。这里只管在表中插入数据，不关心事务相关操作。
@@ -73,6 +75,7 @@ public:
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
+  RC delete_record(const RID &rid);
   RC visit_record(const RID &rid, bool readonly, std::function<void(Record &)> visitor);
   RC get_record(const RID &rid, Record &record);
 

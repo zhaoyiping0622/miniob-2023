@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/show_tables_stmt.h"
 #include "sql/stmt/trx_begin_stmt.h"
 #include "sql/stmt/trx_end_stmt.h"
+#include "sql/stmt/update_stmt.h"
 
 RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt) {
   stmt = nullptr;
@@ -45,6 +46,9 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt) {
   case SCF_SELECT: {
     std::set<Field> tmp;
     return SelectStmt::create(db, *sql_node.node.selection, stmt, nullptr, tmp);
+  }
+  case SCF_UPDATE: {
+    return UpdateStmt::create(db, *sql_node.node.update, stmt);
   }
 
   case SCF_EXPLAIN: {

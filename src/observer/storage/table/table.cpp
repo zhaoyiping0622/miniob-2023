@@ -268,6 +268,11 @@ const char *Table::name() const { return table_meta_.name(); }
 
 const TableMeta &Table::table_meta() const { return table_meta_; }
 
+RC Table::make_record(char* data, int len, Record& record) {
+  record.set_data(data, len);
+  return RC::SUCCESS;
+}
+
 RC Table::make_record(int value_num, const Value *values, Record &record) {
   // 检查字段类型是否一致
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
@@ -483,6 +488,15 @@ RC Table::drop_all_indexes() {
     }
   }
   return RC::SUCCESS;
+}
+
+RC Table::delete_record(const RID &rid) {
+  RC rc = RC::SUCCESS;
+  RC rc1 = RC::SUCCESS;
+  rc1 = visit_record(rid, false, [&](Record &record) { rc = delete_record(record); });
+  if (rc1 != RC::SUCCESS)
+    return rc1;
+  return rc;
 }
 
 RC Table::delete_record(const Record &record) {
