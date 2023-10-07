@@ -30,7 +30,8 @@ static const Json::StaticString FIELD_FIELDS("fields");
 static const Json::StaticString FIELD_INDEXES("indexes");
 
 TableMeta::TableMeta(const TableMeta &other)
-    : name_(other.name_), fields_(other.fields_), indexes_(other.indexes_), record_size_(other.record_size_) {}
+    : name_(other.name_), fields_(other.fields_), indexes_(other.indexes_), record_size_(other.record_size_),
+      table_meta_fields_(other.table_meta_fields_) {}
 
 void TableMeta::swap(TableMeta &other) noexcept {
   name_.swap(other.name_);
