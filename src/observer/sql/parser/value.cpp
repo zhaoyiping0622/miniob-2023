@@ -195,7 +195,7 @@ std::string Value::to_string() const {
   } break;
   case TEXTS:
   case CHARS: {
-    os << str_value_;
+    os << str_value_.c_str();
   } break;
   case DATES: {
     os << Date::to_string(num_value_.date_value_);
