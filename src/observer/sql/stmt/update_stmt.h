@@ -15,9 +15,9 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
+#include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
-#include "sql/stmt/filter_stmt.h"
 
 class Table;
 

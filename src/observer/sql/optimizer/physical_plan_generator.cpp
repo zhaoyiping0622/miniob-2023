@@ -431,7 +431,8 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_oper, std::
   for (auto &child : logical_oper.children()) {
     std::unique_ptr<PhysicalOperator> cop;
     RC rc = create(*child, cop);
-    if(rc!=RC::SUCCESS) return rc;
+    if (rc != RC::SUCCESS)
+      return rc;
     op->add_child(std::move(cop));
   }
   return RC::SUCCESS;

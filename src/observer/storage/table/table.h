@@ -66,7 +66,7 @@ public:
    */
   RC make_record(int value_num, const Value *values, Record &record);
 
-  RC make_record(char* data, int len, Record& record);
+  RC make_record(char *data, int len, Record &record);
 
   /**
    * @brief 在当前的表中插入一条记录
