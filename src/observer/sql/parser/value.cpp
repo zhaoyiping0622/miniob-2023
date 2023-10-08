@@ -283,17 +283,9 @@ int Value::compare(const Value &other) const {
       return INVALID_COMPARE;
     }
     }
-  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
-    float this_data = this->num_value_.int_value_;
-    return common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
-  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
-    return -other.compare(*this);
-  } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
-    Date a = get_date();
-    return Date::compare_date(&a, &other.num_value_.date_value_);
-  } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
-    return -other.compare(*this);
-  } else if (this->attr_type_ == LISTS) {
+  }
+
+  if (this->attr_type_ == LISTS) {
     auto list = get_list();
     if (list->size() != 1)
       return INVALID_COMPARE;
@@ -301,8 +293,18 @@ int Value::compare(const Value &other) const {
   } else if (other.attr_type_ == LISTS) {
     return -other.compare(*this);
   }
-  LOG_WARN("not supported");
-  return INVALID_COMPARE;
+
+  auto target_type = AttrTypeCompare(this->attr_type_, other.attr_type_);
+  if (target_type == UNDEFINED)
+    return INVALID_COMPARE;
+
+  Value a = *this;
+  Value b = other;
+
+  if (!convert(a.attr_type_, target_type, a) || !convert(b.attr_type_, target_type, b)) {
+    return INVALID_COMPARE;
+  }
+  return a.compare(b);
 }
 
 std::strong_ordering Value::operator<=>(const Value &value) const {
