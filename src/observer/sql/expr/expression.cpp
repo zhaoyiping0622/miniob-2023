@@ -586,7 +586,7 @@ RC ContainExpr::get_value(const Tuple &tuple, Value &value) const {
     value.set_boolean(contain_type_ == ContainType::NOT_IN);
     return RC::SUCCESS;
   }
-  if (right_value.is_null()) {
+  if (right_value.is_null() && contain_type_ == ContainType::NOT_IN) {
     value.set_boolean(false);
   } else {
     auto list = right_value.get_list();
