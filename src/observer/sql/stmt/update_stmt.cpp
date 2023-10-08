@@ -71,6 +71,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   update_stmt->table_ = table;
   update_stmt->units_.swap(units);
   update_stmt->filter_ = filter;
+  update_stmt->sub_queries_.swap(sub_queries);
   stmt = update_stmt;
   return RC::SUCCESS;
 }
