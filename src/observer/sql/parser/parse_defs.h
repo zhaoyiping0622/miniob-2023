@@ -365,18 +365,24 @@ struct DeleteSqlNode {
   }
 };
 
+struct UpdateSetSqlNode {
+  std::string field_name;
+  ValueExprSqlNode *expr;
+};
+
 /**
  * @brief 描述一个update语句
  * @ingroup SQLParser
  */
 struct UpdateSqlNode {
-  std::string relation_name;  ///< Relation to update
-  std::string attribute_name; ///< 更新的字段，仅支持一个字段
-  ValueExprSqlNode value;     ///< 更新的值，仅支持一个字段
+  std::string relation_name;            ///< Relation to update
+  std::vector<UpdateSetSqlNode *> sets; ///< sets
   ConjunctionExprSqlNode *conditions = nullptr;
   ~UpdateSqlNode() {
     if (conditions)
       delete conditions;
+    for (auto x : sets)
+      delete x;
   }
 };
 

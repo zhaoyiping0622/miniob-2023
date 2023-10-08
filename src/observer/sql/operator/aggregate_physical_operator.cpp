@@ -164,8 +164,11 @@ RC MaxAggregator::add_value(Value value) {
 Value MaxAggregator::get_value() const { return now_; }
 
 RC SumAggregator::add_value(Value value) {
-  // TODO(zhaoyiping)
-  if (now_.attr_type() == FLOATS || value.attr_type() == FLOATS) {
+  if (value.is_null())
+    return RC::SUCCESS;
+  if (now_.is_null())
+    now_ = value;
+  else if (now_.attr_type() == FLOATS || value.attr_type() == FLOATS) {
     float sum = now_.get_float() + value.get_float();
     now_.set_float(sum);
   } else {

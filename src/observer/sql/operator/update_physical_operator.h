@@ -1,5 +1,6 @@
 #include "sql/operator/physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
+#include "sql/stmt/update_stmt.h"
 class UpdatePhysicalOperator : public PhysicalOperator {
 private:
   PhysicalOperatorType type() const { return PhysicalOperatorType::UPDATE; }
@@ -19,7 +20,6 @@ private:
   RC update(vector<char> v, RID &rid);
 
 private:
-  Field update_field_;
-  Value value_;
+  std::vector<UpdateUnit> units_;
   Table *table_;
 };

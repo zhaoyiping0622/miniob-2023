@@ -142,6 +142,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   std::vector<AttrInfoSqlNode> *                attr_infos;
   AttrInfoSqlNode *                             attr_info;
   ExprSqlNode *                                 expression;
+  UpdateSetSqlNode *                            update_set;
+  std::vector<UpdateSetSqlNode *> *             update_set_list;
   std::vector<ExprSqlNode *> *                  expression_list;
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
@@ -197,6 +199,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <expression_list>     expression_list_empty
 %type <order_unit_list>     order_unit_list
 %type <order_unit_list>     orderby
+%type <update_set>          update_set
+%type <update_set_list>     update_set_list
 %type <id_list>             ids
 %type <order_unit>          order_unit
 %type <order>               order
@@ -538,19 +542,37 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     ;
 
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value_expr where 
+    UPDATE ID SET update_set_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       auto *update = new UpdateSqlNode;
       $$->node.update = update;
       update->relation_name = $2;
-      update->attribute_name = $4;
-      update->value = *$6;
-      update->conditions = $7;
+      update->sets.swap(*$4);
+      delete $4;
+      update->conditions = $5;
       free($2);
       free($4);
     }
     ;
+
+update_set_list:
+    update_set 
+    {
+      $$ = new std::vector<UpdateSetSqlNode *>(1, $1);
+    }
+    | update_set COMMA update_set_list {
+      $$ = $3;
+      $$->push_back($1);
+    }
+
+update_set:
+    ID EQ value_expr {
+      $$ = new UpdateSetSqlNode;
+      $$->field_name = $1;
+      free($1);
+      $$->expr = $3;
+    }
 
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr from where groupby having orderby

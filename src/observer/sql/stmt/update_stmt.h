@@ -15,11 +15,17 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/rc.h"
+#include "sql/expr/expression.h"
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
 class Table;
+
+struct UpdateUnit {
+  Field field;
+  Value value;
+};
 
 /**
  * @brief 更新语句
@@ -35,13 +41,11 @@ public:
 
 public:
   Table *table() const { return table_; }
-  const Value &value() const { return value_; }
-  Field &field() { return field_; }
+  std::vector<UpdateUnit> &units() { return units_; }
   FilterStmt *filter() { return filter_; }
 
 private:
   Table *table_ = nullptr;
-  Field field_;
-  Value value_;
+  std::vector<UpdateUnit> units_;
   FilterStmt *filter_;
 };

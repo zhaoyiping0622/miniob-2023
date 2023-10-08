@@ -270,14 +270,18 @@ RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<Logic
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<LogicalOperator> &logical_operator) {
   Table *table = update_stmt->table();
   unique_ptr<LogicalOperator> table_get_oper;
-  table_get_oper.reset(new TableGetLogicalOperator(table, {update_stmt->field()}, false));
+  std::vector<Field> fields;
+  for (auto &x : update_stmt->units()) {
+    fields.push_back(x.field);
+  }
+  table_get_oper.reset(new TableGetLogicalOperator(table, fields, false));
   auto *filter_stmt = update_stmt->filter();
   if (filter_stmt != nullptr) {
     auto *predicate_oper = new PredicateLogicalOperator(std::move(filter_stmt->filter_expr()));
     predicate_oper->add_child(std::move(table_get_oper));
     table_get_oper.reset(predicate_oper);
   }
-  logical_operator.reset(new UpdateLogicalOperator(table, update_stmt->field(), update_stmt->value()));
+  logical_operator.reset(new UpdateLogicalOperator(table, update_stmt->units()));
   logical_operator->add_child(std::move(table_get_oper));
   return RC::SUCCESS;
 }

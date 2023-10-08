@@ -97,9 +97,10 @@ RC UpdatePhysicalOperator::remove_all(const vector<RID> &rids) {
 }
 
 RC UpdatePhysicalOperator::update(vector<char> v, RID &rid) {
-  const auto *meta = update_field_.meta();
-  int offset = meta->offset();
-  RC rc = RC::SUCCESS;
-  memcpy(v.data() + offset, value_.data(), attr_type_to_size(meta->type()));
+  for (auto &unit : units_) {
+    const auto *meta = unit.field.meta();
+    int offset = meta->offset();
+    memcpy(v.data() + offset, unit.value.data(), attr_type_to_size(meta->type()));
+  }
   return insert(v, rid);
 }
