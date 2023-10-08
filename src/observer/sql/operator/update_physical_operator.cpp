@@ -104,7 +104,11 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
   RC rc = RC::SUCCESS;
   for (int i = 0; i < values.size(); i++) {
     auto &unit = units_[i];
-    Value &value = values[i];
+    Value value;
+    if (!values[i].get_only(value)) {
+      LOG_WARN("list not has one value");
+      return RC::INVALID_ARGUMENT;
+    }
     const auto *meta = unit.field.meta();
     if (value.attr_type() != meta->type()) {
       if (value.attr_type() == NULLS) {

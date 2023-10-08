@@ -47,7 +47,7 @@ bool ValueComparator::operator()(const Value &a, const Value &b) const {
 }
 
 bool ValueComparator::operator()(const ValueList &a, const ValueList &b) const {
-  return compare(a, b)==std::strong_ordering::less;
+  return compare(a, b) == std::strong_ordering::less;
 }
 
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "texts", "nulls", "lists", "booleans"};
@@ -171,6 +171,8 @@ void Value::set_text(const char *s) {
 }
 
 void Value::set_value(const Value &value) {
+  if (&value == this)
+    return;
   switch (value.attr_type()) {
   case NULLS: {
     set_null();
@@ -452,6 +454,22 @@ bool Value::get_boolean() const {
 
 bool Value::is_null() const { return attr_type_ == NULLS || attr_type_ == LISTS && num_value_.bool_value_; }
 
+bool Value::get_only(Value &value) const {
+  if (attr_type_ != LISTS) {
+    value.set_value(*this);
+    return true;
+  }
+  auto list = get_list();
+  if (list->size() != 1 || list->begin()->second != 1)
+    return false;
+  const auto &value_list = list->begin()->first;
+  auto &vec = value_list.get_list();
+  if (vec.size() != 1)
+    return false;
+  value.set_value(vec[0]);
+  return true;
+}
+
 std::shared_ptr<ValueListMap> Value::get_list() const { return list_value_; }
 
 bool Value::convert(AttrType from, AttrType to, Value &value) {
@@ -477,15 +495,8 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
     }
   }
   if (from == LISTS) {
-    auto list = value.get_list();
-    if (list->size() != 1 || list->begin()->second != 1)
-      return false;
-    const auto &value_list = list->begin()->first;
-    auto &vec = value_list.get_list();
-    if (vec.size() != 1)
-      return false;
-    auto new_value = vec[0];
-    if (convert(new_value.attr_type(), to, new_value)) {
+    Value new_value;
+    if (value.get_only(new_value) && convert(new_value.attr_type(), to, new_value)) {
       value = new_value;
       return true;
     }
