@@ -63,7 +63,7 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
       fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset, field_meta.len(), false /*visible*/,
-                             field_meta.visible());
+                             field_meta.visible(), i);
       field_offset += field_meta.len();
     }
 
@@ -71,7 +71,8 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
   }
 
   table_meta_fields_.resize(1);
-  table_meta_fields_[0] = FieldMeta("table_meta_null_", INTS, field_offset, attr_type_to_size(INTS), false, false);
+  table_meta_fields_[0] =
+      FieldMeta("table_meta_null_", INTS, field_offset, attr_type_to_size(INTS), false, false, trx_field_num);
   field_offset += attr_type_to_size(INTS);
   int meta_field_num = table_meta_fields_.size();
   fields_.insert(fields_.end(), table_meta_fields_.begin(), table_meta_fields_.end());
@@ -80,7 +81,8 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num, const Attr
   for (int i = 0; i < field_num; i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
     rc = fields_[i + trx_field_num + meta_field_num].init(attr_info.name.c_str(), attr_info.type, field_offset,
-                                                          attr_info.length, true /*visible*/, attr_info.nullable);
+                                                          attr_info.length, true /*visible*/, attr_info.nullable,
+                                                          i + trx_field_num + meta_field_num);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name.c_str());
       return rc;

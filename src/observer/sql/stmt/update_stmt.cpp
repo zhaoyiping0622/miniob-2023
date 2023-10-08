@@ -41,7 +41,12 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
     rc = value_expr->try_get_value(value);
     if (rc != RC::SUCCESS)
       return rc;
-    if (field_meta->type() != value.attr_type()) {
+    if (value.is_null()) {
+      if (!field_meta->nullable()) {
+        LOG_WARN("field %s should not be null", field_meta->name());
+        return RC::INVALID_ARGUMENT;
+      }
+    } else if (field_meta->type() != value.attr_type()) {
       if (field_meta->type() == TEXTS) {
         int page_of;
         rc = table->add_text(value.get_string().c_str(), page_of);

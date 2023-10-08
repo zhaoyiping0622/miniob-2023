@@ -319,7 +319,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
     if (value.attr_type() == NULLS) {
       int null_offset = table_meta_.null_field_meta()->offset();
       int &null_value = *(int *)(record_data + null_offset);
-      null_value |= 1 << (i + table_meta_.sys_field_num());
+      null_value |= 1 << (field->index());
     } else if (field->type() == CHARS) {
       copy_len = std::min(value.get_string().length(), copy_len);
       memcpy(record_data + field->offset(), value.get_string().c_str(), copy_len);

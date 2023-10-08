@@ -152,7 +152,7 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     const FieldMeta *null_meta = table_->table_meta().null_field_meta();
     int null_flag = *(int *)(this->record_->data() + null_meta->offset());
-    if (null_flag & (1 << index)) {
+    if (null_flag & (1 << field_meta->index())) {
       cell.set_null();
     } else if (field_meta->type() == TEXTS) {
       int offset = *(int *)(this->record_->data() + field_meta->offset());
