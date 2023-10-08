@@ -434,6 +434,14 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
       return true;
     }
   }
+  if (to == CHARS) {
+    if (from == LISTS)
+      return false;
+    if (from == NULLS)
+      return false;
+    value.set_string(value.to_string().c_str());
+    return true;
+  }
   if (from == INTS && to == FLOATS) {
     value.set_float(value.get_float());
     return true;
