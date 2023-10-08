@@ -7,11 +7,7 @@ AttrType AggregationUnit::value_type() {
   case AggregationType::AGGR_COUNT: return INTS;
   case AggregationType::AGGR_MIN: return expr_type;
   case AggregationType::AGGR_MAX: return expr_type;
-  case AggregationType::AGGR_AVG: {
-    if (expr_type == INTS || expr_type == FLOATS)
-      return FLOATS;
-    return UNDEFINED;
-  }
+  case AggregationType::AGGR_AVG: return FLOATS;
   case AggregationType::AGGR_SUM: {
     if (expr_type == INTS)
       return INTS;
