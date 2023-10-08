@@ -97,10 +97,16 @@ RC UpdatePhysicalOperator::remove_all(const vector<RID> &rids) {
 }
 
 RC UpdatePhysicalOperator::update(vector<char> v, RID &rid) {
+  int &null_value = *(int *)(v.data() + table_->table_meta().null_field_meta()->offset());
   for (auto &unit : units_) {
     const auto *meta = unit.field.meta();
     int offset = meta->offset();
     memcpy(v.data() + offset, unit.value.data(), attr_type_to_size(meta->type()));
+    if (unit.value.is_null()) {
+      null_value |= 1 << meta->index();
+    } else {
+      null_value &= -1 ^ (1 << meta->index());
+    }
   }
   return insert(v, rid);
 }
