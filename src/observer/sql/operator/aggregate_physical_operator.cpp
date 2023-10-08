@@ -95,8 +95,12 @@ RC AggregatePhysicalOperator::open(Trx *trx) {
 }
 
 RC AggregatePhysicalOperator::next(Tuple *env_tuple) {
-  if (idx_ == -1)
-    calculate_all(env_tuple);
+  RC rc = RC::SUCCESS;
+  if (idx_ == -1) {
+    rc = calculate_all(env_tuple);
+    if (rc != RC::SUCCESS)
+      return rc;
+  }
   idx_++;
   if (idx_ == records_.size()) {
     return RC::RECORD_EOF;
