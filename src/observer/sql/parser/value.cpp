@@ -54,7 +54,7 @@ Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
 Value::Value(Date date) { set_date(date); }
 
-Value::Value(std::set<ValueList> &list) { set_list(list); }
+Value::Value(std::map<ValueList, int> &list) { set_list(list); }
 
 void Value::set_data(char *data, int length) {
   switch (attr_type()) {
@@ -124,12 +124,12 @@ void Value::set_null() {
   length_ = 1;
 }
 
-void Value::set_list(const std::set<ValueList> &list) {
+void Value::set_list(const std::map<ValueList, int> &list) {
   attr_type_ = LISTS;
-  list_value_ = std::make_shared<std::set<ValueList>>(list);
+  list_value_ = std::make_shared<std::map<ValueList, int>>(list);
   bool has_null = false;
   for (auto &v : list) {
-    if (v.has_null()) {
+    if (v.first.has_null()) {
       has_null = true;
       break;
     }
@@ -217,7 +217,7 @@ std::string Value::to_string() const {
     for (auto &x : *list_value_) {
       if (sep)
         os << ",";
-      os << x.to_string();
+      os << x.first.to_string();
       sep = true;
     }
     os << "{";
@@ -272,8 +272,15 @@ int Value::compare(const Value &other) const {
       return Date::compare_date(&num_value_.date_value_, &other.num_value_.date_value_);
     } break;
     case LISTS: {
-      auto order = (*list_value_) <=> (*other.list_value_);
-      return compare_by_ordering(order);
+      auto it1 = list_value_->begin();
+      auto it2 = other.list_value_->begin();
+      while (it1 != list_value_->end() && it2 != other.list_value_->end()) {
+        auto order = *it1 <=> *it2;
+        if (order != std::strong_ordering::equal) {
+          return compare_by_ordering(order);
+        }
+      }
+      return compare_by_ordering(list_value_->size() <=> other.list_value_->size());
     } break;
     case NULLS: {
       return 0;
@@ -287,9 +294,9 @@ int Value::compare(const Value &other) const {
 
   if (this->attr_type_ == LISTS) {
     auto list = get_list();
-    if (list->size() != 1)
+    if (list->size() != 1 || list->begin()->second != 1)
       return INVALID_COMPARE;
-    return list->begin()->get_list().begin()->compare(other);
+    return list->begin()->first.get_list().begin()->compare(other);
   } else if (other.attr_type_ == LISTS) {
     return -other.compare(*this);
   }
@@ -420,7 +427,7 @@ bool Value::get_boolean() const {
 
 bool Value::is_null() const { return attr_type_ == NULLS || attr_type_ == LISTS && num_value_.bool_value_; }
 
-std::shared_ptr<std::set<ValueList>> Value::get_list() const { return list_value_; }
+std::shared_ptr<std::map<ValueList, int>> Value::get_list() const { return list_value_; }
 
 bool Value::convert(AttrType from, AttrType to, Value &value) {
   if (from == to) {
@@ -446,9 +453,9 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
   }
   if (from == LISTS) {
     auto list = value.get_list();
-    if (list->size() != 1)
+    if (list->size() != 1 || list->begin()->second != 1)
       return false;
-    auto &value_list = *list->begin();
+    const auto &value_list = list->begin()->first;
     auto &vec = value_list.get_list();
     if (vec.size() != 1)
       return false;

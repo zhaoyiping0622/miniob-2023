@@ -38,7 +38,7 @@ RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
     rc = child->open(trx_);
     if (rc != RC::SUCCESS)
       return rc;
-    std::set<ValueList> records;
+    std::map<ValueList, int> records;
     while ((rc = child->next(&env_)) == RC::SUCCESS) {
       Tuple *sub_tuple = child->current_tuple();
       Value tmp;
@@ -46,7 +46,7 @@ RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
       if (rc != RC::SUCCESS) {
         return rc;
       }
-      records.emplace(tmp);
+      records[tmp]++;
     }
     if (rc != RC::RECORD_EOF) {
       return rc;
