@@ -551,7 +551,7 @@ std::string SetExpr::to_string() const {
 RC SetExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const SetExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   std::vector<std::unique_ptr<Expression>> children;
-  std::map<ValueList, int> values;
+  ValueListMap values;
   RC rc = RC::SUCCESS;
   Expression *tmp;
   for (auto &x : expr_node->expressions) {

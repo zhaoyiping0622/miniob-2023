@@ -25,6 +25,31 @@ See the Mulan PSL v2 for more details. */
 #include <sstream>
 #include <vector>
 
+std::strong_ordering ValueComparator::compare(const Value &a, const Value &b) const {
+  if (a.attr_type() != b.attr_type())
+    return a.attr_type() <=> b.attr_type();
+  return a <=> b;
+}
+std::strong_ordering ValueComparator::compare(const ValueList &a, const ValueList &b) const {
+  auto &aa = a.get_list();
+  auto &bb = b.get_list();
+  for (int i = 0; i < aa.size() && i < bb.size(); i++) {
+    auto order = compare(aa[i], bb[i]);
+    if (order == std::strong_ordering::equal)
+      continue;
+    return order;
+  }
+  return aa.size() <=> bb.size();
+}
+
+bool ValueComparator::operator()(const Value &a, const Value &b) const {
+  return compare(a, b) == std::strong_ordering::less;
+}
+
+bool ValueComparator::operator()(const ValueList &a, const ValueList &b) const {
+  return compare(a, b)==std::strong_ordering::less;
+}
+
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "texts", "nulls", "lists", "booleans"};
 
 int attr_type_to_size(AttrType type) { return 4; }
@@ -54,7 +79,7 @@ Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
 Value::Value(Date date) { set_date(date); }
 
-Value::Value(std::map<ValueList, int> &list) { set_list(list); }
+Value::Value(ValueListMap &list) { set_list(list); }
 
 void Value::set_data(char *data, int length) {
   switch (attr_type()) {
@@ -124,9 +149,9 @@ void Value::set_null() {
   length_ = 1;
 }
 
-void Value::set_list(const std::map<ValueList, int> &list) {
+void Value::set_list(const ValueListMap &list) {
   attr_type_ = LISTS;
-  list_value_ = std::make_shared<std::map<ValueList, int>>(list);
+  list_value_ = std::make_shared<ValueListMap>(list);
   bool has_null = false;
   for (auto &v : list) {
     if (v.first.has_null()) {
@@ -427,7 +452,7 @@ bool Value::get_boolean() const {
 
 bool Value::is_null() const { return attr_type_ == NULLS || attr_type_ == LISTS && num_value_.bool_value_; }
 
-std::shared_ptr<std::map<ValueList, int>> Value::get_list() const { return list_value_; }
+std::shared_ptr<ValueListMap> Value::get_list() const { return list_value_; }
 
 bool Value::convert(AttrType from, AttrType to, Value &value) {
   if (from == to) {

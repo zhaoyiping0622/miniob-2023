@@ -47,6 +47,9 @@ const char *attr_type_to_string(AttrType type);
 AttrType attr_type_from_string(const char *s);
 
 class ValueList;
+class ValueComparator;
+
+using ValueListMap = std::map<ValueList, int, ValueComparator>;
 
 /**
  * @brief 属性的值
@@ -63,7 +66,7 @@ public:
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
   explicit Value(Date date);
-  explicit Value(std::map<ValueList, int> &list);
+  explicit Value(ValueListMap &list);
 
   Value(const Value &other) = default;
   Value &operator=(const Value &other) = default;
@@ -78,7 +81,7 @@ public:
   void set_date(Date date);
   void set_value(const Value &value);
   void set_null();
-  void set_list(const std::map<ValueList, int> &list);
+  void set_list(const ValueListMap &list);
   void set_text(const char *s);
 
   std::string to_string() const;
@@ -102,7 +105,7 @@ public:
   std::string get_string() const;
   bool get_boolean() const;
   Date get_date() const;
-  std::shared_ptr<std::map<ValueList, int>> get_list() const;
+  std::shared_ptr<ValueListMap> get_list() const;
   bool is_null() const;
 
 public:
@@ -124,7 +127,17 @@ private:
     Date date_value_;
   } num_value_;
   std::string str_value_;
-  std::shared_ptr<std::map<ValueList, int>> list_value_;
+  std::shared_ptr<ValueListMap> list_value_;
+};
+
+class ValueComparator {
+private:
+  std::strong_ordering compare(const Value &a, const Value &b) const;
+  std::strong_ordering compare(const ValueList &a, const ValueList &b) const;
+
+public:
+  bool operator()(const Value &a, const Value &b) const;
+  bool operator()(const ValueList &a, const ValueList &b) const;
 };
 
 AttrType AttrTypeCompare(AttrType a, AttrType b);
