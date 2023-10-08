@@ -373,12 +373,6 @@ float Value::get_float() const {
 
 std::string Value::get_string() const { return this->to_string(); }
 
-char *Value::get_fiexed_string() const {
-  std::memset((void *)num_value_.str_value_, 0, 4);
-  std::strncpy((char *)num_value_.str_value_, str_value_.c_str(), 4);
-  return (char *)num_value_.str_value_;
-}
-
 bool Value::get_boolean() const {
   switch (attr_type()) {
   case TEXTS:

@@ -686,7 +686,7 @@ RC BplusTreeHandler::create(const char *file_name, const Table *table, const Ind
 
   int attr_length = 0;
   for (auto &field : meta.fields()) {
-    attr_length += attr_type_to_size(field.type());
+    attr_length += field.len();
   }
 
   if (internal_max_size < 0) {
@@ -1768,7 +1768,7 @@ RC BplusTreeScanner::close() {
 //   return RC::SUCCESS;
 // }
 
-int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type) const {
+int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type, int char_len = 0) const {
   switch (type) {
   case INTS: {
     return common::compare_int((void *)v1, (void *)v2);
@@ -1777,7 +1777,7 @@ int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type) 
     return common::compare_float((void *)v1, (void *)v2);
   }
   case CHARS: {
-    return common::compare_string((void *)v1, attr_type_to_size(type), (void *)v2, attr_type_to_size(type));
+    return common::compare_string((void *)v1, char_len, (void *)v2, char_len);
   }
   case DATES: {
     return Date::compare_date((const Date *)v1, (const Date *)v2);
@@ -1798,8 +1798,13 @@ int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type) 
 
 int AttrComparator::operator()(const char *v1, const char *v2) const {
   for (const auto &field : meta_.fields()) {
-    int size = attr_type_to_size(field.type());
-    int cmp = compare_data(v1, v2, field.type());
+    int size;
+    if (field.type() != CHARS) {
+      size = attr_type_to_size(field.type());
+    } else {
+      size = field.len();
+    }
+    int cmp = compare_data(v1, v2, field.type(), size);
     if (cmp)
       return cmp;
     v1 += size;
@@ -1813,6 +1818,10 @@ void AttrComparator::init(const Table *table, const IndexMeta &meta) {
   meta_ = meta;
   attr_length_ = 0;
   for (auto &field : meta.fields()) {
-    attr_length_ += attr_type_to_size(field.type());
+    if (field.type() == CHARS) {
+      attr_length_ += field.len();
+    } else {
+      attr_length_ += attr_type_to_size(CHARS);
+    }
   }
 }
