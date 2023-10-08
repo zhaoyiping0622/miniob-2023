@@ -105,8 +105,13 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
     auto &unit = units_[i];
     Value &value = values[i];
     const auto *meta = unit.field.meta();
-    if (value.attr_type() != meta->type() && value.attr_type() != NULLS) {
-      if (meta->type() == TEXTS) {
+    if (value.attr_type() != meta->type()) {
+      if (value.attr_type() == NULLS) {
+        if (!meta->nullable()) {
+          LOG_WARN("field %s should not be null", meta->name());
+          return RC::INVALID_ARGUMENT;
+        }
+      } else if (meta->type() == TEXTS) {
         int page_of;
         rc = table_->add_text(value.get_string().c_str(), page_of);
         if (rc != RC::SUCCESS)
