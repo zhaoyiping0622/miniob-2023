@@ -60,10 +60,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   RC rc = RC::SUCCESS;
   unique_ptr<JoinStmt> join_stmt;
-  std::unordered_map<std::string, Table *> current_tables_;
+  std::unordered_map<std::string, Table *> current_tables;
   if (select_sql.tables) {
     JoinStmt *join = nullptr;
-    rc = JoinStmt::create(db, select_sql.tables, join, tables, current_tables_);
+    rc = JoinStmt::create(db, select_sql.tables, join, tables, current_tables);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to create join stmt");
       return rc;
@@ -71,13 +71,14 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
     join_stmt.reset(join);
   }
 
-  table_map = current_tables_;
+  table_map = current_tables;
 
   reverse(tables.begin(), tables.end());
 
   if (father_tables) {
     for (auto &x : *father_tables) {
-      table_map.insert(x);
+      if (table_map.count(x.first) == 0)
+        table_map.insert(x);
     }
   }
 
@@ -183,6 +184,14 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       for (Table *table : tables) {
         wildcard_fields(table, expressions);
       }
+    } else if (expression->type() == ExprType::FIELD && expression->get_field()->field_name == "*") {
+      auto table_name = expression->get_field()->table_name;
+      auto it = table_map.find(table_name);
+      if (it == table_map.end()) {
+        LOG_WARN("table %s not exists", table_name.c_str());
+        return RC::SCHEMA_FIELD_NOT_EXIST;
+      }
+      wildcard_fields(it->second, expressions);
     } else {
       Expression *expr;
       RC rc = Expression::create(db, default_table, &table_map, expression, expr, &aggregator_generator);
@@ -327,7 +336,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->used_fields_ = used_fields;
   select_stmt->reference_fields_.swap(reference_fields);
   select_stmt->expressions_.swap(expressions);
-  select_stmt->current_tables_.swap(table_map);
+  select_stmt->current_tables_.swap(current_tables);
   if (father_tables)
     select_stmt->father_tables_ = *father_tables;
   select_stmt->schema_.swap(schema);

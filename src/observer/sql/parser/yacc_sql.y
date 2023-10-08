@@ -898,6 +898,12 @@ rel_attr:
       free($1);
       free($3);
     }
+    | ID DOT '*' {
+      $$ = new FieldExprSqlNode;
+      $$->table_name  = $1;
+      $$->field_name = "*";
+      free($1);
+    }
     ;
 
 rel_list:
