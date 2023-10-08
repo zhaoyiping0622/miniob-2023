@@ -13,8 +13,8 @@ public:
   const std::string &name() const { return name_; }
   const std::unique_ptr<SelectStmt> &stmt() const { return stmt_; }
 
-  static RC create(Db *db, const ExprSqlNode *node, std::vector<Table *> tables, Expression *&expr,
-                   SubQueryStmt *&sub_query, std::set<Field> &used_fields);
+  static RC create(Db *db, const ExprSqlNode *node, const std::unordered_map<std::string, Table *> &tables,
+                   Expression *&expr, SubQueryStmt *&sub_query, std::set<Field> &used_fields);
 
 private:
   std::unique_ptr<SelectStmt> stmt_;

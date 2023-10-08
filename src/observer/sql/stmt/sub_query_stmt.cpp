@@ -4,8 +4,8 @@
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 
-RC SubQueryStmt::create(Db *db, const ExprSqlNode *node, std::vector<Table *> tables, Expression *&expr,
-                        SubQueryStmt *&sub_query, std::set<Field> &used_fields) {
+RC SubQueryStmt::create(Db *db, const ExprSqlNode *node, const std::unordered_map<std::string, Table *>& tables,
+                        Expression *&expr, SubQueryStmt *&sub_query, std::set<Field> &used_fields) {
   RC rc = RC::SUCCESS;
   if (node->type() == ExprType::LIST) {
     auto *list_node = node->get_list();

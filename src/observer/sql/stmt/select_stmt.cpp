@@ -39,8 +39,8 @@ static void wildcard_fields(Table *table, std::vector<std::unique_ptr<Expression
   }
 }
 
-RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, const std::vector<Table *> *father_tables,
-                      std::set<Field> &father_fields) {
+RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+                      const std::unordered_map<std::string, Table *> *father_tables, std::set<Field> &father_fields) {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
@@ -60,9 +60,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
 
   RC rc = RC::SUCCESS;
   unique_ptr<JoinStmt> join_stmt;
+  std::unordered_map<std::string, Table *> current_tables_;
   if (select_sql.tables) {
     JoinStmt *join = nullptr;
-    rc = JoinStmt::create(db, select_sql.tables, join, tables, table_map);
+    rc = JoinStmt::create(db, select_sql.tables, join, tables, current_tables_);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to create join stmt");
       return rc;
@@ -70,15 +71,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
     join_stmt.reset(join);
   }
 
+  table_map = current_tables_;
+
   reverse(tables.begin(), tables.end());
 
-  std::vector<Table *> all_tables;
-  if (father_tables != nullptr) {
-    all_tables = *father_tables;
-    for (auto x : *father_tables)
-      table_map[x->name()] = x;
+  if (father_tables) {
+    for (auto &x : *father_tables) {
+      table_map.insert(x);
+    }
   }
-  all_tables.insert(all_tables.end(), tables.begin(), tables.end());
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {
@@ -113,7 +114,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
 
   ExprGenerator sub_query_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
     SubQueryStmt *sub_query;
-    RC rc = SubQueryStmt::create(db, node, all_tables, expr, sub_query, used_fields);
+    RC rc = SubQueryStmt::create(db, node, table_map, expr, sub_query, used_fields);
     if (rc != RC::SUCCESS)
       return rc;
     sub_queries.emplace_back(sub_query);
@@ -173,8 +174,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
 
   // collect query fields in `select` statement
   std::vector<std::unique_ptr<Expression>> expressions;
+  std::unordered_map<int, std::string> expr_alias;
   for (int i = 0; i < select_sql.attributes.size(); i++) {
-    const ExprSqlNode *expression = select_sql.attributes[i];
+    const auto *attribute = select_sql.attributes[i];
+    const ExprSqlNode *expression = attribute->expr;
 
     if (expression->type() == ExprType::STAR) {
       for (Table *table : tables) {
@@ -187,6 +190,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
         LOG_WARN("failed to parse expression, rc=%s", strrc(rc));
         return rc;
       }
+      if (attribute->alias.size()) {
+        expr_alias[expressions.size()] = attribute->alias;
+        expr->set_name(attribute->alias);
+      }
       expressions.emplace_back(expr);
     }
   }
@@ -194,10 +201,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   vector<set<Field>> reference_fields(expressions.size());
   set<Field> attr_used_fields = groupbys;
 
-  auto append_cell = [&](Expression *expression) {
-    if (expression->type() == ExprType::FIELD) {
+  auto append_cell = [&](Expression *expression, std::string alias = "") {
+    if (alias.size()) {
+      schema->append_cell(alias.c_str());
+    } else if (expression->type() == ExprType::FIELD) {
       Field &field = static_cast<FieldExpr *>(expression)->field();
-      if (father_tables == nullptr && all_tables.size() == 1) {
+      if (father_tables == nullptr && tables.size() == 1) {
         schema->append_cell(TupleCellSpec(field.table_name(), field.field_name(), field.field_name()));
       } else {
         schema->append_cell(field.table_name(), field.field_name());
@@ -210,7 +219,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   for (int i = 0; i < expressions.size(); i++) {
     auto fields = expressions[i]->reference_fields();
     attr_used_fields.insert(fields.begin(), fields.end());
-    append_cell(expressions[i].get());
+    auto it = expr_alias.find(i);
+    if (it != expr_alias.end()) {
+      append_cell(expressions[i].get(), it->second);
+    } else {
+      append_cell(expressions[i].get());
+    }
     reference_fields[i].swap(fields);
   }
 
@@ -313,7 +327,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
   select_stmt->used_fields_ = used_fields;
   select_stmt->reference_fields_.swap(reference_fields);
   select_stmt->expressions_.swap(expressions);
-  select_stmt->tables_.swap(tables);
+  select_stmt->current_tables_.swap(table_map);
   if (father_tables)
     select_stmt->father_tables_ = *father_tables;
   select_stmt->schema_.swap(schema);

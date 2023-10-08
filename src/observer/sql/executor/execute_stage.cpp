@@ -65,7 +65,7 @@ RC ExecuteStage::handle_request_with_physical_operator(SQLStageEvent *sql_event)
   switch (stmt->type()) {
   case StmtType::SELECT: {
     SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
-    bool with_table_name = select_stmt->tables().size() > 1;
+    bool with_table_name = (select_stmt->current_tables().size() > 1);
 
     schema = *select_stmt->schema();
   } break;
