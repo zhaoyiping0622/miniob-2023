@@ -4,7 +4,7 @@
 class UpdateLogicalOperator : public LogicalOperator {
 public:
   LogicalOperatorType type() const { return LogicalOperatorType::UPDATE; }
-  UpdateLogicalOperator(Table *table, std::vector<UpdateUnit> &units) : table_(table), units_(units) {}
+  UpdateLogicalOperator(Table *table, std::vector<UpdateUnit> &units) : table_(table), units_(std::move(units)) {}
 
   std::vector<UpdateUnit> &units() { return units_; }
   Table *table() { return table_; }

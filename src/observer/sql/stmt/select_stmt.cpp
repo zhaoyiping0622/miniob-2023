@@ -107,45 +107,17 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, cons
 
   aggregation_stmt->group_fields() = groupbys;
 
-  vector<SubQueryStmt> sub_queries;
+  vector<std::unique_ptr<SubQueryStmt>> sub_queries;
 
   set<Field> used_fields = groupbys;
 
   ExprGenerator sub_query_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
-    if (node->type() == ExprType::LIST) {
-      auto *list_node = node->get_list();
-      Stmt *stmt = nullptr;
-      set<Field> fields;
-      rc = SelectStmt::create(db, *list_node->select, stmt, &all_tables, fields);
-      if (rc != RC::SUCCESS)
-        return rc;
-      SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
-      if (select_stmt->schema()->cell_num() != 1) {
-        // 现在只处理子查询只有一列的情况，多列直接报错
-        LOG_WARN("sub query should only have one column");
-        delete stmt;
-        return RC::INVALID_ARGUMENT;
-      }
-      sub_queries.push_back(SubQueryStmt(std::unique_ptr<SelectStmt>(select_stmt), node->name()));
-      expr = new ListExpr(select_stmt, node->name());
-      // 提取一些子查询用到的字段
-      for (auto field : fields) {
-        bool found = false;
-        for (auto *table : tables) {
-          if (field.table() == table) {
-            found = true;
-          }
-        }
-        if (found) {
-          used_fields.insert(field);
-        } else {
-          father_fields.insert(field);
-        }
-      }
-      used_fields.insert(fields.begin(), fields.end());
+    SubQueryStmt *sub_query;
+    RC rc = SubQueryStmt::create(db, node, all_tables, expr, sub_query, used_fields);
+    if (rc != RC::SUCCESS)
       return rc;
-    }
-    return RC::INTERNAL;
+    sub_queries.emplace_back(sub_query);
+    return RC::SUCCESS;
   };
 
   ExprGenerator aggregator_generator = [&](const ExprSqlNode *node, Expression *&expr) -> RC {

@@ -382,7 +382,7 @@ struct DeleteSqlNode {
 
 struct UpdateSetSqlNode {
   std::string field_name;
-  ValueExprSqlNode *expr;
+  ExprSqlNode *expr;
 };
 
 /**

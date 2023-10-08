@@ -96,6 +96,8 @@ public:
 
   virtual RC spec_at(int index, TupleCellSpec &spec) const = 0;
 
+  virtual RC get_record(Table *table, Record *&record) = 0;
+
   virtual std::string to_string() const {
     std::string str;
     const int cell_num = this->cell_num();
@@ -175,6 +177,14 @@ public:
     auto field_expr = speces_[index];
     spec = TupleCellSpec(field_expr->table_name(), field_expr->field_name());
     return RC::SUCCESS;
+  }
+
+  RC get_record(Table *table, Record *&record) override {
+    if (strcmp(table->name(), table_->name()) == 0) {
+      record = record_;
+      return RC::SUCCESS;
+    }
+    return RC::NOTFOUND;
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
@@ -267,6 +277,12 @@ public:
     return RC::SUCCESS;
   }
 
+  RC get_record(Table *table, Record *&record) override {
+    if (tuple_)
+      return tuple_->get_record(table, record);
+    return RC::NOTFOUND;
+  }
+
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {
@@ -315,6 +331,7 @@ public:
     spec = TupleCellSpec(expressions_[index]->name().c_str());
     return RC::SUCCESS;
   }
+  RC get_record(Table *table, Record *&record) override { return RC::NOTFOUND; }
 
 private:
   const std::vector<std::unique_ptr<Expression>> &expressions_;
@@ -361,6 +378,8 @@ public:
     spec = speces_[index];
     return RC::SUCCESS;
   }
+
+  RC get_record(Table *table, Record *&record) override { return RC::NOTFOUND; }
 
 private:
   std::vector<Value> cells_;
@@ -418,6 +437,21 @@ public:
     if (index >= left_cell_num)
       return right_->spec_at(index - left_cell_num, spec);
     return RC::NOTFOUND;
+  }
+
+  RC get_record(Table *table, Record *&record) override {
+    RC rc = RC::NOTFOUND;
+    if (left_) {
+      rc = left_->get_record(table, record);
+      if (rc == RC::SUCCESS)
+        return rc;
+    }
+    if (right_) {
+      rc = right_->get_record(table, record);
+      if (rc == RC::SUCCESS)
+        return rc;
+    }
+    return rc;
   }
 
 private:

@@ -149,16 +149,16 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     unique_ptr<SubQueryLogicalOperator> sub_query_operator(new SubQueryLogicalOperator(table_oper));
     for (auto &x : select_stmt->sub_queries()) {
       unique_ptr<LogicalOperator> sub_query;
-      rc = create_plan(x.stmt().get(), sub_query);
+      rc = create_plan(x->stmt().get(), sub_query);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to generate sub query");
         return rc;
       }
-      if (!x.stmt()->use_father()) {
+      if (!x->stmt()->use_father()) {
         unique_ptr<LogicalOperator> cached_opeartor(new CachedLogicalOperator(sub_query));
         sub_query.swap(cached_opeartor);
       }
-      sub_query_operator->add_sub_query(std::move(sub_query), x.name());
+      sub_query_operator->add_sub_query(std::move(sub_query), x->name());
     }
     table_oper.reset(sub_query_operator.release());
   }
@@ -268,6 +268,7 @@ RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<Logic
 }
 
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<LogicalOperator> &logical_operator) {
+  RC rc = RC::SUCCESS;
   Table *table = update_stmt->table();
   unique_ptr<LogicalOperator> table_get_oper;
   std::vector<Field> fields;
@@ -275,6 +276,18 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<Lo
     fields.push_back(x.field);
   }
   table_get_oper.reset(new TableGetLogicalOperator(table, fields, false));
+  auto &sub_queries = update_stmt->sub_queries();
+  if (sub_queries.size()) {
+    auto *sub_query_operator = new SubQueryLogicalOperator(table_get_oper);
+    for (auto &sub_query : sub_queries) {
+      std::unique_ptr<LogicalOperator> oper;
+      rc = create(sub_query.get()->stmt().get(), oper);
+      if (rc != RC::SUCCESS)
+        return rc;
+      sub_query_operator->add_sub_query(std::move(oper), sub_query->name());
+    }
+    table_get_oper.reset(sub_query_operator);
+  }
   auto *filter_stmt = update_stmt->filter();
   if (filter_stmt != nullptr) {
     auto *predicate_oper = new PredicateLogicalOperator(std::move(filter_stmt->filter_expr()));
@@ -283,5 +296,5 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<Lo
   }
   logical_operator.reset(new UpdateLogicalOperator(table, update_stmt->units()));
   logical_operator->add_child(std::move(table_get_oper));
-  return RC::SUCCESS;
+  return rc;
 }

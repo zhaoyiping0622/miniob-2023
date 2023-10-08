@@ -59,7 +59,7 @@ public:
   std::unique_ptr<JoinStmt> &join_stmt() { return join_stmt_; }
   const std::shared_ptr<TupleSchema> &schema() const { return schema_; }
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
-  std::vector<SubQueryStmt> &sub_queries() { return sub_queries_; }
+  std::vector<std::unique_ptr<SubQueryStmt>> &sub_queries() { return sub_queries_; }
   bool use_father() const { return use_father_; }
 
 private:
@@ -72,7 +72,7 @@ private:
   std::vector<Table *> father_tables_;                   // 父节点的表名
   std::shared_ptr<TupleSchema> schema_;                  // 所有要输出的tuple的schema
 
-  std::vector<SubQueryStmt> sub_queries_; // 子查询
+  std::vector<std::unique_ptr<SubQueryStmt>> sub_queries_; // 子查询
 
   std::unique_ptr<FilterStmt> filter_stmt_; // where子句
   std::unique_ptr<FilterStmt> having_stmt_; // having子句

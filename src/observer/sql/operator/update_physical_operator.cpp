@@ -9,44 +9,46 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   RC rc = children_[0]->open(trx);
   if (rc != RC::SUCCESS)
     return rc;
-  vector<vector<char>> records;
+  vector<vector<Value>> value_list;
   while ((rc = children_[0]->next(nullptr)) == RC::SUCCESS) {
     // FIXME(zhaoyiping): 这里之后要统一改成接口
-    auto *tuple = static_cast<RowTuple *>(children_[0]->current_tuple());
-    auto &record = tuple->record();
+    Record *record;
+    Tuple *tuple = children_[0]->current_tuple();
+    rc = tuple->get_record(table_, record);
+    if (rc != RC::SUCCESS)
+      return rc;
     vector<char> r(table_->table_meta().record_size());
-    memcpy(r.data(), record.data(), r.size());
-    rc = table_->delete_record(record);
+    memcpy(r.data(), record->data(), r.size());
+    rc = table_->delete_record(*record);
     if (rc != RC::SUCCESS) {
-      auto rc1 = insert_all(records);
-      if (rc1 != RC::SUCCESS) {
-        LOG_ERROR("failed to rollback update");
-      }
+      rollback();
       return rc;
     }
-    records.push_back(r);
+    deleted_records_.push_back(r);
+    vector<Value> values;
+    for (auto &unit : units_) {
+      Value value;
+      rc = unit.value->get_value(*tuple, value);
+      if (rc != RC::SUCCESS) {
+        rollback();
+        return rc;
+      }
+      values.push_back(value);
+    }
+    value_list.push_back(values);
   }
   children_[0]->close();
   if (rc != RC::RECORD_EOF) {
     return rc;
   }
-  vector<RID> inserted;
-  for (auto it = records.rbegin(); it != records.rend(); it++) {
+  for (int i = 0; i < deleted_records_.size(); i++) {
     RID rid;
-    rc = update(*it, rid);
+    rc = update(deleted_records_[i], value_list[i], rid);
     if (rc != RC::SUCCESS) {
-      RC rc1 = RC::SUCCESS;
-      rc1 = remove_all(inserted);
-      if (rc1 != RC::SUCCESS) {
-        LOG_ERROR("failed to rollback update, error in remove inserted");
-      }
-      rc1 = insert_all(records);
-      if (rc1 != RC::SUCCESS) {
-        LOG_ERROR("failed to rollback update, error in insert deleted");
-      }
+      rollback();
       return rc;
     }
-    inserted.push_back(rid);
+    inserted_records_.push_back(rid);
   }
   return RC::SUCCESS;
 }
@@ -96,17 +98,37 @@ RC UpdatePhysicalOperator::remove_all(const vector<RID> &rids) {
   return rc_ret;
 }
 
-RC UpdatePhysicalOperator::update(vector<char> v, RID &rid) {
+RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &rid) {
   int &null_value = *(int *)(v.data() + table_->table_meta().null_field_meta()->offset());
-  for (auto &unit : units_) {
+  RC rc = RC::SUCCESS;
+  for (int i = 0; i < values.size(); i++) {
+    auto &unit = units_[i];
+    Value &value = values[i];
     const auto *meta = unit.field.meta();
+    if (value.attr_type() != meta->type()) {
+      if (meta->type() == TEXTS) {
+        int page_of;
+        rc = table_->add_text(value.get_string().c_str(), page_of);
+        if (rc != RC::SUCCESS)
+          return rc;
+        value.set_int(page_of);
+      } else if (!Value::convert(value.attr_type(), meta->type(), value)) {
+        LOG_WARN("failed to convert update value");
+        return RC::INVALID_ARGUMENT;
+      }
+    }
     int offset = meta->offset();
-    memcpy(v.data() + offset, unit.value.data(), attr_type_to_size(meta->type()));
-    if (unit.value.is_null()) {
+    memcpy(v.data() + offset, value.data(), attr_type_to_size(meta->type()));
+    if (value.is_null()) {
       null_value |= 1 << meta->index();
     } else {
       null_value &= -1 ^ (1 << meta->index());
     }
   }
   return insert(v, rid);
+}
+
+void UpdatePhysicalOperator::rollback() {
+  remove_all(inserted_records_);
+  insert_all(deleted_records_);
 }
