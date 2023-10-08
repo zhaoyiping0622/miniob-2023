@@ -4,6 +4,7 @@
 #include "sql/expr/expression.h"
 #include "sql/operator/project_physical_operator.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/parser/value.h"
 #include <memory>
 AggregatePhysicalOperator::AggregatePhysicalOperator(set<Field> &group_fields,
                                                      vector<unique_ptr<AggregationUnit>> &aggregation_units,
@@ -162,6 +163,18 @@ RC MaxAggregator::add_value(Value value) {
 }
 Value MaxAggregator::get_value() const { return now_; }
 
+RC SumAggregator::add_value(Value value) {
+  // TODO(zhaoyiping)
+  if (now_.attr_type() == FLOATS || value.attr_type() == FLOATS) {
+    float sum = now_.get_float() + value.get_float();
+    now_.set_float(sum);
+  } else {
+    now_.set_int(now_.get_int() + value.get_int());
+  }
+  return RC::SUCCESS;
+}
+Value SumAggregator::get_value() const { return now_; }
+
 RC AvgAggregator::add_value(Value value) {
   if (value.is_null())
     return RC::SUCCESS;
@@ -180,6 +193,7 @@ Aggregator *Aggregator::create(AggregationType type, Value value) {
   case AggregationType::AGGR_COUNT: return new CountAggregator(value);
   case AggregationType::AGGR_MIN: return new MinAggregator(value);
   case AggregationType::AGGR_MAX: return new MaxAggregator(value);
+  case AggregationType::AGGR_SUM: return new SumAggregator(value);
   case AggregationType::AGGR_AVG: return new AvgAggregator(value);
   }
   return nullptr;

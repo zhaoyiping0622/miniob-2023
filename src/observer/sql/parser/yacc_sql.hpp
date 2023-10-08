@@ -103,28 +103,29 @@ extern int yydebug;
     MIN = 304,                     /* MIN  */
     MAX = 305,                     /* MAX  */
     AVG = 306,                     /* AVG  */
-    COUNT = 307,                   /* COUNT  */
-    GROUP = 308,                   /* GROUP  */
-    ORDER = 309,                   /* ORDER  */
-    BY = 310,                      /* BY  */
-    ASC = 311,                     /* ASC  */
-    HAVING = 312,                  /* HAVING  */
-    LENGTH = 313,                  /* LENGTH  */
-    ROUND = 314,                   /* ROUND  */
-    DATE_FORMAT = 315,             /* DATE_FORMAT  */
-    INNER = 316,                   /* INNER  */
-    JOIN = 317,                    /* JOIN  */
-    NOT = 318,                     /* NOT  */
-    IN = 319,                      /* IN  */
-    NULL_V = 320,                  /* NULL_V  */
-    NULLABLE = 321,                /* NULLABLE  */
-    IS = 322,                      /* IS  */
-    NUMBER = 323,                  /* NUMBER  */
-    FLOAT = 324,                   /* FLOAT  */
-    ID = 325,                      /* ID  */
-    SSS = 326,                     /* SSS  */
-    OR = 327,                      /* OR  */
-    UMINUS = 328                   /* UMINUS  */
+    SUM = 307,                     /* SUM  */
+    COUNT = 308,                   /* COUNT  */
+    GROUP = 309,                   /* GROUP  */
+    ORDER = 310,                   /* ORDER  */
+    BY = 311,                      /* BY  */
+    ASC = 312,                     /* ASC  */
+    HAVING = 313,                  /* HAVING  */
+    LENGTH = 314,                  /* LENGTH  */
+    ROUND = 315,                   /* ROUND  */
+    DATE_FORMAT = 316,             /* DATE_FORMAT  */
+    INNER = 317,                   /* INNER  */
+    JOIN = 318,                    /* JOIN  */
+    NOT = 319,                     /* NOT  */
+    IN = 320,                      /* IN  */
+    NULL_V = 321,                  /* NULL_V  */
+    NULLABLE = 322,                /* NULLABLE  */
+    IS = 323,                      /* IS  */
+    NUMBER = 324,                  /* NUMBER  */
+    FLOAT = 325,                   /* FLOAT  */
+    ID = 326,                      /* ID  */
+    SSS = 327,                     /* SSS  */
+    OR = 328,                      /* OR  */
+    UMINUS = 329                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -133,7 +134,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 127 "yacc_sql.y"
+#line 128 "yacc_sql.y"
 
   ParsedSqlNode *                               sql_node;
   ComparisonExprSqlNode *                       condition;
@@ -164,7 +165,7 @@ union YYSTYPE
   float                                         floats;
   bool                                          bools;
 
-#line 168 "yacc_sql.hpp"
+#line 169 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
