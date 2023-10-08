@@ -1,6 +1,7 @@
 #include "sql/operator/sub_query_physical_operator.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/parser/value.h"
 #include <memory>
 #include <utility>
 
@@ -38,7 +39,7 @@ RC SubQueryPhysicalOperator::next(Tuple *env_tuple) {
     rc = child->open(trx_);
     if (rc != RC::SUCCESS)
       return rc;
-    std::map<ValueList, int> records;
+    ValueListMap records;
     while ((rc = child->next(&env_)) == RC::SUCCESS) {
       Tuple *sub_tuple = child->current_tuple();
       Value tmp;
