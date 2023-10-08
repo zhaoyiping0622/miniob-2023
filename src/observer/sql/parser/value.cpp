@@ -442,6 +442,21 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
       return true;
     }
   }
+  if (from == LISTS) {
+    auto list = value.get_list();
+    if (list->size() != 1)
+      return false;
+    auto &value_list = *list->begin();
+    auto &vec = value_list.get_list();
+    if (vec.size() != 1)
+      return false;
+    auto new_value = vec[0];
+    if (convert(new_value.attr_type(), to, new_value)) {
+      value = new_value;
+      return true;
+    }
+    return false;
+  }
   if (to == CHARS) {
     if (from == LISTS)
       return false;

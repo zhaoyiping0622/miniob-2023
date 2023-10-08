@@ -17,9 +17,13 @@ private:
   RC insert(vector<char> &v, RID &rid);
   RC insert_all(vector<vector<char>> &v);
   RC remove_all(const vector<RID> &rids);
-  RC update(vector<char> v, RID &rid);
+  RC update(vector<char> v, vector<Value> &values, RID &rid);
+
+  void rollback();
 
 private:
   std::vector<UpdateUnit> units_;
   Table *table_;
+  std::vector<std::vector<char>> deleted_records_;
+  std::vector<RID> inserted_records_;
 };

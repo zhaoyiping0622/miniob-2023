@@ -16,7 +16,11 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
+#include "sql/stmt/select_stmt.h"
+#include <utility>
 
 RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   Table *table = db->find_table(update.relation_name.c_str());
@@ -26,6 +30,10 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   }
   std::vector<UpdateUnit> units;
   RC rc = RC::SUCCESS;
+  std::unordered_map<std::string, Table *> table_map;
+  table_map.emplace(table->name(), table);
+  std::set<Field> used_fields;
+  std::vector<std::unique_ptr<SubQueryStmt>> sub_queries;
   for (auto x : update.sets) {
     const FieldMeta *field_meta;
     field_meta = table->table_meta().field(x->field_name.c_str());
@@ -34,37 +42,23 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
     Expression *value_expr;
-    rc = ValueExpr::create(x->expr, value_expr);
+    ExprGenerator sub_query_expr = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
+      RC rc = RC::SUCCESS;
+      SubQueryStmt *sub_query;
+      rc = SubQueryStmt::create(db, node, {table}, expr, sub_query, used_fields);
+      if (rc != RC::SUCCESS)
+        return rc;
+      sub_queries.emplace_back(sub_query);
+      return RC::SUCCESS;
+    };
+    rc = Expression::create(db, table, &table_map, x->expr, value_expr, &sub_query_expr);
     if (rc != RC::SUCCESS)
       return rc;
-    Value value;
-    rc = value_expr->try_get_value(value);
-    if (rc != RC::SUCCESS)
-      return rc;
-    if (value.is_null()) {
-      if (!field_meta->nullable()) {
-        LOG_WARN("field %s should not be null", field_meta->name());
-        return RC::INVALID_ARGUMENT;
-      }
-    } else if (field_meta->type() != value.attr_type()) {
-      if (field_meta->type() == TEXTS) {
-        int page_of;
-        rc = table->add_text(value.get_string().c_str(), page_of);
-        if (rc != RC::SUCCESS)
-          return rc;
-        value.set_int(page_of);
-      } else {
-        if (!Value::convert(value.attr_type(), field_meta->type(), value)) {
-          LOG_WARN("update value cannot convert into target type, src=%s, target=%s",
-                   attr_type_to_string(value.attr_type()), attr_type_to_string(field_meta->type()));
-          return RC::INVALID_ARGUMENT;
-        }
-      }
-    }
-    units.push_back(UpdateUnit{.field = Field(table, field_meta), .value = value});
+    UpdateUnit unit;
+    unit.field = Field(table, field_meta);
+    unit.value.reset(value_expr);
+    units.push_back(std::move(unit));
   }
-  std::unordered_map<std::string, Table *> table_map;
-  table_map.emplace(table->name(), table);
   FilterStmt *filter = nullptr;
   if (update.conditions) {
     rc = FilterStmt::create(db, table, &table_map, update.conditions, filter, nullptr);
@@ -75,7 +69,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
   }
   auto *update_stmt = new UpdateStmt();
   update_stmt->table_ = table;
-  update_stmt->units_ = units;
+  update_stmt->units_.swap(units);
   update_stmt->filter_ = filter;
   stmt = update_stmt;
   return RC::SUCCESS;

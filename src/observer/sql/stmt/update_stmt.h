@@ -20,11 +20,12 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 #include "storage/field/field.h"
 
+class SubQueryStmt;
 class Table;
 
 struct UpdateUnit {
   Field field;
-  Value value;
+  std::unique_ptr<Expression> value;
 };
 
 /**
@@ -43,9 +44,11 @@ public:
   Table *table() const { return table_; }
   std::vector<UpdateUnit> &units() { return units_; }
   FilterStmt *filter() { return filter_; }
+  std::vector<std::unique_ptr<SubQueryStmt>> &sub_queries() { return sub_queries_; }
 
 private:
   Table *table_ = nullptr;
   std::vector<UpdateUnit> units_;
   FilterStmt *filter_;
+  std::vector<std::unique_ptr<SubQueryStmt>> sub_queries_;
 };

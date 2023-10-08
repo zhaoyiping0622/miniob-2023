@@ -568,7 +568,7 @@ update_set_list:
     }
 
 update_set:
-    ID EQ value_expr {
+    ID EQ expression {
       $$ = new UpdateSetSqlNode;
       $$->field_name = $1;
       free($1);
