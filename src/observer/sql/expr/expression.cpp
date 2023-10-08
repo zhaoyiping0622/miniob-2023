@@ -428,10 +428,10 @@ static float round(float a, int bits) {
   for (int i = 0; i < bits; i++)
     a *= 10;
   a += 0.5;
-  int ret = a;
+  a=floor(a);
   for (int i = 0; i < bits; i++)
-    ret /= 10;
-  return ret;
+    a /= 10;
+  return a;
 }
 RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs) {
   switch (type) {
