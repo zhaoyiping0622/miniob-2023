@@ -218,6 +218,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   vector<set<Field>> reference_fields(expressions.size());
   set<Field> attr_used_fields = groupbys;
 
+  map<string, string> table_alias;
+  for (auto &x : current_tables) {
+    if (x.first != x.second->name())
+      table_alias[x.second->name()] = x.first;
+  }
+
   auto append_cell = [&](Expression *expression, std::string alias = "") {
     if (alias.size()) {
       schema->append_cell(alias.c_str());
@@ -226,7 +232,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       if (father_tables == nullptr && tables.size() == 1) {
         schema->append_cell(TupleCellSpec(field.table_name(), field.field_name(), field.field_name()));
       } else {
-        schema->append_cell(field.table_name(), field.field_name());
+        auto it = table_alias.find(field.table_name());
+        if (it != table_alias.end()) {
+          schema->append_cell(it->second.c_str(), field.field_name());
+        } else {
+          schema->append_cell(field.table_name(), field.field_name());
+        }
       }
     } else {
       schema->append_cell(expression->name().c_str());
