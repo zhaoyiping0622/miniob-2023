@@ -317,6 +317,25 @@ private:
   std::unique_ptr<Expression> right_;
 };
 
+class ExistsExpr : public Expression {
+public:
+  ExistsExpr(bool exists, std::unique_ptr<Expression> left) : exists_(exists), left_(std::move(left)) {}
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  ExprType type() const override { return ExprType::EXISTS; }
+  AttrType value_type() const override { return BOOLEANS; }
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const ExistsExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
+
+  virtual std::set<Field> reference_fields() const override;
+
+  virtual std::string to_string() const override;
+
+private:
+  bool exists_;
+  std::unique_ptr<Expression> left_;
+};
+
 class NullCheckExpr : public Expression {
 public:
   NullCheckExpr(bool is_null, std::unique_ptr<Expression> left) : is_null_(is_null), left_(std::move(left)) {}

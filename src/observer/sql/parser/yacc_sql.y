@@ -120,6 +120,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         JOIN
         NOT
         IN
+        EXISTS
         LIKE
         NULL_V
         NULLABLE
@@ -134,6 +135,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   enum CompOp                                   comp;
   ContainType                                   contain_op;
   ContainExprSqlNode *                          contain;
+  ExistsExprSqlNode *                           exists;
   ListExprSqlNode *                             list;
   SetExprSqlNode *                              set;
   AggregationType                               aggr;
@@ -188,6 +190,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         conjunction
 %type <conjunction>         joined_on
 %type <contain>             contain
+%type <exists>              exists
 %type <list>                list_expr
 %type <set>                 set_expr
 %type <expression_list>     select_attr
@@ -209,6 +212,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <bools>               null_check
 %type <bools>               unique
 %type <bools>               like_op
+%type <bools>               exists_op
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -891,6 +895,9 @@ conjunction:
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new LikeExprSqlNode($2, $1, $3), static_cast<ExprSqlNode *>(nullptr));
       free($3);
     }
+    | exists {
+      $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
+    }
     | expression null_check {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new NullCheckExprSqlNode($2, $1), static_cast<ExprSqlNode *>(nullptr));
     }
@@ -921,6 +928,19 @@ contain:
       $$ = new ContainExprSqlNode($2, $1, $3);
     }
     ;
+
+exists:
+    exists_op expression {
+      $$ = new ExistsExprSqlNode($1, $2);
+    }
+
+exists_op:
+    EXISTS {
+      $$ = true;
+    }
+    | NOT EXISTS {
+      $$ = false;
+    }
 
 comp_op:
       EQ { $$ = EQUAL_TO; }

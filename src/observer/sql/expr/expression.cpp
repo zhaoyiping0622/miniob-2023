@@ -377,6 +377,9 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::CONTAIN:
     rc = ContainExpr::create(db, default_table, tables, expr_node->get_contain(), expr, fallback);
     break;
+  case ExprType::EXISTS:
+    rc = ExistsExpr::create(db, default_table, tables, expr_node->get_exists(), expr, fallback);
+    break;
   case ExprType::LIKE: rc = LikeExpr::create(db, default_table, tables, expr_node->get_like(), expr, fallback); break;
   case ExprType::NULL_CHECK:
     rc = NullCheckExpr::create(db, default_table, tables, expr_node->get_null(), expr, fallback);
@@ -612,6 +615,46 @@ std::string ContainExpr::to_string() const {
   }
   ss << right_->to_string();
   return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+RC ExistsExpr::get_value(const Tuple &tuple, Value &value) const {
+  Value left_value;
+  RC rc = RC::SUCCESS;
+  rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS)
+    return rc;
+  if (left_value.is_null() || left_value.attr_type() == LISTS && left_value.get_list()->empty()) {
+    value.set_boolean(!exists_);
+  } else {
+    value.set_boolean(exists_);
+  }
+  return RC::SUCCESS;
+}
+
+std::set<Field> ExistsExpr::reference_fields() const { return left_->reference_fields(); }
+
+std::string ExistsExpr::to_string() const {
+  stringstream ss;
+  if (exists_) {
+    ss << "exists ";
+  } else {
+    ss << "not exists ";
+  }
+  ss << left_->to_string();
+  return ss.str();
+}
+
+RC ExistsExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                      const ExistsExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  RC rc = RC::SUCCESS;
+  Expression *left;
+  rc = Expression::create(db, default_table, tables, expr_node->left, left, fallback);
+  if (rc != RC::SUCCESS)
+    return rc;
+  expr = new ExistsExpr(expr_node->exists, unique_ptr<Expression>(left));
+  return RC::SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

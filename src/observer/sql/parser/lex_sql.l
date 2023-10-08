@@ -134,6 +134,7 @@ DATE_FORMAT                             RETURN_TOKEN(DATE_FORMAT);
 INNER                                   RETURN_TOKEN(INNER);
 JOIN                                    RETURN_TOKEN(JOIN);
 NOT                                     RETURN_TOKEN(NOT);
+EXISTS                                  RETURN_TOKEN(EXISTS);
 IN                                      RETURN_TOKEN(IN);
 LIKE                                    RETURN_TOKEN(LIKE);
 NULL                                    RETURN_TOKEN(NULL_V);

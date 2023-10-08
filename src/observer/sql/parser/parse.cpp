@@ -100,6 +100,11 @@ ContainExprSqlNode::~ContainExprSqlNode() {
     delete right;
 }
 
+ExistsExprSqlNode::~ExistsExprSqlNode() {
+  if (left)
+    delete left;
+}
+
 LikeExprSqlNode::~LikeExprSqlNode() {
   if (left)
     delete left;

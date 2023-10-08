@@ -40,6 +40,7 @@ enum class ExprType {
   NAMED,       ///< 聚合操作
   FUNCTION,    ///< 函数操作
   CONTAIN,     ///< in和not in操作
+  EXISTS,      ///< exist and not exist
   LIKE,        ///< like
   NULL_CHECK,  ///< is null 和 is not null
   LIST,        ///<
@@ -106,6 +107,7 @@ struct NamedExprSqlNode;
 struct FunctionExprSqlNode;
 struct SelectSqlNode;
 struct ContainExprSqlNode;
+struct ExistsExprSqlNode;
 struct LikeExprSqlNode;
 struct ListExprSqlNode;
 struct SetExprSqlNode;
@@ -124,6 +126,7 @@ private:
     NamedExprSqlNode *named;
     FunctionExprSqlNode *function;
     ContainExprSqlNode *contain;
+    ExistsExprSqlNode *exists;
     LikeExprSqlNode *like;
     ListExprSqlNode *list;
     SetExprSqlNode *set;
@@ -141,6 +144,7 @@ public:
   ExprSqlNode(NamedExprSqlNode *named) : type_(ExprType::NAMED) { expr_.named = named; }
   ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
   ExprSqlNode(ContainExprSqlNode *contain) : type_(ExprType::CONTAIN) { expr_.contain = contain; }
+  ExprSqlNode(ExistsExprSqlNode *exists) : type_(ExprType::EXISTS) { expr_.exists = exists; }
   ExprSqlNode(LikeExprSqlNode *like) : type_(ExprType::LIKE) { expr_.like = like; }
   ExprSqlNode(ListExprSqlNode *list) : type_(ExprType::LIST) { expr_.list = list; }
   ExprSqlNode(SetExprSqlNode *set) : type_(ExprType::SET) { expr_.set = set; }
@@ -157,6 +161,7 @@ public:
   NamedExprSqlNode *get_named() const { return expr_.named; }
   FunctionExprSqlNode *get_function() const { return expr_.function; }
   ContainExprSqlNode *get_contain() const { return expr_.contain; }
+  ExistsExprSqlNode *get_exists() const { return expr_.exists; }
   LikeExprSqlNode *get_like() const { return expr_.like; }
   ListExprSqlNode *get_list() const { return expr_.list; }
   SetExprSqlNode *get_set() const { return expr_.set; }
@@ -262,6 +267,13 @@ struct ContainExprSqlNode {
   ContainExprSqlNode(ContainType type, T1 *left, T2 *right)
       : type(type), left(get_expr_pointer(left)), right(get_expr_pointer(right)) {}
   ~ContainExprSqlNode();
+};
+
+struct ExistsExprSqlNode {
+  bool exists;
+  ExprSqlNode *left = nullptr;
+  template <typename T> ExistsExprSqlNode(bool exists, T *left) : exists(exists), left(get_expr_pointer(left)) {}
+  ~ExistsExprSqlNode();
 };
 
 struct LikeExprSqlNode {
