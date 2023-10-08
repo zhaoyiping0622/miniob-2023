@@ -496,7 +496,11 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
   case UNDEFINED:
   case NULLS: return NULLS;
   case TEXTS:
-  case CHARS: return b;
+  case CHARS: {
+    if (b == INTS)
+      return FLOATS;
+    return b;
+  }
   case INTS: {
     if (b == DATES)
       return UNDEFINED;
