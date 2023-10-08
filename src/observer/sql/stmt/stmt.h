@@ -41,6 +41,7 @@ class Db;
   DEFINE_ENUM_ITEM(DROP_INDEX)                                                                                         \
   DEFINE_ENUM_ITEM(SYNC)                                                                                               \
   DEFINE_ENUM_ITEM(SHOW_TABLES)                                                                                        \
+  DEFINE_ENUM_ITEM(SHOW_INDEX)                                                                                         \
   DEFINE_ENUM_ITEM(DESC_TABLE)                                                                                         \
   DEFINE_ENUM_ITEM(BEGIN)                                                                                              \
   DEFINE_ENUM_ITEM(COMMIT)                                                                                             \
