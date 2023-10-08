@@ -279,24 +279,19 @@ int Value::compare(const Value &other) const {
     float this_data = this->num_value_.int_value_;
     return common::compare_float((void *)&this_data, (void *)&other.num_value_.float_value_);
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
-    float other_data = other.num_value_.int_value_;
-    return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other_data);
+    return -other.compare(*this);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == DATES) {
     Date a = get_date();
     return Date::compare_date(&a, &other.num_value_.date_value_);
   } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
-    Date b = other.get_date();
-    return Date::compare_date(&num_value_.date_value_, &b);
+    return -other.compare(*this);
   } else if (this->attr_type_ == LISTS) {
     auto list = get_list();
     if (list->size() != 1)
       return INVALID_COMPARE;
     return list->begin()->get_list().begin()->compare(other);
   } else if (other.attr_type_ == LISTS) {
-    auto list = other.get_list();
-    if (list->size() != 1)
-      return INVALID_COMPARE;
-    return this->compare(*list->begin()->get_list().begin());
+    return -other.compare(*this);
   }
   LOG_WARN("not supported");
   return INVALID_COMPARE;
@@ -421,12 +416,23 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
   if (from == to) {
     return true;
   }
-  if (from == CHARS && to == DATES) {
-    Date date = value.get_date();
-    if (date == INVALID_DATE)
-      return false;
-    value.set_date(date);
-    return true;
+  if (from == CHARS) {
+    if (to == DATES) {
+      Date date = value.get_date();
+      if (date == INVALID_DATE)
+        return false;
+      value.set_date(date);
+      return true;
+    } else if (to == TEXTS) {
+      value.set_text(value.get_string().c_str());
+      return true;
+    } else if (to == INTS) {
+      value.set_int(value.get_int());
+      return true;
+    } else if (to == FLOATS) {
+      value.set_float(value.get_float());
+      return true;
+    }
   }
   if (from == INTS && to == FLOATS) {
     value.set_float(value.get_float());
@@ -434,10 +440,6 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
   }
   if (from == FLOATS && to == INTS) {
     value.set_int(value.get_int());
-    return true;
-  }
-  if (from == CHARS && to == TEXTS) {
-    value.set_text(value.get_string().c_str());
     return true;
   }
   return false;
