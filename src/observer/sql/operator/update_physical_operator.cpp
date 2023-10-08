@@ -10,6 +10,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   if (rc != RC::SUCCESS)
     return rc;
   vector<vector<Value>> value_list;
+  trx_ = trx;
   while ((rc = children_[0]->next(nullptr)) == RC::SUCCESS) {
     // FIXME(zhaoyiping): 这里之后要统一改成接口
     Record *record;
@@ -19,7 +20,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       return rc;
     vector<char> r(table_->table_meta().record_size());
     memcpy(r.data(), record->data(), r.size());
-    rc = table_->delete_record(*record);
+    rc = trx->delete_record(table_, *record);
     if (rc != RC::SUCCESS) {
       rollback();
       return rc;
@@ -75,7 +76,7 @@ RC UpdatePhysicalOperator::insert(vector<char> &v, RID &rid) {
     LOG_ERROR("fail to make record");
     return rc;
   }
-  rc = table_->insert_record(record);
+  rc = trx_->insert_record(table_, record);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("fail to insert record");
     return rc;
@@ -87,7 +88,7 @@ RC UpdatePhysicalOperator::insert(vector<char> &v, RID &rid) {
 RC UpdatePhysicalOperator::remove_all(const vector<RID> &rids) {
   RC rc_ret = RC::SUCCESS;
   for (auto &rid : rids) {
-    RC rc = table_->delete_record(rid);
+    RC rc = trx_->delete_record(table_, rid);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("fail to delete record");
       if (rc_ret == RC::SUCCESS) {
