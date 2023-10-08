@@ -473,7 +473,7 @@ public:
 
 private:
   std::vector<std::unique_ptr<Expression>> children_;
-  std::set<ValueList> values_;
+  std::map<ValueList, int> values_;
 };
 
 class SelectStmt;

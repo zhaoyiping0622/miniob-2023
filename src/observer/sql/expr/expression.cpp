@@ -525,7 +525,7 @@ RC SetExpr::get_value(const Tuple &tuple, Value &value) const {
     RC rc = child->get_value(tuple, value);
     if (rc != RC::SUCCESS)
       return rc;
-    values.emplace(value);
+    values[value]++;
   }
   value.set_list(values);
   return RC::SUCCESS;
@@ -540,7 +540,7 @@ std::set<Field> SetExpr::reference_fields() const {
 std::string SetExpr::to_string() const {
   std::vector<std::string> ss;
   for (auto x : values_)
-    ss.push_back(x.to_string());
+    ss.push_back(x.first.to_string());
   for (auto &child : children_)
     ss.push_back(child->to_string());
   std::string ret;
@@ -551,7 +551,7 @@ std::string SetExpr::to_string() const {
 RC SetExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const SetExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   std::vector<std::unique_ptr<Expression>> children;
-  std::set<ValueList> values;
+  std::map<ValueList, int> values;
   RC rc = RC::SUCCESS;
   Expression *tmp;
   for (auto &x : expr_node->expressions) {
@@ -560,7 +560,7 @@ RC SetExpr::create(Db *db, Table *default_table, std::unordered_map<std::string,
       return rc;
     }
     if (tmp->type() == ExprType::VALUE) {
-      values.emplace(static_cast<ValueExpr *>(tmp)->get_value());
+      values[static_cast<ValueExpr *>(tmp)->get_value()]++;
       delete tmp;
     } else {
       children.emplace_back(tmp);
