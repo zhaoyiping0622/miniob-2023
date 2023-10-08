@@ -554,7 +554,6 @@ update_stmt:      /*  update 语句的语法解析树*/
       delete $4;
       update->conditions = $5;
       free($2);
-      free($4);
     }
     ;
 
