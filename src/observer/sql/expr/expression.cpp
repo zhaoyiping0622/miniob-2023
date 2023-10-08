@@ -428,7 +428,7 @@ static float round(float a, int bits) {
   for (int i = 0; i < bits; i++)
     a *= 10;
   a += 0.5;
-  a=floor(a);
+  a = floor(a);
   for (int i = 0; i < bits; i++)
     a /= 10;
   return a;
@@ -444,7 +444,7 @@ RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs)
       return RC::INVALID_ARGUMENT;
     break;
   case FunctionType::DATE_FORMAT:
-    if (attrs.size() != 2 || attrs[0] != DATES || attrs[1] != CHARS)
+    if (attrs.size() != 2 || (attrs[0] != DATES && attrs[0] != CHARS) || attrs[1] != CHARS)
       return RC::INVALID_ARGUMENT;
     break;
   }
