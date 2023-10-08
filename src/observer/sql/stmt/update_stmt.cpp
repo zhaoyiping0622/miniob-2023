@@ -54,6 +54,14 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
     rc = Expression::create(db, table, &table_map, x->expr, value_expr, &sub_query_expr);
     if (rc != RC::SUCCESS)
       return rc;
+    if (value_expr->type() == ExprType::VALUE) {
+      Value value;
+      static_cast<ValueExpr *>(value_expr)->get_value(value);
+      if (value.is_null() && !field_meta->nullable()) {
+        LOG_WARN("field %s should not be null", field_meta->name());
+        return RC::INVALID_ARGUMENT;
+      }
+    }
     UpdateUnit unit;
     unit.field = Field(table, field_meta);
     unit.value.reset(value_expr);
