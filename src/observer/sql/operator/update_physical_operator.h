@@ -26,4 +26,5 @@ private:
   Table *table_;
   std::vector<std::vector<char>> deleted_records_;
   std::vector<RID> inserted_records_;
+  Trx* trx_;
 };
