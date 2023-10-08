@@ -42,6 +42,7 @@ enum class ExprType {
   CONTAIN,     ///< in和not in操作
   NULL_CHECK,  ///< is null 和 is not null
   LIST,        ///<
+  SET,         ///<
 };
 
 enum class ConjunctionType {
@@ -105,6 +106,7 @@ struct FunctionExprSqlNode;
 struct SelectSqlNode;
 struct ContainExprSqlNode;
 struct ListExprSqlNode;
+struct SetExprSqlNode;
 struct NullCheckExprSqlNode;
 
 class ExprSqlNode {
@@ -121,6 +123,7 @@ private:
     FunctionExprSqlNode *function;
     ContainExprSqlNode *contain;
     ListExprSqlNode *list;
+    SetExprSqlNode *set;
     NullCheckExprSqlNode *null;
   } expr_;
   std::string name_;
@@ -136,6 +139,7 @@ public:
   ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
   ExprSqlNode(ContainExprSqlNode *contain) : type_(ExprType::CONTAIN) { expr_.contain = contain; }
   ExprSqlNode(ListExprSqlNode *list) : type_(ExprType::LIST) { expr_.list = list; }
+  ExprSqlNode(SetExprSqlNode *set) : type_(ExprType::SET) { expr_.set = set; }
   ExprSqlNode(NullCheckExprSqlNode *null) : type_(ExprType::NULL_CHECK) { expr_.null = null; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
@@ -150,6 +154,7 @@ public:
   FunctionExprSqlNode *get_function() const { return expr_.function; }
   ContainExprSqlNode *get_contain() const { return expr_.contain; }
   ListExprSqlNode *get_list() const { return expr_.list; }
+  SetExprSqlNode *get_set() const { return expr_.set; }
   NullCheckExprSqlNode *get_null() const { return expr_.null; }
 };
 
@@ -264,6 +269,12 @@ struct ListExprSqlNode {
   SelectSqlNode *select = nullptr;
   ListExprSqlNode(SelectSqlNode *select) : select(select) {}
   ~ListExprSqlNode();
+};
+
+struct SetExprSqlNode {
+  std::vector<ExprSqlNode *> expressions;
+  SetExprSqlNode() = default;
+  ~SetExprSqlNode() = default;
 };
 
 struct OrderBySqlNode {

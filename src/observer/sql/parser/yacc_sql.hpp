@@ -144,6 +144,7 @@ union YYSTYPE
   ContainType                                   contain_op;
   ContainExprSqlNode *                          contain;
   ListExprSqlNode *                             list;
+  SetExprSqlNode *                              set;
   AggregationType                               aggr;
   FunctionType                                  func;
   FieldExprSqlNode *                            rel_attr;
@@ -165,7 +166,7 @@ union YYSTYPE
   float                                         floats;
   bool                                          bools;
 
-#line 169 "yacc_sql.hpp"
+#line 170 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
