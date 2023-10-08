@@ -135,6 +135,7 @@ INNER                                   RETURN_TOKEN(INNER);
 JOIN                                    RETURN_TOKEN(JOIN);
 NOT                                     RETURN_TOKEN(NOT);
 IN                                      RETURN_TOKEN(IN);
+LIKE                                    RETURN_TOKEN(LIKE);
 NULL                                    RETURN_TOKEN(NULL_V);
 NULLABLE                                RETURN_TOKEN(NULLABLE);
 IS                                      RETURN_TOKEN(IS);

@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/math/regex.h"
 #include "common/rc.h"
 #include "sql/expr/tuple.h"
 #include "sql/parser/parse_defs.h"
@@ -376,6 +377,7 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::CONTAIN:
     rc = ContainExpr::create(db, default_table, tables, expr_node->get_contain(), expr, fallback);
     break;
+  case ExprType::LIKE: rc = LikeExpr::create(db, default_table, tables, expr_node->get_like(), expr, fallback); break;
   case ExprType::NULL_CHECK:
     rc = NullCheckExpr::create(db, default_table, tables, expr_node->get_null(), expr, fallback);
     break;
@@ -606,6 +608,48 @@ std::string ContainExpr::to_string() const {
   }
   ss << right_->to_string();
   return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+RC LikeExpr::get_value(const Tuple &tuple, Value &value) const {
+  Value left_value;
+  RC rc = left_->get_value(tuple, left_value);
+  if (rc != RC::SUCCESS)
+    return rc;
+  value.set_boolean(std::regex_search(left_value.get_string(), regex_) == like_);
+  return RC::SUCCESS;
+}
+
+std::set<Field> LikeExpr::reference_fields() const { return left_->reference_fields(); }
+
+std::string LikeExpr::to_string() const {
+  stringstream ss;
+  ss << left_->to_string();
+  if (like_) {
+    ss << " like ";
+  } else {
+    ss << " not like ";
+  }
+  ss << like_s_;
+  return ss.str();
+}
+
+RC LikeExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                    const LikeExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  Expression *tmp;
+  RC rc = Expression::create(db, default_table, tables, expr_node->left, tmp, fallback);
+  if (rc != RC::SUCCESS)
+    return rc;
+  if (tmp->value_type() != CHARS) {
+    rc = CastExpr::create(CHARS, tmp);
+    if (rc != RC::SUCCESS) {
+      delete tmp;
+      return rc;
+    }
+  }
+  expr = new LikeExpr(expr_node->like, unique_ptr<Expression>(tmp), expr_node->like_s);
+  return RC::SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
