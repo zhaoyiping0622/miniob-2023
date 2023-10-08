@@ -424,9 +424,8 @@ RC PhysicalPlanGenerator::create_plan(CachedLogicalOperator &logical_oper, std::
 
 RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
   UpdatePhysicalOperator *op = new UpdatePhysicalOperator;
-  op->update_field_ = logical_oper.update_field();
+  op->units_ = logical_oper.units();
   op->table_ = logical_oper.table();
-  op->value_ = logical_oper.value();
   oper.reset(op);
   for (auto &child : logical_oper.children()) {
     std::unique_ptr<PhysicalOperator> cop;
