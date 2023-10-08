@@ -1,4 +1,5 @@
 #include "sql/stmt/join_stmt.h"
+#include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/parser/parse_defs.h"
@@ -33,6 +34,9 @@ RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<Table
   if (table_map.count(alias_name) == 0) {
     tables.push_back(table);
     table_map[alias_name] = table;
+  } else {
+    LOG_WARN("table name duplicated");
+    return RC::INVALID_ARGUMENT;
   }
 
   stmt = new JoinStmt;
