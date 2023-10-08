@@ -45,7 +45,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
     ExprGenerator sub_query_expr = [&](const ExprSqlNode *node, Expression *&expr) -> RC {
       RC rc = RC::SUCCESS;
       SubQueryStmt *sub_query;
-      rc = SubQueryStmt::create(db, node, {table}, expr, sub_query, used_fields);
+      rc = SubQueryStmt::create(db, node, {{table->name(), table}}, expr, sub_query, used_fields);
       if (rc != RC::SUCCESS)
         return rc;
       sub_queries.emplace_back(sub_query);

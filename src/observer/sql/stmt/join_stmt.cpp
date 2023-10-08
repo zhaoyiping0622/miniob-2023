@@ -27,9 +27,12 @@ RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<Table
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  if (table_map.count(table->name()) == 0) {
+  string alias_name = table->name();
+  if (sql_node->alias.size())
+    alias_name = sql_node->alias;
+  if (table_map.count(alias_name) == 0) {
     tables.push_back(table);
-    table_map[table->name()] = table;
+    table_map[alias_name] = table;
   }
 
   stmt = new JoinStmt;

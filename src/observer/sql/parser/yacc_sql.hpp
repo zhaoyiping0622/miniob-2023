@@ -122,12 +122,13 @@ extern int yydebug;
     NULL_V = 323,                  /* NULL_V  */
     NULLABLE = 324,                /* NULLABLE  */
     IS = 325,                      /* IS  */
-    NUMBER = 326,                  /* NUMBER  */
-    FLOAT = 327,                   /* FLOAT  */
-    ID = 328,                      /* ID  */
-    SSS = 329,                     /* SSS  */
-    OR = 330,                      /* OR  */
-    UMINUS = 331                   /* UMINUS  */
+    AS = 326,                      /* AS  */
+    NUMBER = 327,                  /* NUMBER  */
+    FLOAT = 328,                   /* FLOAT  */
+    ID = 329,                      /* ID  */
+    SSS = 330,                     /* SSS  */
+    OR = 331,                      /* OR  */
+    UMINUS = 332                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -136,7 +137,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 130 "yacc_sql.y"
+#line 131 "yacc_sql.y"
 
   ParsedSqlNode *                               sql_node;
   ComparisonExprSqlNode *                       condition;
@@ -158,6 +159,8 @@ union YYSTYPE
   UpdateSetSqlNode *                            update_set;
   std::vector<UpdateSetSqlNode *> *             update_set_list;
   std::vector<ExprSqlNode *> *                  expression_list;
+  SelectAttribute *                             select_attr;
+  std::vector<SelectAttribute *> *              select_attr_list;
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
@@ -171,7 +174,7 @@ union YYSTYPE
   float                                         floats;
   bool                                          bools;
 
-#line 175 "yacc_sql.hpp"
+#line 178 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

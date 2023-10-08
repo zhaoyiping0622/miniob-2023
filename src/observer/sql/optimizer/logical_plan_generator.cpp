@@ -137,12 +137,16 @@ RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fiel
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator) {
   unique_ptr<LogicalOperator> table_oper(nullptr);
 
-  const std::vector<Table *> &tables = select_stmt->tables();
+  // const auto &current_tables = select_stmt->current_tables();
   const std::set<Field> &all_fields = select_stmt->used_fields();
 
-  RC rc = create_plan(select_stmt->join_stmt().get(), all_fields, table_oper);
-  if (rc != RC::SUCCESS) {
-    return rc;
+  RC rc = RC::SUCCESS;
+
+  if (select_stmt->join_stmt()) {
+    rc = create_plan(select_stmt->join_stmt().get(), all_fields, table_oper);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
   }
 
   if (select_stmt->sub_queries().size()) {

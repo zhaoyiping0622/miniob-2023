@@ -44,11 +44,11 @@ public:
   StmtType type() const override { return StmtType::SELECT; }
 
 public:
-  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, const std::vector<Table *> *father_tables,
-                   std::set<Field> &father_fields);
+  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+                   const std::unordered_map<std::string, Table *> *father_tables, std::set<Field> &father_fields);
 
 public:
-  const std::vector<Table *> &tables() const { return tables_; }
+  const std::unordered_map<std::string, Table *> &current_tables() const { return current_tables_; }
   const std::set<Field> &used_fields() const { return used_fields_; }
   const std::vector<std::unique_ptr<Expression>> &expressions() const { return expressions_; }
   std::vector<std::unique_ptr<Expression>> &expressions() { return expressions_; }
@@ -65,12 +65,12 @@ public:
 private:
   std::unique_ptr<JoinStmt> join_stmt_;
 
-  std::set<Field> used_fields_;                          // 当前查询会生成的scan中所有用到的field
-  std::vector<std::set<Field>> reference_fields_;        // 每个表达式用到的field
-  std::vector<std::unique_ptr<Expression>> expressions_; // 所有表达式
-  std::vector<Table *> tables_;                          // 所有表名
-  std::vector<Table *> father_tables_;                   // 父节点的表名
-  std::shared_ptr<TupleSchema> schema_;                  // 所有要输出的tuple的schema
+  std::set<Field> used_fields_;                             // 当前查询会生成的scan中所有用到的field
+  std::vector<std::set<Field>> reference_fields_;           // 每个表达式用到的field
+  std::vector<std::unique_ptr<Expression>> expressions_;    // 所有表达式
+  std::unordered_map<std::string, Table *> current_tables_; // 当前查询的表名
+  std::unordered_map<std::string, Table *> father_tables_;  // 父节点的表名
+  std::shared_ptr<TupleSchema> schema_;                     // 所有要输出的tuple的schema
 
   std::vector<std::unique_ptr<SubQueryStmt>> sub_queries_; // 子查询
 

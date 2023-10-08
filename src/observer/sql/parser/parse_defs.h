@@ -315,6 +315,7 @@ struct OrderBySqlNode {
 
 struct JoinSqlNode {
   std::string relation;                              ///< 查询的表
+  std::string alias;                                 ///< 表别名
   JoinSqlNode *sub_join = nullptr;                   ///< 子join
   ConjunctionExprSqlNode *join_conditions = nullptr; ///< join条件
 };
@@ -330,8 +331,13 @@ struct JoinSqlNode {
  * 甚至可以包含复杂的表达式。
  */
 
+struct SelectAttribute {
+  ExprSqlNode *expr;
+  std::string alias;
+};
+
 struct SelectSqlNode {
-  std::vector<ExprSqlNode *> attributes;               ///< attributes in select clause
+  std::vector<SelectAttribute *> attributes;           ///< attributes in select clause
   std::vector<FieldExprSqlNode *> groupbys;            ///< groupbys
   std::vector<OrderBySqlNode *> orderbys;              ///< orderbys
   JoinSqlNode *tables = nullptr;                       ///< 查询的表，以及join条件

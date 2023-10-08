@@ -125,6 +125,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         NULL_V
         NULLABLE
         IS
+        AS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -148,6 +149,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   UpdateSetSqlNode *                            update_set;
   std::vector<UpdateSetSqlNode *> *             update_set_list;
   std::vector<ExprSqlNode *> *                  expression_list;
+  SelectAttribute *                             select_attr;
+  std::vector<SelectAttribute *> *              select_attr_list;
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
@@ -193,7 +196,8 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <exists>              exists
 %type <list>                list_expr
 %type <set>                 set_expr
-%type <expression_list>     select_attr
+%type <select_attr>         select_attr
+%type <select_attr_list>    select_attr_list
 %type <join>                rel_list
 %type <join>                from
 %type <join>                joined_tables
@@ -213,6 +217,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <bools>               unique
 %type <bools>               like_op
 %type <bools>               exists_op
+%type <string>              as_info
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -592,12 +597,13 @@ update_set:
     }
 
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr from where groupby having orderby
+    SELECT select_attr_list from where groupby having orderby
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       auto* selection = new SelectSqlNode;
       $$->node.selection = selection;
       if ($2 != nullptr) {
+        std::reverse($2->begin(), $2->end());
         selection->attributes.swap(*$2);
         delete $2;
       }
@@ -631,12 +637,14 @@ from:
     ;
 
 joined_tables:
-    joined_tables_inner INNER JOIN ID joined_on {
+    joined_tables_inner INNER JOIN ID as_info joined_on {
       $$ = new JoinSqlNode;
       $$->relation=$4;
       free($4);
+      $$->alias = $5;
+      if(*$5) free($5);
       $$->sub_join=$1;
-      $$->join_conditions=$5;  
+      $$->join_conditions=$6;  
     }
 
 joined_tables_inner:
@@ -645,12 +653,14 @@ joined_tables_inner:
       $$->relation = $1;
       free($1);
     }
-    | joined_tables_inner INNER JOIN ID joined_on {
+    | joined_tables_inner INNER JOIN ID as_info joined_on {
       $$ = new JoinSqlNode;
       $$->relation=$4;
       free($4);
       $$->sub_join=$1;
-      $$->join_conditions=$5;  
+      $$->alias=$5;
+      if(*$5) free($5);
+      $$->join_conditions=$6;  
     }
 
 joined_on:
@@ -829,12 +839,34 @@ expression:
     }
     ;
 
-select_attr:
-    expression_list {
-      std::reverse($1->begin(), $1->end());
-      $$ = $1;
+select_attr_list:
+    select_attr {
+      $$ = new std::vector<SelectAttribute *>(1, $1);
+    }
+    | select_attr COMMA select_attr_list {
+      $3->push_back($1);
+      $$ = $3;
     }
     ;
+
+select_attr:
+    expression as_info {
+      $$ = new SelectAttribute;
+      $$->expr = $1;
+      $$->alias = $2;
+      if(*$2) free($2);
+    }
+
+as_info:
+    {
+      $$ = "";
+    }
+    | ID {
+      $$ = $1;
+    }
+    | AS ID {
+      $$ = $2;
+    }
 
 list_expr:
     LBRACE select_stmt RBRACE {
@@ -870,15 +902,19 @@ rel_attr:
 
 rel_list:
     /* empty */
-    ID {
+    ID as_info {
       $$ = new JoinSqlNode;
       $$->relation = $1;
+      $$->alias = $2;
+      if(*$2) free($2);
       free($1);
     }
-    | rel_list COMMA ID  {
+    | rel_list COMMA ID as_info {
       $$ = new JoinSqlNode;
       $$->relation = $3;
       free($3);
+      $$->alias = $4;
+      if(*$4) free($4);
       $$->sub_join = $1;
     }
     ;
