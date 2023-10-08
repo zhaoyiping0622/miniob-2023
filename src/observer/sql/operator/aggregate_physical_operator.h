@@ -92,6 +92,17 @@ private:
   Value now_;
 };
 
+class SumAggregator : public Aggregator {
+public:
+  SumAggregator(Value init_value) : now_(init_value) {}
+  AggregationType type() const override { return AggregationType::AGGR_SUM; }
+  RC add_value(Value value) override;
+  Value get_value() const override;
+
+private:
+  Value now_;
+};
+
 class AvgAggregator : public Aggregator {
 public:
   AvgAggregator(Value init_value) : now_(init_value), count_(1) {}

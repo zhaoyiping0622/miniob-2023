@@ -106,6 +106,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         MIN
         MAX
         AVG
+        SUM
         COUNT
         GROUP
         ORDER
@@ -894,6 +895,7 @@ aggr_op:
       MIN { $$ = AggregationType::AGGR_MIN; }
     | MAX { $$ = AggregationType::AGGR_MAX; }
     | AVG { $$ = AggregationType::AGGR_AVG; }
+    | SUM { $$ = AggregationType::AGGR_SUM; }
     | COUNT { $$ = AggregationType::AGGR_COUNT; }
 
 func_op:

@@ -12,6 +12,13 @@ AttrType AggregationUnit::value_type() {
       return FLOATS;
     return UNDEFINED;
   }
+  case AggregationType::AGGR_SUM: {
+    if (expr_type == INTS)
+      return INTS;
+    if (expr_type == FLOATS)
+      return FLOATS;
+    return UNDEFINED;
+  }
   }
   return UNDEFINED;
 }

@@ -224,6 +224,7 @@ enum class AggregationType {
   AGGR_MAX,
   AGGR_MIN,
   AGGR_AVG,
+  AGGR_SUM,
   AGGR_COUNT,
 };
 
