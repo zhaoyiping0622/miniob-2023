@@ -430,8 +430,8 @@ static float round(float a, int bits) {
   a += 0.5;
   int ret = a;
   for (int i = 0; i < bits; i++)
-    a /= 10;
-  return a;
+    ret /= 10;
+  return ret;
 }
 RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs) {
   switch (type) {
@@ -440,7 +440,7 @@ RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs)
       return RC::INVALID_ARGUMENT;
     break;
   case FunctionType::ROUND:
-    if (attrs.size() != 2 || attrs[0] != FLOATS)
+    if (attrs.size() == 0 || attrs.size() > 2 || attrs[0] != FLOATS)
       return RC::INVALID_ARGUMENT;
     break;
   case FunctionType::DATE_FORMAT:
@@ -462,7 +462,11 @@ RC FunctionExpr::calc_value(Value &out, vector<const Value *> &in) const {
     return RC::SUCCESS;
   }
   case FunctionType::ROUND: {
-    out.set_float(round(in1->get_float(), in2->get_int()));
+    if (in2 != nullptr) {
+      out.set_float(round(in1->get_float(), in2->get_int()));
+    } else {
+      out.set_float(round(in1->get_float(), 0));
+    }
     return RC::SUCCESS;
   }
   case FunctionType::DATE_FORMAT: {
@@ -872,20 +876,20 @@ RC ArithmeticExpr::create(Db *db, Table *default_table, std::unordered_map<std::
   return RC::SUCCESS;
 }
 
-int function_args(FunctionType type) {
+pair<int, int> function_args(FunctionType type) {
   switch (type) {
-  case FunctionType::LENGTH: return 1;
-  case FunctionType::ROUND:
-  case FunctionType::DATE_FORMAT: return 2;
+  case FunctionType::LENGTH: return {1, 1};
+  case FunctionType::ROUND: return {1, 2};
+  case FunctionType::DATE_FORMAT: return {2, 2};
   }
-  return -1;
 }
 
 RC FunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                         const FunctionExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   auto &children = expr_node->children;
   auto type = expr_node->type;
-  if (children.size() != function_args(type)) {
+  auto range = function_args(type);
+  if (children.size() < range.first || children.size() > range.second) {
     LOG_WARN("function args size mismatch");
     return RC::INVALID_ARGUMENT;
   }
