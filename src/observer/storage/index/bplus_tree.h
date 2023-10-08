@@ -57,7 +57,7 @@ public:
   int operator()(const char *v1, const char *v2) const;
 
 private:
-  int compare_data(const char *v1, const char *v2, AttrType type) const;
+  int compare_data(const char *v1, const char *v2, AttrType type, int char_len) const;
   int attr_length_;
   const Table *table_;
   IndexMeta meta_;

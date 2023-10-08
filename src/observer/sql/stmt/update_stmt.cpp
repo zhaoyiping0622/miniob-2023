@@ -64,8 +64,6 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt) {
       }
     }
   }
-  if (value.attr_type() == CHARS)
-    value.get_fiexed_string();
   auto *update_stmt = new UpdateStmt();
   update_stmt->table_ = table;
   update_stmt->field_ = Field(table, field_meta);
