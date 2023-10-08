@@ -402,6 +402,25 @@ private:
   TupleCellSpec spec_;
 };
 
+class SetExpr : public Expression {
+public:
+  ExprType type() const override { return ExprType::SET; }
+  AttrType value_type() const override { return LISTS; }
+
+  RC get_value(const Tuple &tuple, Value &value) const override;
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const SetExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
+
+  std::set<Field> reference_fields() const override;
+
+  std::string to_string() const override;
+
+private:
+  std::vector<std::unique_ptr<Expression>> children_;
+  std::set<ValueList> values_;
+};
+
 class SelectStmt;
 
 class ListExpr : public NamedExpr {

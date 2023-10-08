@@ -81,6 +81,7 @@ ExprSqlNode::~ExprSqlNode() {
   case ExprType::FUNCTION: delete expr_.function; break;
   case ExprType::CONTAIN: delete expr_.contain; break;
   case ExprType::LIST: delete expr_.list; break;
+  case ExprType::SET: delete expr_.set; break;
   case ExprType::NULL_CHECK: delete expr_.null; break;
   default: break;
   }

@@ -134,6 +134,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   ContainType                                   contain_op;
   ContainExprSqlNode *                          contain;
   ListExprSqlNode *                             list;
+  SetExprSqlNode *                              set;
   AggregationType                               aggr;
   FunctionType                                  func;
   FieldExprSqlNode *                            rel_attr;
@@ -185,6 +186,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <conjunction>         joined_on
 %type <contain>             contain
 %type <list>                list_expr
+%type <set>                 set_expr
 %type <expression_list>     select_attr
 %type <join>                rel_list
 %type <join>                from
@@ -781,6 +783,11 @@ expression:
       std::string name = token_name(sql_string, &@$);
       $$->set_name(name);
     }
+    | set_expr {
+      $$ = new ExprSqlNode($1);
+      std::string name = token_name(sql_string, &@$);
+      $$->set_name(name);
+    }
     ;
 
 select_attr:
@@ -796,6 +803,16 @@ list_expr:
       $2->node.selection = nullptr;
       delete $2;
     }
+    ;
+
+set_expr:
+    LBRACE expression COMMA expression_list RBRACE {
+      $4->push_back($2);
+      $$ = new SetExprSqlNode();
+      $$->expressions.swap(*$4);
+      delete $4;
+    }
+    ;
 
 rel_attr:
     ID {

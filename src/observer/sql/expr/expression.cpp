@@ -28,6 +28,8 @@ See the Mulan PSL v2 for more details. */
 
 using namespace std;
 
+static void join_fields(set<Field> &a, const set<Field> &b) { a.insert(b.begin(), b.end()); }
+
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
@@ -377,6 +379,7 @@ RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::stri
   case ExprType::NULL_CHECK:
     rc = NullCheckExpr::create(db, default_table, tables, expr_node->get_null(), expr, fallback);
     break;
+  case ExprType::SET: rc = SetExpr::create(db, default_table, tables, expr_node->get_set(), expr, fallback); break;
   default:
     if (fallback) {
       rc = (*fallback)(expr_node, expr);
@@ -506,6 +509,62 @@ FunctionExpr::FunctionExpr(FunctionType type, std::vector<std::unique_ptr<Expres
 
 ListExpr::ListExpr(SelectStmt *select, std::string name)
     : NamedExpr(LISTS, TupleCellSpec(name.c_str())), select_(select), column_num_(select->schema()->cell_num()) {}
+
+////////////////////////////////////////////////////////////////////////////////
+RC SetExpr::get_value(const Tuple &tuple, Value &value) const {
+  auto values = values_;
+  for (auto &child : children_) {
+    Value value;
+    RC rc = child->get_value(tuple, value);
+    if (rc != RC::SUCCESS)
+      return rc;
+    values.emplace(value);
+  }
+  value.set_list(values);
+  return RC::SUCCESS;
+}
+std::set<Field> SetExpr::reference_fields() const {
+  std::set<Field> ret;
+  for (auto &child : children_) {
+    join_fields(ret, child->reference_fields());
+  }
+  return ret;
+}
+std::string SetExpr::to_string() const {
+  std::vector<std::string> ss;
+  for (auto x : values_)
+    ss.push_back(x.to_string());
+  for (auto &child : children_)
+    ss.push_back(child->to_string());
+  std::string ret;
+  common::merge_string(ret, ",", ss);
+  return ret;
+}
+
+RC SetExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const SetExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
+  std::vector<std::unique_ptr<Expression>> children;
+  std::set<ValueList> values;
+  RC rc = RC::SUCCESS;
+  Expression *tmp;
+  for (auto &x : expr_node->expressions) {
+    rc = Expression::create(db, default_table, tables, x, tmp, fallback);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    if (tmp->type() == ExprType::VALUE) {
+      values.emplace(static_cast<ValueExpr *>(tmp)->get_value());
+      delete tmp;
+    } else {
+      children.emplace_back(tmp);
+    }
+  }
+  SetExpr *set_expr = new SetExpr();
+  set_expr->values_.swap(values);
+  set_expr->children_.swap(children);
+  expr = set_expr;
+  return RC::SUCCESS;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -826,8 +885,6 @@ static RC create(Db *db, Table *default_table, std::unordered_map<std::string, T
   expr = new ContainExpr(expr_node->type, std::move(left), std::move(right));
   return RC::SUCCESS;
 }
-
-static void join_fields(set<Field> &a, set<Field> &b) { a.insert(b.begin(), b.end()); }
 
 set<Field> FieldExpr::reference_fields() const { return {field_}; }
 set<Field> ValueExpr::reference_fields() const { return {}; }
