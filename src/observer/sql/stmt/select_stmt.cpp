@@ -181,10 +181,18 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
     const ExprSqlNode *expression = attribute->expr;
 
     if (expression->type() == ExprType::STAR) {
+      if (attribute->alias.size()) {
+        LOG_WARN("alias to star");
+        return RC::INVALID_ARGUMENT;
+      }
       for (Table *table : tables) {
         wildcard_fields(table, expressions);
       }
     } else if (expression->type() == ExprType::FIELD && expression->get_field()->field_name == "*") {
+      if (attribute->alias.size()) {
+        LOG_WARN("alias to star");
+        return RC::INVALID_ARGUMENT;
+      }
       auto table_name = expression->get_field()->table_name;
       auto it = table_map.find(table_name);
       if (it == table_map.end()) {
