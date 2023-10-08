@@ -425,11 +425,13 @@ RC ArithmeticExpr::try_get_value(Value &value) const {
 ////////////////////////////////////////////////////////////////////////////////
 
 static float round(float a, int bits) {
-  std::stringstream ss;
-  ss << fixed << setprecision(bits) << a;
-  float ret;
-  ss >> ret;
-  return ret;
+  for (int i = 0; i < bits; i++)
+    a *= 10;
+  a += 0.5;
+  int ret = a;
+  for (int i = 0; i < bits; i++)
+    a /= 10;
+  return a;
 }
 RC FunctionExpr::check_function(FunctionType type, std::vector<AttrType> &attrs) {
   switch (type) {
