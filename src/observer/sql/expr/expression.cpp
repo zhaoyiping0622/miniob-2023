@@ -586,12 +586,16 @@ RC ContainExpr::get_value(const Tuple &tuple, Value &value) const {
     value.set_boolean(contain_type_ == ContainType::NOT_IN);
     return RC::SUCCESS;
   }
-  auto list = right_value.get_list();
-  ValueList tmp(left_value);
-  if (list->count(tmp) == 0) {
-    value.set_boolean(contain_type_ == ContainType::NOT_IN);
+  if (right_value.is_null()) {
+    value.set_boolean(false);
   } else {
-    value.set_boolean(contain_type_ == ContainType::IN);
+    auto list = right_value.get_list();
+    ValueList tmp(left_value);
+    if (list->count(tmp) == 0) {
+      value.set_boolean(contain_type_ == ContainType::NOT_IN);
+    } else {
+      value.set_boolean(contain_type_ == ContainType::IN);
+    }
   }
   return RC::SUCCESS;
 }

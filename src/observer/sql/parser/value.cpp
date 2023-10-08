@@ -127,6 +127,14 @@ void Value::set_null() {
 void Value::set_list(const std::set<ValueList> &list) {
   attr_type_ = LISTS;
   list_value_ = std::make_shared<std::set<ValueList>>(list);
+  bool has_null = false;
+  for (auto &v : list) {
+    if (v.has_null()) {
+      has_null = true;
+      break;
+    }
+  }
+  num_value_.bool_value_ = has_null;
 }
 
 void Value::set_text(const char *s) {
@@ -408,7 +416,7 @@ bool Value::get_boolean() const {
   return false;
 }
 
-bool Value::is_null() const { return attr_type_ == NULLS; }
+bool Value::is_null() const { return attr_type_ == NULLS || attr_type_ == LISTS && num_value_.bool_value_; }
 
 std::shared_ptr<std::set<ValueList>> Value::get_list() const { return list_value_; }
 

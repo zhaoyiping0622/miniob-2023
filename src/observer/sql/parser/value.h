@@ -130,7 +130,7 @@ AttrType AttrTypeCompare(AttrType a, AttrType b);
 
 class ValueList {
 public:
-  ValueList(const Value &v) : list_(1, v) {}
+  ValueList(const Value &v) : list_(1, v), has_null_(v.is_null()) {}
   std::vector<Value> &get_list() { return list_; }
   const std::vector<Value> &get_list() const { return list_; }
 
@@ -138,6 +138,9 @@ public:
 
   std::strong_ordering operator<=>(const ValueList &other) const;
 
+  bool has_null() const { return has_null_; }
+
 private:
   std::vector<Value> list_;
+  bool has_null_ = false;
 };
