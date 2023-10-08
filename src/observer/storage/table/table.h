@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/table/table_meta.h"
 #include <functional>
+#include <vector>
 
 struct RID;
 class Record;
@@ -65,6 +66,8 @@ public:
    */
   RC make_record(int value_num, const Value *values, Record &record);
 
+  RC make_record(char *data, int len, Record &record);
+
   /**
    * @brief 在当前的表中插入一条记录
    * @details 在表文件和索引中插入关联数据。这里只管在表中插入数据，不关心事务相关操作。
@@ -72,13 +75,14 @@ public:
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
+  RC delete_record(const RID &rid);
   RC visit_record(const RID &rid, bool readonly, std::function<void(Record &)> visitor);
   RC get_record(const RID &rid, Record &record);
 
   RC recover_insert_record(Record &record);
 
   // TODO refactor
-  RC create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name);
+  RC create_index(Trx *trx, std::vector<FieldMeta> field_meta, const char *index_name, bool unique);
   RC drop_index(const char *index_name);
   RC drop_all_indexes();
 
@@ -102,8 +106,18 @@ private:
   RC init_record_handler(const char *base_dir);
 
 public:
+  RC get_text(int offset, Value &value);
+  RC add_text(const char *data, int &offset);
+
+private:
+  DiskBufferPool *text_buffer_pool_ = nullptr; /// text文件关联的buffer pool
+  int text_num_ = 0;                           ///
+  RC init_text_buffer_pool(const char *base_dir);
+
+public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
+  Index *find_index_by_fields(std::vector<const char *> fields) const;
   RC drop_index(int idx);
 
 private:

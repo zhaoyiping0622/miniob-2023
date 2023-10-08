@@ -44,11 +44,18 @@ RC AggregatePhysicalOperator::calculate_all(Tuple *env_tuple) {
     Tuple *tuple = child->current_tuple();
     vector<Value> record(groupby_speces_.size());
     vector<Value> values(aggregation_speces_.size());
+    vector<Value> non_null_record;
+    int bitmap = 0;
     for (int i = 0; i < record.size(); i++) {
       rc = tuple->cell_at(i, record[i]);
       if (rc != RC::SUCCESS) {
         LOG_WARN("fail to read tuple cell idx=%d", i);
         return rc;
+      }
+      if (record[i].is_null()) {
+        bitmap |= 1 << i;
+      } else {
+        non_null_record.push_back(record[i]);
       }
     }
     for (int i = 0; i < values.size(); i++) {
@@ -58,14 +65,15 @@ RC AggregatePhysicalOperator::calculate_all(Tuple *env_tuple) {
         return rc;
       }
     }
-    auto it = map_.find(record);
-    if (it == map_.end()) {
+    auto &map = map_[bitmap];
+    auto it = map.find(non_null_record);
+    if (it == map.end()) {
       vector<unique_ptr<Aggregator>> aggregators(values.size());
       for (int i = 0; i < values.size(); i++) {
         aggregators[i].reset(Aggregator::create(aggregation_units_[i]->aggregation_type(), values[i]));
       }
-      map_[record] = std::move(aggregators);
-      records_.emplace_back(std::move(record));
+      map[non_null_record] = std::move(aggregators);
+      records_.emplace_back(record, non_null_record, bitmap);
     } else {
       auto &aggregators = it->second;
       for (int i = 0; i < values.size(); i++) {
@@ -93,18 +101,26 @@ RC AggregatePhysicalOperator::next(Tuple *env_tuple) {
     return RC::RECORD_EOF;
   }
   auto &record = records_[idx_];
-  auto &aggregators = map_[record];
+  int bitmap = record.bitmap;
+  auto &nonnull = record.non_null_value;
+  auto &map = map_[bitmap];
+  auto it = map.find(nonnull);
+  if (it == map.end()) {
+    LOG_ERROR("map fail to find record");
+    return RC::INTERNAL;
+  }
+  auto &aggregators = it->second;
   vector<Value> values(aggregators.size());
   for (int i = 0; i < values.size(); i++)
     values[i] = aggregators[i]->get_value();
-  groupby_tuple_.set_cells(record);
+  groupby_tuple_.set_cells(record.value);
   valuelist_tuple_.set_cells(values);
   return RC::SUCCESS;
 }
 
 RC AggregatePhysicalOperator::close() {
   map_.clear();
-  records_.resize(0);
+  records_.clear();
   idx_ = -1;
   valuelist_tuple_.set_cells(std::vector<Value>());
   groupby_tuple_.set_cells(std::vector<Value>());
@@ -117,29 +133,44 @@ RC AggregatePhysicalOperator::close() {
 /////////////////////////////////////////////////////////////////////////////////
 
 RC CountAggregator::add_value(Value value) {
-  count_++;
+  if (!value.is_null())
+    count_++;
   return RC::SUCCESS;
 }
 
 Value CountAggregator::get_value() const { return Value(count_); }
 
 RC MinAggregator::add_value(Value value) {
-  if (value.compare(now_) < 0)
+  if (value.is_null())
+    return RC::SUCCESS;
+  if (now_.is_null())
+    now_ = value;
+  else if (value.compare(now_) < 0)
     now_ = value;
   return RC::SUCCESS;
 }
 Value MinAggregator::get_value() const { return now_; }
 
 RC MaxAggregator::add_value(Value value) {
-  if (value.compare(now_) > 0)
+  if (value.is_null())
+    return RC::SUCCESS;
+  if (now_.is_null())
+    now_ = value;
+  else if (value.compare(now_) > 0)
     now_ = value;
   return RC::SUCCESS;
 }
 Value MaxAggregator::get_value() const { return now_; }
 
 RC AvgAggregator::add_value(Value value) {
-  count_++;
-  now_.set_float(now_.get_float() + (value.get_float() - now_.get_float()) / count_);
+  if (value.is_null())
+    return RC::SUCCESS;
+  if (now_.is_null())
+    now_ = value;
+  else {
+    count_++;
+    now_.set_float(now_.get_float() + (value.get_float() - now_.get_float()) / count_);
+  }
   return RC::SUCCESS;
 }
 Value AvgAggregator::get_value() const { return now_; }

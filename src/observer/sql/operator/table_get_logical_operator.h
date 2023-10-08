@@ -32,6 +32,7 @@ public:
   bool readonly() const { return readonly_; }
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
+  void add_predicate(std::unique_ptr<Expression> &&expr);
   std::vector<std::unique_ptr<Expression>> &predicates() { return predicates_; }
 
   void add_current_table() override { tables_.insert(table_->name()); }

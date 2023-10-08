@@ -35,9 +35,17 @@ private:
   std::vector<TupleCellSpec> groupby_speces_;
   std::vector<TupleCellSpec> aggregation_speces_;
 
+  struct RecordCache {
+    std::vector<Value> value;
+    std::vector<Value> non_null_value;
+    int bitmap;
+    RecordCache(std::vector<Value> value, std::vector<Value> non_null_value, int bitmap)
+        : value(value), non_null_value(non_null_value), bitmap(bitmap) {}
+  };
+
 private:
-  std::map<std::vector<Value>, std::vector<std::unique_ptr<Aggregator>>> map_;
-  std::vector<std::vector<Value>> records_;
+  std::map<int, std::map<std::vector<Value>, std::vector<std::unique_ptr<Aggregator>>>> map_;
+  std::vector<RecordCache> records_;
   int idx_ = -1;
 
   RC calculate_all(Tuple *env_tuple);
@@ -53,7 +61,7 @@ public:
 
 class CountAggregator : public Aggregator {
 public:
-  CountAggregator(Value init_value) : count_(1) {}
+  CountAggregator(Value init_value) : count_(!init_value.is_null()) {}
   AggregationType type() const override { return AggregationType::AGGR_COUNT; }
   RC add_value(Value value) override;
   Value get_value() const override;

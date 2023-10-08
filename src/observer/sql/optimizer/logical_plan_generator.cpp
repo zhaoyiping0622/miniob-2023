@@ -30,14 +30,17 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/sort_logical_operator.h"
 #include "sql/operator/sub_query_logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
+#include "sql/operator/update_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/insert_stmt.h"
+#include "sql/stmt/join_stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
+#include "sql/stmt/update_stmt.h"
 #include <memory>
 #include <utility>
 
@@ -54,6 +57,11 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
   case StmtType::SELECT: {
     SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
     rc = create_plan(select_stmt, logical_operator);
+  } break;
+
+  case StmtType::UPDATE: {
+    UpdateStmt *update_stmt = static_cast<UpdateStmt *>(stmt);
+    rc = create_plan(update_stmt, logical_operator);
   } break;
 
   case StmtType::INSERT: {
@@ -257,4 +265,19 @@ RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<Logic
   logical_operator = unique_ptr<LogicalOperator>(new ExplainLogicalOperator);
   logical_operator->add_child(std::move(child_oper));
   return rc;
+}
+
+RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<LogicalOperator> &logical_operator) {
+  Table *table = update_stmt->table();
+  unique_ptr<LogicalOperator> table_get_oper;
+  table_get_oper.reset(new TableGetLogicalOperator(table, {update_stmt->field()}, false));
+  auto *filter_stmt = update_stmt->filter();
+  if (filter_stmt != nullptr) {
+    auto *predicate_oper = new PredicateLogicalOperator(std::move(filter_stmt->filter_expr()));
+    predicate_oper->add_child(std::move(table_get_oper));
+    table_get_oper.reset(predicate_oper);
+  }
+  logical_operator.reset(new UpdateLogicalOperator(table, update_stmt->field(), update_stmt->value()));
+  logical_operator->add_child(std::move(table_get_oper));
+  return RC::SUCCESS;
 }

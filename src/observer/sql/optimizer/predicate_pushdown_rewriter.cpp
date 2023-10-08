@@ -87,16 +87,18 @@ RC PredicatePushdownRewriter::apply_expression(LogicalOperator *father, std::uni
       LOG_ERROR("failed to apply expression");
       return rc;
     }
+    // 下层已经处理了这个表达式
+    if (expr->type() == ExprType::VALUE) {
+      return rc;
+    }
   }
-  // 下层已经处理了这个表达式
-  if (expr->type() == ExprType::VALUE) {
-    return rc;
-  }
-  if (father == nullptr || father->type() == LogicalOperatorType::PREDICATE) {
+  if (oper->type() == LogicalOperatorType::TABLE_GET) {
+    auto *table_get_oper = static_cast<TableGetLogicalOperator *>(oper.get());
+    table_get_oper->add_predicate(std::move(expr));
+  } else if (father == nullptr || father->type() == LogicalOperatorType::PREDICATE) {
     // 当前层是最高层，或者上一层就有过滤表达式
     return rc;
-  }
-  if (oper->type() == LogicalOperatorType::PREDICATE) {
+  } else if (oper->type() == LogicalOperatorType::PREDICATE) {
     auto *predicate_oper = static_cast<PredicateLogicalOperator *>(oper.get());
     ConjunctionExpr *conjunction_expr =
         new ConjunctionExpr(ConjunctionType::AND, expr.release(), predicate_oper->expressions()[0].release());

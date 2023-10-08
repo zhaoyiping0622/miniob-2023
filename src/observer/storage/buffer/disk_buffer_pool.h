@@ -250,6 +250,8 @@ public:
    */
   RC recover_page(PageNum page_num);
 
+  int page_num() const;
+
 protected:
   RC allocate_frame(PageNum page_num, Frame **buf);
 

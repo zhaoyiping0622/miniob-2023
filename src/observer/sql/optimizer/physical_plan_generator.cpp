@@ -12,8 +12,10 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/12/14.
 //
 
+#include <cstring>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "common/log/log.h"
 #include "common/rc.h"
@@ -44,8 +46,11 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/sub_query_physical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/table_scan_physical_operator.h"
+#include "sql/operator/update_logical_operator.h"
+#include "sql/operator/update_physical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/parser/parse_defs.h"
+#include "storage/index/index.h"
 
 using namespace std;
 
@@ -71,6 +76,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
   case LogicalOperatorType::INSERT: {
     return create_plan(static_cast<InsertLogicalOperator &>(logical_operator), oper);
+  } break;
+
+  case LogicalOperatorType::UPDATE: {
+    return create_plan(static_cast<UpdateLogicalOperator &>(logical_operator), oper);
   } break;
 
   case LogicalOperatorType::DELETE: {
@@ -112,9 +121,10 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   Table *table = table_get_oper.table();
 
   Index *index = nullptr;
-  ValueExpr *value_expr = nullptr;
+  std::vector<std::pair<Field, Value>> field_values;
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
+      ValueExpr *value_expr = nullptr;
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
       if (comparison_expr->comp() != EQUAL_TO) {
@@ -144,19 +154,41 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      index = table->find_index_by_field(field.field_name());
-      if (nullptr != index) {
+      Value value;
+      ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+      if (value_expr->try_get_value(value) != RC::SUCCESS)
+        continue;
+      field_values.push_back({field, value});
+    }
+  }
+  // TODO(zhaoyiping)
+  // 这里要研究一下怎么确定用哪个索引
+
+  std::vector<const char *> fields;
+  for (auto &[f, value] : field_values) {
+    fields.push_back(f.field_name());
+  }
+  index = table->find_index_by_fields(fields);
+
+  if (index != nullptr) {
+    // 构建value
+    std::vector<Value> values;
+    auto &index_meta = index->index_meta();
+    for (auto &field : index_meta.fields()) {
+      bool found = false;
+      for (auto &[f, value] : field_values) {
+        if (strcmp(f.field_name(), field.name()) == 0) {
+          found = true;
+          values.push_back(value);
+          break;
+        }
+      }
+      if (!found) {
         break;
       }
     }
-  }
-
-  if (index != nullptr) {
-    ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
-
-    const Value &value = value_expr->get_value();
     IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(
-        table, index, table_get_oper.readonly(), &value, true /*left_inclusive*/, &value, true /*right_inclusive*/);
+        table, index, table_get_oper.readonly(), values, true /*left_inclusive*/, values, true /*right_inclusive*/);
 
     index_scan_oper->set_predicates(std::move(predicates));
     oper = unique_ptr<PhysicalOperator>(index_scan_oper);
@@ -388,4 +420,20 @@ RC PhysicalPlanGenerator::create_plan(CachedLogicalOperator &logical_oper, std::
   }
   oper.reset(new CachedPhysicalOperator(std::move(child)));
   return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  UpdatePhysicalOperator *op = new UpdatePhysicalOperator;
+  op->update_field_ = logical_oper.update_field();
+  op->table_ = logical_oper.table();
+  op->value_ = logical_oper.value();
+  oper.reset(op);
+  for (auto &child : logical_oper.children()) {
+    std::unique_ptr<PhysicalOperator> cop;
+    RC rc = create(*child, cop);
+    if (rc != RC::SUCCESS)
+      return rc;
+    op->add_child(std::move(cop));
+  }
+  return RC::SUCCESS;
 }

@@ -19,12 +19,15 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/date.h"
 #include "storage/field/field.h"
 #include <compare>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <sstream>
 #include <vector>
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "nulls", "lists", "booleans"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "dates", "floats", "texts", "nulls", "lists", "booleans"};
+
+int attr_type_to_size(AttrType type) { return 4; }
 
 const char *attr_type_to_string(AttrType type) {
   if (type >= UNDEFINED && type <= BOOLEANS) {
@@ -58,6 +61,10 @@ void Value::set_data(char *data, int length) {
   case CHARS: {
     set_string(data, length);
   } break;
+  case TEXTS: {
+    num_value_.int_value_ = *(int *)data;
+    length_ = length;
+  } break;
   case INTS: {
     num_value_.int_value_ = *(int *)data;
     length_ = length;
@@ -83,6 +90,7 @@ void Value::set_int(int val) {
   attr_type_ = INTS;
   num_value_.int_value_ = val;
   length_ = sizeof(val);
+  str_value_.clear();
 }
 
 void Value::set_float(float val) {
@@ -121,6 +129,14 @@ void Value::set_list(const std::set<ValueList> &list) {
   list_value_ = std::make_shared<std::set<ValueList>>(list);
 }
 
+void Value::set_text(const char *s) {
+  std::string tmp;
+  attr_type_ = TEXTS;
+  tmp.resize(TEXT_SIZE, 0);
+  strncpy(&tmp[0], s, TEXT_SIZE);
+  str_value_.swap(tmp);
+}
+
 void Value::set_value(const Value &value) {
   switch (value.attr_type()) {
   case NULLS: {
@@ -147,11 +163,15 @@ void Value::set_value(const Value &value) {
   case LISTS: {
     set_list(*value.get_list());
   } break;
+  case TEXTS: {
+    set_text(value.get_string().c_str());
+  } break;
   }
 }
 
 const char *Value::data() const {
   switch (attr_type()) {
+  case TEXTS:
   case CHARS: {
     return str_value_.c_str();
   } break;
@@ -173,8 +193,9 @@ std::string Value::to_string() const {
   case BOOLEANS: {
     os << num_value_.bool_value_;
   } break;
+  case TEXTS:
   case CHARS: {
-    os << str_value_;
+    os << str_value_.c_str();
   } break;
   case DATES: {
     os << Date::to_string(num_value_.date_value_);
@@ -231,6 +252,7 @@ int Value::compare(const Value &other) const {
     case FLOATS: {
       return common::compare_float((void *)&this->num_value_.float_value_, (void *)&other.num_value_.float_value_);
     } break;
+    case TEXTS:
     case CHARS: {
       return common::compare_string((void *)this->str_value_.c_str(), this->str_value_.length(),
                                     (void *)other.str_value_.c_str(), other.str_value_.length());
@@ -245,9 +267,12 @@ int Value::compare(const Value &other) const {
       auto order = (*list_value_) <=> (*other.list_value_);
       return compare_by_ordering(order);
     } break;
+    case NULLS: {
+      return 0;
+    } break;
     default: {
       LOG_WARN("unsupported type: %d", this->attr_type_);
-      return std::numeric_limits<int>::min();
+      return INVALID_COMPARE;
     }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
@@ -265,16 +290,16 @@ int Value::compare(const Value &other) const {
   } else if (this->attr_type_ == LISTS) {
     auto list = get_list();
     if (list->size() != 1)
-      return std::numeric_limits<int>::min();
+      return INVALID_COMPARE;
     return list->begin()->get_list().begin()->compare(other);
   } else if (other.attr_type_ == LISTS) {
     auto list = other.get_list();
     if (list->size() != 1)
-      return std::numeric_limits<int>::min();
+      return INVALID_COMPARE;
     return this->compare(*list->begin()->get_list().begin());
   }
   LOG_WARN("not supported");
-  return std::numeric_limits<int>::min();
+  return INVALID_COMPARE;
 }
 
 std::strong_ordering Value::operator<=>(const Value &value) const {
@@ -290,6 +315,7 @@ std::strong_ordering Value::operator<=>(const Value &value) const {
 
 int Value::get_int() const {
   switch (attr_type()) {
+  case TEXTS:
   case CHARS: {
     try {
       return (int)(std::stol(str_value_));
@@ -318,6 +344,7 @@ int Value::get_int() const {
 
 float Value::get_float() const {
   switch (attr_type()) {
+  case TEXTS:
   case CHARS: {
     try {
       return std::stof(str_value_);
@@ -346,8 +373,15 @@ float Value::get_float() const {
 
 std::string Value::get_string() const { return this->to_string(); }
 
+char *Value::get_fiexed_string() const {
+  std::memset((void *)num_value_.str_value_, 0, 4);
+  std::strncpy((char *)num_value_.str_value_, str_value_.c_str(), 4);
+  return (char *)num_value_.str_value_;
+}
+
 bool Value::get_boolean() const {
   switch (attr_type()) {
+  case TEXTS:
   case CHARS: {
     try {
       float val = std::stof(str_value_);
@@ -385,6 +419,8 @@ bool Value::get_boolean() const {
   return false;
 }
 
+bool Value::is_null() const { return attr_type_ == NULLS; }
+
 std::shared_ptr<std::set<ValueList>> Value::get_list() const { return list_value_; }
 
 bool Value::convert(AttrType from, AttrType to, Value &value) {
@@ -404,6 +440,10 @@ bool Value::convert(AttrType from, AttrType to, Value &value) {
   }
   if (from == FLOATS && to == INTS) {
     value.set_int(value.get_int());
+    return true;
+  }
+  if (from == CHARS && to == TEXTS) {
+    value.set_text(value.get_string().c_str());
     return true;
   }
   return false;
@@ -428,6 +468,7 @@ AttrType AttrTypeCompare(AttrType a, AttrType b) {
   switch (a) {
   case UNDEFINED:
   case NULLS: return NULLS;
+  case TEXTS:
   case CHARS: return b;
   case INTS: {
     if (b == DATES)

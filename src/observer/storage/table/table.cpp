@@ -22,8 +22,11 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/parser/value.h"
 #include "storage/buffer/disk_buffer_pool.h"
+#include "storage/buffer/page.h"
 #include "storage/common/meta_util.h"
+#include "storage/field/field.h"
 #include "storage/index/bplus_tree_index.h"
 #include "storage/index/index.h"
 #include "storage/record/record_manager.h"
@@ -40,6 +43,11 @@ Table::~Table() {
   if (data_buffer_pool_ != nullptr) {
     data_buffer_pool_->close_file();
     data_buffer_pool_ = nullptr;
+  }
+
+  if (text_buffer_pool_ != nullptr) {
+    text_buffer_pool_->close_file();
+    text_buffer_pool_ = nullptr;
   }
 
   for (std::vector<Index *>::iterator it = indexes_.begin(); it != indexes_.end(); ++it) {
@@ -113,6 +121,19 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
     return rc;
   }
 
+  auto text_file = table_text_file(base_dir, name);
+  rc = bpm.create_file(text_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create disk buffer pool of text file. file name=%s", text_file.c_str());
+    return rc;
+  }
+
+  rc = init_text_buffer_pool(base_dir);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create table %s due to init text buffer pool failed.", name);
+    return rc;
+  }
+
   base_dir_ = base_dir;
   LOG_INFO("Successfully create table %s:%s", base_dir, name);
   return rc;
@@ -142,23 +163,21 @@ RC Table::open(const char *meta_file, const char *base_dir) {
     return rc;
   }
 
+  rc = init_text_buffer_pool(base_dir);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create table %s due to init text buffer pool failed.", base_dir);
+    return rc;
+  }
+
   base_dir_ = base_dir;
 
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
-    const FieldMeta *field_meta = table_meta_.field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s", name(),
-                index_meta->name(), index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::INTERNAL;
-    }
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
-    rc = index->open(index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(index_file.c_str(), this, *index_meta);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s", name(), index_meta->name(),
@@ -249,6 +268,11 @@ const char *Table::name() const { return table_meta_.name(); }
 
 const TableMeta &Table::table_meta() const { return table_meta_; }
 
+RC Table::make_record(char *data, int len, Record &record) {
+  record.set_data(data, len);
+  return RC::SUCCESS;
+}
+
 RC Table::make_record(int value_num, const Value *values, Record &record) {
   // 检查字段类型是否一致
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
@@ -257,10 +281,24 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
   }
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  RC rc = RC::SUCCESS;
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     Value &value = const_cast<Value &>(values[i]);
-    if (field->type() != value.attr_type()) {
+    if (field->type() == TEXTS) {
+      if (value.get_string().size()) {
+        int offset;
+        rc = add_text(value.get_string().c_str(), offset);
+        if (rc != RC::SUCCESS)
+          return rc;
+        value.set_int(offset);
+      }
+    } else if (value.attr_type() == NULLS) {
+      if (!field->nullable()) {
+        LOG_ERROR("unreachable should be checked in caller");
+        return RC::INVALID_ARGUMENT;
+      }
+    } else if (field->type() != value.attr_type()) {
       if (!Value::convert(value.attr_type(), field->type(), value)) {
         LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d", table_meta_.name(),
                   field->name(), field->type(), value.attr_type());
@@ -272,18 +310,21 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record_data = (char *)malloc(record_size);
+  memset(record_data, 0, record_size);
 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
-      const size_t data_len = value.length();
-      if (copy_len > data_len) {
-        copy_len = data_len + 1;
-      }
+    if (value.attr_type() == NULLS) {
+      int null_offset = table_meta_.null_field_meta()->offset();
+      int &null_value = *(int *)(record_data + null_offset);
+      null_value |= 1 << (i + table_meta_.sys_field_num());
+    } else if (field->type() == CHARS) {
+      memcpy(record_data + field->offset(), value.get_fiexed_string(), 4);
+    } else {
+      memcpy(record_data + field->offset(), value.data(), copy_len);
     }
-    memcpy(record_data + field->offset(), value.data(), copy_len);
   }
 
   record.set_data_owner(record_data, record_size);
@@ -321,24 +362,23 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name) {
-  if (common::is_blank(index_name) || nullptr == field_meta) {
+RC Table::create_index(Trx *trx, const std::vector<FieldMeta> field_meta, const char *index_name, bool unique) {
+  if (common::is_blank(index_name) || field_meta.empty()) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, field_meta, unique);
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name,
-             field_meta->name());
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s", name(), index_name);
     return rc;
   }
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(index_file.c_str(), this, new_index_meta);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
@@ -450,6 +490,15 @@ RC Table::drop_all_indexes() {
   return RC::SUCCESS;
 }
 
+RC Table::delete_record(const RID &rid) {
+  RC rc = RC::SUCCESS;
+  RC rc1 = RC::SUCCESS;
+  rc1 = visit_record(rid, false, [&](Record &record) { rc = delete_record(record); });
+  if (rc1 != RC::SUCCESS)
+    return rc1;
+  return rc;
+}
+
 RC Table::delete_record(const Record &record) {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
@@ -477,6 +526,11 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_NOT_EXIST) {
+        if (error_on_not_exists)
+          return rc;
+        return RC::SUCCESS;
+      }
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;
       }
@@ -496,6 +550,15 @@ Index *Table::find_index(const char *index_name) const {
 Index *Table::find_index_by_field(const char *field_name) const {
   const TableMeta &table_meta = this->table_meta();
   const IndexMeta *index_meta = table_meta.find_index_by_field(field_name);
+  if (index_meta != nullptr) {
+    return this->find_index(index_meta->name());
+  }
+  return nullptr;
+}
+
+Index *Table::find_index_by_fields(std::vector<const char *> fields) const {
+  const TableMeta &table_meta = this->table_meta();
+  const IndexMeta *index_meta = table_meta.find_index_by_fields(fields);
   if (index_meta != nullptr) {
     return this->find_index(index_meta->name());
   }
@@ -545,5 +608,60 @@ RC Table::flush_table_meta_file(TableMeta &new_table_meta) {
 
   table_meta_.swap(new_table_meta);
 
+  return RC::SUCCESS;
+}
+
+RC Table::init_text_buffer_pool(const char *base_dir) {
+  std::string text_file = table_text_file(base_dir, table_meta_.name());
+
+  RC rc = BufferPoolManager::instance().open_file(text_file.c_str(), text_buffer_pool_);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", text_file.c_str(), rc, strrc(rc));
+    return rc;
+  }
+
+  text_num_ = text_buffer_pool_->page_num() * BP_PAGE_SIZE;
+  return rc;
+}
+
+RC Table::get_text(int offset, Value &value) {
+  int page_num = offset / BP_PAGE_SIZE;
+  int idx = offset % BP_PAGE_SIZE;
+  Frame *frame = nullptr;
+  RC rc = text_buffer_pool_->get_this_page(page_num, &frame);
+  if (rc != RC::SUCCESS)
+    return rc;
+  value.set_text(frame->data() + idx);
+  frame->unpin();
+  return RC::SUCCESS;
+}
+
+RC Table::add_text(const char *data, int &offset) {
+  int page_num = text_num_ / BP_PAGE_SIZE;
+  int page_of = text_num_ % BP_PAGE_SIZE;
+  Frame *frame = nullptr;
+  RC rc = RC::SUCCESS;
+  if (page_num == text_buffer_pool_->page_num()) {
+    rc = text_buffer_pool_->allocate_page(&frame);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    if (frame->page_num() != page_num) {
+      LOG_ERROR("failed to alloc new page");
+      frame->unpin();
+      return rc;
+    }
+  } else {
+    rc = text_buffer_pool_->get_this_page(page_num, &frame);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+  memset(frame->data() + page_of, 0, TEXT_SIZE);
+  strncpy(frame->data() + page_of, data, TEXT_SIZE);
+  frame->mark_dirty();
+  offset = text_num_;
+  text_num_ += TEXT_SIZE;
+  frame->unpin();
   return RC::SUCCESS;
 }

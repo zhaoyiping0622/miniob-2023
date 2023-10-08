@@ -22,3 +22,7 @@ TableGetLogicalOperator::TableGetLogicalOperator(Table *table, const std::vector
 void TableGetLogicalOperator::set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs) {
   predicates_ = std::move(exprs);
 }
+
+void TableGetLogicalOperator::add_predicate(std::unique_ptr<Expression> &&expr) {
+  predicates_.push_back(std::move(expr));
+}

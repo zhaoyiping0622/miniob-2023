@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/os/path.h"
 #include "storage/clog/clog.h"
 #include "storage/common/meta_util.h"
+#include "storage/field/field.h"
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
@@ -114,12 +115,17 @@ RC Db::drop_table(Trx *trx, const char *table_name) {
   opened_tables_.erase(it);
   auto table_file_name = table_data_file(path_.c_str(), table_name);
   auto table_meta_name = table_meta_file(path_.c_str(), table_name);
+  auto table_text_name = table_text_file(path_.c_str(), table_name);
   if (unlink(table_file_name.c_str()) == -1) {
     LOG_ERROR("Failed to delete table (%s) data file %s.", table_name, table_file_name.c_str());
     return RC::IOERR_UNLINK;
   }
   if (unlink(table_meta_name.c_str()) == -1) {
     LOG_ERROR("Failed to delete table (%s) data meta file %s.", table_name, table_meta_name.c_str());
+    return RC::IOERR_UNLINK;
+  }
+  if (unlink(table_text_name.c_str()) == -1) {
+    LOG_ERROR("Failed to delete table (%s) data text file %s.", table_name, table_text_name.c_str());
     return RC::IOERR_UNLINK;
   }
   return RC::SUCCESS;

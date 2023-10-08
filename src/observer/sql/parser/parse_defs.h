@@ -40,6 +40,7 @@ enum class ExprType {
   NAMED,       ///< 聚合操作
   FUNCTION,    ///< 函数操作
   CONTAIN,     ///< in和not in操作
+  NULL_CHECK,  ///< is null 和 is not null
   LIST,        ///<
 };
 
@@ -104,6 +105,7 @@ struct FunctionExprSqlNode;
 struct SelectSqlNode;
 struct ContainExprSqlNode;
 struct ListExprSqlNode;
+struct NullCheckExprSqlNode;
 
 class ExprSqlNode {
 private:
@@ -119,6 +121,7 @@ private:
     FunctionExprSqlNode *function;
     ContainExprSqlNode *contain;
     ListExprSqlNode *list;
+    NullCheckExprSqlNode *null;
   } expr_;
   std::string name_;
 
@@ -133,6 +136,7 @@ public:
   ExprSqlNode(FunctionExprSqlNode *function) : type_(ExprType::FUNCTION) { expr_.function = function; }
   ExprSqlNode(ContainExprSqlNode *contain) : type_(ExprType::CONTAIN) { expr_.contain = contain; }
   ExprSqlNode(ListExprSqlNode *list) : type_(ExprType::LIST) { expr_.list = list; }
+  ExprSqlNode(NullCheckExprSqlNode *null) : type_(ExprType::NULL_CHECK) { expr_.null = null; }
   ~ExprSqlNode();
   ExprType type() const { return type_; }
   const std::string &name() const { return name_; }
@@ -146,6 +150,7 @@ public:
   FunctionExprSqlNode *get_function() const { return expr_.function; }
   ContainExprSqlNode *get_contain() const { return expr_.contain; }
   ListExprSqlNode *get_list() const { return expr_.list; }
+  NullCheckExprSqlNode *get_null() const { return expr_.null; }
 };
 
 struct StarExprSqlNode {};
@@ -246,6 +251,12 @@ struct ContainExprSqlNode {
   ContainExprSqlNode(ContainType type, T1 *left, T2 *right)
       : type(type), left(get_expr_pointer(left)), right(get_expr_pointer(right)) {}
   ~ContainExprSqlNode();
+};
+struct NullCheckExprSqlNode {
+  bool is_null;
+  ExprSqlNode *left = nullptr;
+  template <typename T> NullCheckExprSqlNode(bool is_null, T *left) : is_null(is_null), left(get_expr_pointer(left)) {}
+  ~NullCheckExprSqlNode();
 };
 
 struct ListExprSqlNode {
@@ -368,6 +379,7 @@ struct AttrInfoSqlNode {
   AttrType type;    ///< Type of attribute
   std::string name; ///< Attribute name
   size_t length;    ///< Length of attribute
+  bool nullable;    ///< nullable
 };
 
 /**
@@ -395,9 +407,10 @@ struct DropTableSqlNode {
  * 正常的SQL语句中，一个索引可能包含了多个字段，这里仅支持一个字段。
  */
 struct CreateIndexSqlNode {
-  std::string index_name;     ///< Index name
-  std::string relation_name;  ///< Relation name
-  std::string attribute_name; ///< Attribute name
+  std::string index_name;                   ///< Index name
+  std::string relation_name;                ///< Relation name
+  std::vector<std::string> attribute_names; ///< Attribute name
+  bool unique;                              ///< unique
 };
 
 /**

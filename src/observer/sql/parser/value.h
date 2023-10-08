@@ -16,11 +16,15 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/date.h"
 #include <compare>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
+const int TEXT_SIZE = 4096;
+
+const int INVALID_COMPARE = std::numeric_limits<int>::min();
 /**
  * @brief 属性的类型
  * 
@@ -31,11 +35,13 @@ enum AttrType {
   INTS,     ///< 整数类型(4字节)
   DATES,    ///< 日期类型(4字节)
   FLOATS,   ///< 浮点数类型(4字节)
+  TEXTS,    ///< text
   NULLS,    ///< NULL
   LISTS,    ///< 多行数据
   BOOLEANS, ///< boolean类型，当前不是由parser解析出来的，是程序内部使用的
 };
 
+int attr_type_to_size(AttrType type);
 const char *attr_type_to_string(AttrType type);
 AttrType attr_type_from_string(const char *s);
 
@@ -72,6 +78,7 @@ public:
   void set_value(const Value &value);
   void set_null();
   void set_list(const std::set<ValueList> &list);
+  void set_text(const char *s);
 
   std::string to_string() const;
 
@@ -95,6 +102,8 @@ public:
   bool get_boolean() const;
   Date get_date() const;
   std::shared_ptr<std::set<ValueList>> get_list() const;
+  char *get_fiexed_string() const;
+  bool is_null() const;
 
 public:
   /**
@@ -113,6 +122,7 @@ private:
     float float_value_;
     bool bool_value_;
     Date date_value_;
+    char str_value_[4];
   } num_value_;
   std::string str_value_;
   std::shared_ptr<std::set<ValueList>> list_value_;

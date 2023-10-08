@@ -63,6 +63,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         TABLE
         TABLES
         INDEX
+        UNIQUE
         CALC
         SELECT
         DESC
@@ -81,6 +82,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         STRING_T
         FLOAT_T
         DATE_T
+        TEXT_T
         HELP
         EXIT
         DOT //QUOTE
@@ -117,6 +119,9 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         JOIN
         NOT
         IN
+        NULL_V
+        NULLABLE
+        IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -139,6 +144,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   std::vector<std::vector<ExprSqlNode *>> *     record_list;
   ConjunctionExprSqlNode *                      conjunction;
   std::vector<std::string> *                    relation_list;
+  std::vector<std::string> *                    id_list;
   JoinSqlNode *                                 join;
   OrderBySqlNode *                              order_unit;
   std::vector<OrderBySqlNode *> *               order_unit_list;
@@ -146,6 +152,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
   char *                                        string;
   int                                           number;
   float                                         floats;
+  bool                                          bools;
 }
 
 %token <number> NUMBER
@@ -187,8 +194,12 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <expression_list>     expression_list_empty
 %type <order_unit_list>     order_unit_list
 %type <order_unit_list>     orderby
+%type <id_list>             ids
 %type <order_unit>          order_unit
 %type <order>               order
+%type <bools>               null_def
+%type <bools>               null_check
+%type <bools>               unique
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -311,19 +322,41 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE unique INDEX ID ON ID LBRACE ID ids RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode *create_index = new CreateIndexSqlNode;
       $$->node.create_index = create_index;
-      create_index->index_name = $3;
-      create_index->relation_name = $5;
-      create_index->attribute_name = $7;
-      free($3);
-      free($5);
-      free($7);
+      create_index->unique = $2;
+      create_index->index_name = $4;
+      create_index->relation_name = $6;
+      $9->push_back($8);
+      create_index->attribute_names.swap(*$9);
+      delete $9;
+      std::reverse(create_index->attribute_names.begin(), create_index->attribute_names.end());
+      free($4);
+      free($6);
+      free($8);
     }
     ;
+
+unique:
+    {
+      $$ = false;
+    }
+    | UNIQUE {
+      $$ = true;
+    }
+
+ids:
+   {
+      $$ = new std::vector<std::string>();
+   }
+   | COMMA ID ids {
+      $3->push_back($2);
+      free($2);
+      $$ = $3;
+   }
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
     DROP INDEX ID ON ID
@@ -376,23 +409,36 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable = $6;
       free($1);
     }
-    | ID type
+    | ID type null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
+      $$->nullable = $3;
       free($1);
     }
     ;
+
+null_def:
+    {
+      $$ = false;
+    }
+    | NOT NULL_V {
+      $$ = false;
+    }
+    | NULLABLE {
+      $$ = true;
+    }
 
 number:
     NUMBER {$$ = $1;}
@@ -403,6 +449,7 @@ type:
     | STRING_T { $$=CHARS; }
     | FLOAT_T  { $$=FLOATS; }
     | DATE_T   { $$=DATES; }
+    | TEXT_T   { $$=TEXTS; }
     ;
 
 insert_stmt:        /*insert   语句的语法解析树*/
@@ -461,6 +508,10 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
+    }
+    | NULL_V {
+      $$ = new Value;
+      $$->set_null();
     }
     ;
     
@@ -795,6 +846,9 @@ conjunction:
     | condition {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
     }
+    | expression null_check {
+      $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new NullCheckExprSqlNode($2, $1), static_cast<ExprSqlNode *>(nullptr));
+    }
     | conjunction AND conjunction {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::AND, $1, $3);
     }
@@ -802,6 +856,14 @@ conjunction:
       $$ = new ConjunctionExprSqlNode(ConjunctionType::OR, $1, $3);
     }
     ;
+
+null_check: 
+    IS NULL_V {
+      $$ = true;
+    }
+    | IS NOT NULL_V {
+      $$ = false;
+    }
 
 condition:
     expression comp_op expression {

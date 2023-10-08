@@ -568,6 +568,8 @@ RC DiskBufferPool::load_page(PageNum page_num, Frame *frame) {
 }
 
 int DiskBufferPool::file_desc() const { return file_desc_; }
+
+int DiskBufferPool::page_num() const { return file_header_->page_count; }
 ////////////////////////////////////////////////////////////////////////////////
 BufferPoolManager::BufferPoolManager(int memory_size /* = 0 */) {
   if (memory_size <= 0) {
