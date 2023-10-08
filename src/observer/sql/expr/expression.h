@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <functional>
 #include <memory>
+#include <regex>
 #include <string.h>
 #include <string>
 #include <unordered_map>
@@ -333,6 +334,41 @@ public:
 private:
   bool is_null_;
   std::unique_ptr<Expression> left_;
+};
+
+class LikeExpr : public Expression {
+public:
+  LikeExpr(bool like, std::unique_ptr<Expression> left, std::string like_s)
+      : like_(like), left_(std::move(left)), like_s_("^" + like_s.substr(1, like_s.size() - 2) + "$") {
+    string pattern;
+    for (auto x : like_s_) {
+      if (x == '_') {
+        pattern += "[^']";
+      } else if (x == '%') {
+        pattern += "[^']*";
+      } else {
+        pattern += x;
+      }
+    }
+    regex_ = std::regex(pattern);
+  }
+
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  ExprType type() const override { return ExprType::LIKE; }
+  AttrType value_type() const override { return BOOLEANS; }
+
+  static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+                   const LikeExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback);
+
+  virtual std::set<Field> reference_fields() const override;
+
+  virtual std::string to_string() const override;
+
+private:
+  bool like_;
+  std::unique_ptr<Expression> left_;
+  std::string like_s_;
+  std::regex regex_;
 };
 
 /**

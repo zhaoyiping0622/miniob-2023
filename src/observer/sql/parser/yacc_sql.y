@@ -120,6 +120,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         JOIN
         NOT
         IN
+        LIKE
         NULL_V
         NULLABLE
         IS
@@ -207,6 +208,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <bools>               null_def
 %type <bools>               null_check
 %type <bools>               unique
+%type <bools>               like_op
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -886,6 +888,10 @@ conjunction:
     | condition {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, $1, static_cast<ExprSqlNode *>(nullptr));
     }
+    | expression like_op SSS {
+      $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new LikeExprSqlNode($2, $1, $3), static_cast<ExprSqlNode *>(nullptr));
+      free($3);
+    }
     | expression null_check {
       $$ = new ConjunctionExprSqlNode(ConjunctionType::SINGLE, new NullCheckExprSqlNode($2, $1), static_cast<ExprSqlNode *>(nullptr));
     }
@@ -929,6 +935,10 @@ comp_op:
 contain_op:
       IN { $$ = ContainType::IN; }
     | NOT IN { $$ = ContainType::NOT_IN; }
+
+like_op:
+      LIKE { $$ = true; }
+    | NOT LIKE { $$ = false; }
 
 aggr_op:
       MIN { $$ = AggregationType::AGGR_MIN; }
