@@ -41,7 +41,6 @@ void usage() {
   std::cout << "-P: protocol. {plain(default), mysql, cli}." << std::endl;
   std::cout << "-t: transaction model. {vacuous(default), mvcc}." << std::endl;
   std::cout << "-n: buffer pool memory size in byte" << std::endl;
-  exit(0);
 }
 
 void parse_parameter(int argc, char **argv) {
@@ -65,7 +64,10 @@ void parse_parameter(int argc, char **argv) {
     case 't': process_param->set_trx_kit_name(optarg); break;
     case 'n': process_param->set_buffer_pool_memory_size(atoi(optarg)); break;
     case 'h':
-    default: usage(); return;
+      usage();
+      exit(0);
+      return;
+    default: std::cout << "Unknown option: " << static_cast<char>(opt) << ", ignored" << std::endl; break;
     }
   }
 }
