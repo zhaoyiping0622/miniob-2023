@@ -107,6 +107,7 @@ public:
   Date get_date() const;
   std::shared_ptr<ValueListMap> get_list() const;
   bool is_null() const;
+  bool get_only(Value& value) const;
 
 public:
   /**
