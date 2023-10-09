@@ -1,8 +1,10 @@
 #include "date.h"
 
 #include "common/lang/comparator.h"
+#include "common/log/log.h"
 #include <cstdio>
 #include <ctime>
+#include <map>
 #include <string>
 #include <strings.h>
 
@@ -35,14 +37,59 @@ Date::Date(const std::string &s, const std::string &format) {
   }
 }
 
+static std::map<std::string, std::string> format_map = {
+    {"%Y", "%Y"}, {"%y", "%y"}, {"%M", "%B"}, {"%m", "%m"}, {"%D", "%d"}, {"%d", "%d"},
+};
+
+static std::string trans(char c, struct tm &tm) {
+  char buf[32];
+  std::string tmp = "%";
+  switch (c) {
+  case '%': return "%";
+  case 'M': c = 'B';
+  case 'm':
+  case 'd':
+  case 'y':
+  case 'Y': {
+    strftime(buf, sizeof(buf), (tmp + c).c_str(), &tm);
+    return buf;
+  }
+  case 'D': {
+    int t = tm.tm_mday;
+    std::string ret;
+    if (t % 10 == 1) {
+      ret = "st";
+    } else if (t % 10 == 2) {
+      ret = "nd";
+    } else if (t % 10 == 3) {
+      ret = "rd";
+    } else {
+      ret = "th";
+    }
+    return std::to_string(t) + ret;
+  }
+  default: LOG_WARN("unsupported format char %%%c", c);
+  }
+  return "";
+}
+
 std::string Date::to_string(const Date &date, const std::string &format) {
   time_t t = date.value;
   t *= kSecondsInDay;
   struct tm tm;
   localtime_r(&t, &tm);
-  char buf[32];
-  strftime(buf, sizeof(buf), format.c_str(), &tm);
-  return buf;
+  std::string ret;
+  bool flag = false;
+  for (auto x : format) {
+    if (flag) {
+      ret += trans(x, tm);
+      flag = false;
+    } else if (x == '%') {
+      flag = true;
+    } else
+      ret += x;
+  }
+  return ret;
 }
 
 int Date::compare_date(const Date *a, const Date *b) { return common::compare_int((void *)a, (void *)b); }
