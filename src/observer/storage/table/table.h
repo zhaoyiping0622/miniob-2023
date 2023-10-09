@@ -82,7 +82,7 @@ public:
   RC recover_insert_record(Record &record);
 
   // TODO refactor
-  RC create_index(Trx *trx, const std::vector<FieldMeta>& field_meta, const char *index_name, bool unique);
+  RC create_index(Trx *trx, const std::vector<FieldMeta> &field_meta, const char *index_name, bool unique);
   RC drop_index(const char *index_name);
   RC drop_all_indexes();
 

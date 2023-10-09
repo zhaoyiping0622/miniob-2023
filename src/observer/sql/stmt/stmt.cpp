@@ -81,9 +81,7 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt) {
   }
 
   case SCF_SHOW_INDEX: {
-    return ShowIndexStmt::create(db, 
-        *sql_node.node.show_index,
-        stmt);
+    return ShowIndexStmt::create(db, *sql_node.node.show_index, stmt);
   }
 
   case SCF_BEGIN: {
