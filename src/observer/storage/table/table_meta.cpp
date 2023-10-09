@@ -175,11 +175,10 @@ const IndexMeta *TableMeta::find_index_by_field(const char *field) const {
 
 const IndexMeta *TableMeta::find_index_by_fields(std::vector<const char *> fields) const {
   // 找到一个命中字段最多的索引
-  vector<int> cnts;
   int nmax = 0;
   const IndexMeta *ret = nullptr;
   for (const IndexMeta &index : indexes_) {
-    auto index_fields = index.fields();
+    auto &index_fields = index.fields();
     int cnt = 0;
     for (auto &field : index_fields) {
       bool found = false;
@@ -193,11 +192,9 @@ const IndexMeta *TableMeta::find_index_by_fields(std::vector<const char *> field
         break;
     }
     if (cnt == index_fields.size()) {
-      return &index;
+      if (nmax < cnt)
+        nmax = cnt, ret = &index;
     }
-    cnts.push_back(cnt);
-    if (nmax < cnts.back())
-      nmax = cnts.back(), ret = &index;
   }
   return ret;
 }

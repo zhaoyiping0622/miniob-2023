@@ -1797,6 +1797,8 @@ int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type, 
 }
 
 int AttrComparator::operator()(const char *v1, const char *v2) const {
+  int v1n = *(int *)(v1);
+  int v2n = *(int *)(v2);
   for (const auto &field : meta_.fields()) {
     int size;
     if (field.type() != CHARS) {
@@ -1804,22 +1806,23 @@ int AttrComparator::operator()(const char *v1, const char *v2) const {
     } else {
       size = field.len();
     }
-    int &v1n = *(int *)(v1 + table_->table_meta().null_field_meta()->offset());
-    int &v2n = *(int *)(v2 + table_->table_meta().null_field_meta()->offset());
     bool is_null1 = (v1n & (1 << field.index()));
     bool is_null2 = (v2n & (1 << field.index()));
+    bool ignore = false;
+    int cmp;
+    if (!field.visible())
+      goto ignore;
     if (is_null1) {
       if (!is_null2)
         return -1;
-      v1 += size;
-      v2 += size;
-      continue;
+      goto ignore;
     }
     if (is_null2)
       return 1;
-    int cmp = compare_data(v1, v2, field.type(), size);
+    cmp = compare_data(v1, v2, field.type(), size);
     if (cmp)
       return cmp;
+  ignore:
     v1 += size;
     v2 += size;
   }
