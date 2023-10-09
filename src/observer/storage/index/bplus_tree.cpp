@@ -1845,7 +1845,7 @@ void AttrComparator::init(const Table *table, const IndexMeta &meta) {
     if (field.type() == CHARS) {
       attr_length_ += field.len();
     } else {
-      attr_length_ += attr_type_to_size(CHARS);
+      attr_length_ += attr_type_to_size(field.type());
     }
   }
 }
