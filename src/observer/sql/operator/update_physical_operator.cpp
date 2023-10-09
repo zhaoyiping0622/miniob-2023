@@ -46,7 +46,6 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     if (rc != RC::SUCCESS) {
       return rc;
     }
-    inserted_records_.push_back(rid);
   }
   return RC::SUCCESS;
 }
@@ -129,7 +128,7 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
     if (value.is_null()) {
       null_value |= 1 << meta->index();
     } else {
-      null_value &= -1 ^ (1 << meta->index());
+      null_value &= (-1) ^ (1 << meta->index());
     }
   }
   return insert(v, rid);

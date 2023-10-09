@@ -42,6 +42,7 @@ void SimpleTrxKit::destroy_trx(Trx *trx) {
   std::unique_lock<std::mutex> lock(mutex_);
   auto it = trxs_.find(trx->id());
   if (it != trxs_.end()) {
+    delete trx;
     trxs_.erase(it);
   }
 }
@@ -94,11 +95,11 @@ RC SimpleTrx::delete_record(Table *table, Record &record) {
   }
 
   if (!recovering_) {
-    rc = log_manager_->append_log(CLogType::DELETE, trx_id_, table->table_id(), record.rid(), record.len(),
-                                  0 /*offset*/, record.data());
+    rc = log_manager_->append_log(CLogType::DELETE, trx_id_, table->table_id(), oper.rid, oper.v.size(), 0 /*offset*/,
+                                  oper.v.data());
   }
   ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
-         trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
+         trx_id_, table->table_id(), oper.rid.to_string().c_str(), oper.v.size(), strrc(rc));
 
   LOG_INFO("delete record log rid=%s", record.rid().to_string().c_str());
 
