@@ -133,7 +133,9 @@ public:
   virtual RC delete_record(Table *table, Record &record) = 0;
   virtual RC delete_record(Table *table, const RID &rid) {
     Record record;
-    table->get_record(rid, record);
+    RC rc = table->get_record(rid, record);
+    if (rc != RC::SUCCESS)
+      return rc;
     return delete_record(table, record);
   }
   virtual RC visit_record(Table *table, Record &record, bool readonly) = 0;
