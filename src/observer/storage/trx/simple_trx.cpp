@@ -147,7 +147,7 @@ RC SimpleTrx::redo(Db *db, const CLogRecord &log_record) {
   Table *table = nullptr;
   auto &data_record = log_record.data_record();
   table = db->find_table(data_record.table_id_);
-  if (table == nullptr) {
+  if (table == nullptr && (log_record.log_type() == CLogType::INSERT || log_record.log_type() == CLogType::DELETE)) {
     LOG_WARN("table id=%d not found", data_record.table_id_);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }

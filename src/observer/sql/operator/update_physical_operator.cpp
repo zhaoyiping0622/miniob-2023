@@ -22,7 +22,6 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     memcpy(r.data(), record->data(), r.size());
     rc = trx->delete_record(table_, *record);
     if (rc != RC::SUCCESS) {
-      rollback();
       return rc;
     }
     deleted_records_.push_back(r);
@@ -31,7 +30,6 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       Value value;
       rc = unit.value->get_value(*tuple, value);
       if (rc != RC::SUCCESS) {
-        rollback();
         return rc;
       }
       values.push_back(value);
@@ -46,7 +44,6 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     RID rid;
     rc = update(deleted_records_[i], value_list[i], rid);
     if (rc != RC::SUCCESS) {
-      rollback();
       return rc;
     }
     inserted_records_.push_back(rid);
@@ -136,9 +133,4 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
     }
   }
   return insert(v, rid);
-}
-
-void UpdatePhysicalOperator::rollback() {
-  remove_all(inserted_records_);
-  insert_all(deleted_records_);
 }

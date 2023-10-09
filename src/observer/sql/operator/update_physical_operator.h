@@ -19,8 +19,6 @@ private:
   RC remove_all(const vector<RID> &rids);
   RC update(vector<char> v, vector<Value> &values, RID &rid);
 
-  void rollback();
-
 private:
   std::vector<UpdateUnit> units_;
   Table *table_;
