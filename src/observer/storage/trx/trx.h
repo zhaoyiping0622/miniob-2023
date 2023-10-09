@@ -98,6 +98,7 @@ public:
   enum Type {
     VACUOUS, ///< 空的事务管理器，不做任何事情
     MVCC,    ///< 支持MVCC的事务管理器
+    SIMPLE,  ///< 支持回滚，读未提交
   };
 
 public:
