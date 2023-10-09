@@ -29,6 +29,7 @@ public:
   Table *table;
   std::vector<char> v;
   RID rid;
+  bool operator<(const SimpleTrxOperation &other) const { return RID::compare(&rid, &other.rid) < 0; }
 };
 
 class SimpleTrx : public Trx {
@@ -51,10 +52,12 @@ public:
 
   virtual RC redo(Db *db, const CLogRecord &log_record) override;
 
+  void add_oper(const SimpleTrxOperation &oper);
+
 private:
   CLogManager *log_manager_;
   int32_t trx_id_;
   bool recovering_{false};
   bool started_{false};
-  std::vector<SimpleTrxOperation> operations_;
+  std::set<SimpleTrxOperation> operations_;
 };

@@ -78,7 +78,7 @@ RC SimpleTrx::insert_record(Table *table, Record &record) {
   oper.type = Operation::Type::INSERT;
   oper.rid = record.rid();
   oper.table = table;
-  operations_.push_back(oper);
+  add_oper(oper);
 
   return rc;
 }
@@ -106,7 +106,7 @@ RC SimpleTrx::delete_record(Table *table, Record &record) {
 
   LOG_INFO("delete record log rid=%s", record.rid().to_string().c_str());
 
-  operations_.push_back(oper);
+  add_oper(oper);
 
   return rc;
 }
@@ -131,16 +131,14 @@ RC SimpleTrx::commit() {
 }
 
 RC SimpleTrx::rollback() {
-  for (auto it = operations_.rbegin(); it != operations_.rend(); it++) {
-    auto &oper = *it;
+  for (auto &oper : operations_) {
     auto *table = oper.table;
     RC rc = RC::SUCCESS;
     if (oper.type == Operation::Type::DELETE) {
       Record record;
-      record.set_data(oper.v.data(), oper.v.size());
-      record.set_rid(oper.rid);
+      record.set_data(const_cast<char *>(oper.v.data()), oper.v.size());
       LOG_INFO("rollback recover_insert_record rid=%s", record.rid().to_string().c_str());
-      rc = table->recover_insert_record(record);
+      rc = table->insert_record(record);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("failed to rollback, error in insert_record, rc=%s", strrc(rc));
       }
@@ -187,7 +185,7 @@ RC SimpleTrx::redo(Db *db, const CLogRecord &log_record) {
     oper.type = Operation::Type::INSERT;
     oper.rid = record.rid();
     oper.table = table;
-    operations_.push_back(oper);
+    add_oper(oper);
   } break;
 
   case CLogType::DELETE: {
@@ -214,4 +212,10 @@ RC SimpleTrx::redo(Db *db, const CLogRecord &log_record) {
   }
 
   return RC::SUCCESS;
+}
+
+void SimpleTrx::add_oper(const SimpleTrxOperation &oper) {
+  auto it = operations_.find(oper);
+  if(it!=operations_.end()) operations_.erase(it);
+  operations_.insert(oper);
 }
