@@ -30,12 +30,15 @@ RC ShowIndexExecutor::execute(SQLStageEvent *sql_event) {
   for (int i = 0; i < table_meta.index_num(); i++) {
     const auto &index_meta = table_meta.index(i);
     auto &fields = index_meta->fields();
+    int index = 1;
     for (int i = 0; i < fields.size(); i++) {
+      if (!fields[i].visible())
+        continue;
       oper->append({
           table->name(),
           index_meta->unique() ? "0" : "1",
           index_meta->name(),
-          to_string(i + 1),
+          to_string(index++),
           fields[i].name(),
       });
     }
