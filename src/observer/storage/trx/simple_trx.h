@@ -51,10 +51,13 @@ public:
 
   virtual RC redo(Db *db, const CLogRecord &log_record) override;
 
+  void add_oper(const SimpleTrxOperation &oper);
+
 private:
   CLogManager *log_manager_;
   int32_t trx_id_;
   bool recovering_{false};
   bool started_{false};
-  std::vector<SimpleTrxOperation> operations_;
+  std::map<RID, SimpleTrxOperation> head_opers_; 
+  std::map<RID, SimpleTrxOperation> tail_opers_; 
 };
