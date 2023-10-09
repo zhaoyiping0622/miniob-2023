@@ -6,7 +6,7 @@
 class SimpleTrxKit : public TrxKit {
 public:
   SimpleTrxKit() = default;
-  virtual ~SimpleTrxKit() = default;
+  virtual ~SimpleTrxKit();
   virtual RC init() override;
 
   virtual const std::vector<FieldMeta> *trx_fields() const override;

@@ -46,6 +46,12 @@ void SimpleTrxKit::destroy_trx(Trx *trx) {
   }
 }
 
+SimpleTrxKit::~SimpleTrxKit() {
+  for (auto &trx : trxs_) {
+    delete trx.second;
+  }
+}
+
 SimpleTrx::SimpleTrx(int32_t trx_id, CLogManager *log_manager)
     : log_manager_(log_manager), trx_id_(trx_id), recovering_(log_manager_ == nullptr),
       started_(log_manager_ == nullptr) {}
@@ -62,6 +68,8 @@ RC SimpleTrx::insert_record(Table *table, Record &record) {
   ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
          trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
 
+  LOG_INFO("insert record log rid=%s", record.rid().to_string().c_str());
+
   SimpleTrxOperation oper;
   oper.type = Operation::Type::INSERT;
   oper.rid = record.rid();
@@ -72,22 +80,28 @@ RC SimpleTrx::insert_record(Table *table, Record &record) {
 }
 
 RC SimpleTrx::delete_record(Table *table, Record &record) {
+  SimpleTrxOperation oper;
+  oper.type = Operation::Type::DELETE;
+  oper.table = table;
+  vector<char> tmp(record.data(), record.data() + record.len());
+  oper.v.swap(tmp);
+  oper.rid = record.rid();
+
   RC rc = table->delete_record(record);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to insert record into table. rc=%s", strrc(rc));
     return rc;
   }
 
-  rc = log_manager_->append_log(CLogType::DELETE, trx_id_, table->table_id(), record.rid(), record.len(), 0 /*offset*/,
-                                record.data());
+  if (!recovering_) {
+    rc = log_manager_->append_log(CLogType::DELETE, trx_id_, table->table_id(), record.rid(), record.len(),
+                                  0 /*offset*/, record.data());
+  }
   ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
          trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
 
-  SimpleTrxOperation oper;
-  oper.type = Operation::Type::DELETE;
-  oper.table = table;
-  vector<char> tmp(record.data(), record.data() + record.len());
-  oper.v.swap(tmp);
+  LOG_INFO("delete record log rid=%s", record.rid().to_string().c_str());
+
   operations_.push_back(oper);
 
   return rc;
@@ -119,15 +133,15 @@ RC SimpleTrx::rollback() {
     RC rc = RC::SUCCESS;
     if (oper.type == Operation::Type::DELETE) {
       Record record;
-      rc = table->make_record(oper.v.data(), oper.v.size(), record);
-      if (rc != RC::SUCCESS) {
-        LOG_ERROR("failed to rollback, error in make_record, rc=%s", strrc(rc));
-      }
-      rc = table->insert_record(record);
+      record.set_data(oper.v.data(), oper.v.size());
+      record.set_rid(oper.rid);
+      LOG_INFO("rollback recover_insert_record rid=%s", record.rid().to_string().c_str());
+      rc = table->recover_insert_record(record);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("failed to rollback, error in insert_record, rc=%s", strrc(rc));
       }
     } else if (oper.type == Operation::Type::INSERT) {
+      LOG_INFO("rollback delete_record rid=%s", oper.rid.to_string().c_str());
       rc = table->delete_record(oper.rid);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("failed to rollback, error in delete_record, rc=%s", strrc(rc));
@@ -173,7 +187,12 @@ RC SimpleTrx::redo(Db *db, const CLogRecord &log_record) {
   } break;
 
   case CLogType::DELETE: {
-    table->delete_record(data_record.rid_);
+    RC rc = Trx::delete_record(table, data_record.rid_);
+    if (rc == RC::SUCCESS) {
+      LOG_WARN("failed to recover delete. table=%s, log record=%s, rc=%s", table->name(),
+               log_record.to_string().c_str(), strrc(rc));
+      return rc;
+    }
   } break;
 
   case CLogType::MTR_COMMIT: {
