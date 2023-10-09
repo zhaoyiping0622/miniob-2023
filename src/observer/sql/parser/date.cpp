@@ -50,6 +50,7 @@ static std::string trans(char c, struct tm &tm) {
   case 'm':
   case 'd':
   case 'y':
+  default: LOG_WARN("unsupported format char %%%c", c);
   case 'Y': {
     strftime(buf, sizeof(buf), (tmp + c).c_str(), &tm);
     return buf;
@@ -68,7 +69,6 @@ static std::string trans(char c, struct tm &tm) {
     }
     return std::to_string(t) + ret;
   }
-  default: LOG_WARN("unsupported format char %%%c", c);
   }
   return "";
 }
