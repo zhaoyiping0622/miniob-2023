@@ -40,7 +40,6 @@ public:
 
 private:
   RC insert_all(Trx *trx, std::vector<Record> &inserted);
-  RC rollback(Trx *trx, std::vector<Record> &inserted);
 
 private:
   Table *table_ = nullptr;

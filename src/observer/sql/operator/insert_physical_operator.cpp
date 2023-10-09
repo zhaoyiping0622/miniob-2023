@@ -28,14 +28,6 @@ RC InsertPhysicalOperator::open(Trx *trx) {
   vector<Record> inserted;
   RC rc;
   rc = insert_all(trx, inserted);
-  if (rc == RC::SUCCESS) {
-    return rc;
-  }
-  RC new_rc;
-  new_rc = rollback(trx, inserted);
-  if (new_rc != RC::SUCCESS) {
-    return RC::INTERNAL;
-  }
   return rc;
 }
 
@@ -58,19 +50,6 @@ RC InsertPhysicalOperator::insert_all(Trx *trx, vector<Record> &inserted) {
     inserted.push_back(record);
   }
   return RC::SUCCESS;
-}
-
-RC InsertPhysicalOperator::rollback(Trx *trx, vector<Record> &inserted) {
-  RC rc = RC::SUCCESS;
-  for (int i = static_cast<int>(inserted.size()) - 1; i >= 0; i--) {
-    rc = trx->delete_record(table_, inserted[i]);
-    if (rc != RC::SUCCESS) {
-      // 按理来说不应该出现这种情况
-      LOG_WARN("failed to rollback inserted values. rc=%s", strrc(rc));
-      return RC::INTERNAL;
-    }
-  }
-  return rc;
 }
 
 RC InsertPhysicalOperator::next(Tuple *env_tuple) { return RC::RECORD_EOF; }
