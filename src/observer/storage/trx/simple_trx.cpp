@@ -64,10 +64,13 @@ RC SimpleTrx::insert_record(Table *table, Record &record) {
     return rc;
   }
 
-  rc = log_manager_->append_log(CLogType::INSERT, trx_id_, table->table_id(), record.rid(), record.len(), 0 /*offset*/,
-                                record.data());
-  ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
-         trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
+  if (!recovering_) {
+    rc = log_manager_->append_log(CLogType::INSERT, trx_id_, table->table_id(), record.rid(), record.len(),
+                                  0 /*offset*/, record.data());
+    ASSERT(rc == RC::SUCCESS,
+           "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s", trx_id_,
+           table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
+  }
 
   LOG_INFO("insert record log rid=%s", record.rid().to_string().c_str());
 
@@ -84,8 +87,7 @@ RC SimpleTrx::delete_record(Table *table, Record &record) {
   SimpleTrxOperation oper;
   oper.type = Operation::Type::DELETE;
   oper.table = table;
-  vector<char> tmp(record.data(), record.data() + record.len());
-  oper.v.swap(tmp);
+  oper.v = vector<char>(record.data(), record.data() + record.len());
   oper.rid = record.rid();
 
   RC rc = table->delete_record(record);
@@ -97,9 +99,10 @@ RC SimpleTrx::delete_record(Table *table, Record &record) {
   if (!recovering_) {
     rc = log_manager_->append_log(CLogType::DELETE, trx_id_, table->table_id(), oper.rid, oper.v.size(), 0 /*offset*/,
                                   oper.v.data());
+    ASSERT(rc == RC::SUCCESS,
+           "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s", trx_id_,
+           table->table_id(), oper.rid.to_string().c_str(), oper.v.size(), strrc(rc));
   }
-  ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
-         trx_id_, table->table_id(), oper.rid.to_string().c_str(), oper.v.size(), strrc(rc));
 
   LOG_INFO("delete record log rid=%s", record.rid().to_string().c_str());
 

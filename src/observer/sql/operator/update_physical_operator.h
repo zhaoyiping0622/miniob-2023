@@ -15,8 +15,6 @@ private:
 
 private:
   RC insert(vector<char> &v, RID &rid);
-  RC insert_all(vector<vector<char>> &v);
-  RC remove_all(const vector<RID> &rids);
   RC update(vector<char> v, vector<Value> &values, RID &rid);
 
 private:
