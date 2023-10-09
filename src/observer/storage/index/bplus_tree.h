@@ -54,7 +54,7 @@ public:
 
   int attr_length() const { return attr_length_; }
 
-  int operator()(const char *v1, const char *v2) const;
+  int operator()(const char *v1, const char *v2, bool ignore_null = false) const;
 
 private:
   int compare_data(const char *v1, const char *v2, AttrType type, int char_len) const;

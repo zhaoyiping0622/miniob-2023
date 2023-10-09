@@ -162,6 +162,10 @@ int LeafIndexNodeHandler::lookup_unique(const KeyComparator &comparator, const c
   common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
   common::BinaryIterator<char> iter_end(item_size(), __key_at(size));
   common::BinaryIterator<char> iter = lower_bound(iter_begin, iter_end, key, comparator.attr_comparator(), found);
+  if (found && *found) {
+    if (comparator.attr_comparator()(key, *iter, true) != 0)
+      *found = false;
+  }
   return iter - iter_begin;
 }
 
@@ -1796,7 +1800,7 @@ int AttrComparator::compare_data(const char *v1, const char *v2, AttrType type, 
   }
 }
 
-int AttrComparator::operator()(const char *v1, const char *v2) const {
+int AttrComparator::operator()(const char *v1, const char *v2, bool ignore_null) const {
   int v1n = *(int *)(v1);
   int v2n = *(int *)(v2);
   for (const auto &field : meta_.fields()) {
@@ -1810,6 +1814,10 @@ int AttrComparator::operator()(const char *v1, const char *v2) const {
     bool is_null2 = (v2n & (1 << field.index()));
     bool ignore = false;
     int cmp;
+    if (ignore_null) {
+      if (is_null1 || is_null2)
+        return -1;
+    }
     if (!field.visible())
       goto ignore;
     if (is_null1) {
