@@ -37,10 +37,6 @@ Date::Date(const std::string &s, const std::string &format) {
   }
 }
 
-static std::map<std::string, std::string> format_map = {
-    {"%Y", "%Y"}, {"%y", "%y"}, {"%M", "%B"}, {"%m", "%m"}, {"%D", "%d"}, {"%d", "%d"},
-};
-
 static std::string trans(char c, struct tm &tm) {
   char buf[32];
   std::string tmp = "%";
@@ -50,7 +46,7 @@ static std::string trans(char c, struct tm &tm) {
   case 'm':
   case 'd':
   case 'y':
-  default: LOG_WARN("unsupported format char %%%c", c);
+  case 'F':
   case 'Y': {
     strftime(buf, sizeof(buf), (tmp + c).c_str(), &tm);
     return buf;
@@ -69,8 +65,9 @@ static std::string trans(char c, struct tm &tm) {
     }
     return std::to_string(t) + ret;
   }
+  default: LOG_WARN("unsupported format char %%%c", c);
   }
-  return "";
+  return std::string(1, c);
 }
 
 std::string Date::to_string(const Date &date, const std::string &format) {
