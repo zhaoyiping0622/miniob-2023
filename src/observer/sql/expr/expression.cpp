@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/math/regex.h"
 #include "common/rc.h"
 #include "sql/expr/tuple.h"
+#include "sql/parser/date.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/parser/value.h"
 #include "sql/stmt/select_stmt.h"
@@ -470,7 +471,11 @@ RC FunctionExpr::calc_value(Value &out, vector<const Value *> &in) const {
     return RC::SUCCESS;
   }
   case FunctionType::DATE_FORMAT: {
-    string str = Date::to_string(in1->get_date(), in2->get_string());
+    auto date = in1->get_date();
+    if (date == INVALID_DATE) {
+      return RC::INVALID_ARGUMENT;
+    }
+    string str = Date::to_string(date, in2->get_string());
     out.set_string(str.c_str());
     return RC::SUCCESS;
   }
