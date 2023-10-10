@@ -4,8 +4,8 @@ Language: Cpp
 SortIncludes: false
 AccessModifierOffset: -2
 AlignAfterOpenBracket: DontAlign
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
 DerivePointerAlignment: false
 PointerAlignment: Right
 ConstructorInitializerIndentWidth: 4
@@ -13,12 +13,15 @@ AlignEscapedNewlinesLeft: true
 AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: true
-AllowShortFunctionsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakTemplateDeclarations: true
+# false表示函数实参要么都在同一行，要么都各自一行
 BinPackArguments: false
+# 避免格式化 LOG_* 宏
+WhitespaceSensitiveMacros: ['LOG_DEFAULT', 'LOG_PANIC', 'LOG_ERROR', 'LOG_WARN', 'LOG_INFO', 'LOG_DEBUG', 'LOG_TRACE']
 AlwaysBreakBeforeMultilineStrings: false
 BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: true
@@ -48,14 +51,14 @@ TabWidth:        4
 UseTab:          Never
 BreakBeforeBraces: Custom
 BraceWrapping:   
-  AfterClass:      false
+  AfterClass:      true
   AfterControlStatement: false
-  AfterEnum:       false
+  AfterEnum:       true
   AfterFunction:   true
   AfterNamespace:  false
   AfterObjCDeclaration: false
-  AfterStruct:     false
-  AfterUnion:      false
+  AfterStruct:     true
+  AfterUnion:      true
   AfterExternBlock: false
   BeforeCatch:     false
   BeforeElse:      false

@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -48,8 +48,7 @@ std::string get_process_name(const char *prog_name)
     std::cerr << "Failed to alloc memory for program name." << SYS_OUTPUT_FILE_POS << SYS_OUTPUT_ERROR << std::endl;
     return "";
   }
-  memset(buf, 0, buf_len + 1);
-  strncpy(buf, prog_name, buf_len);
+  snprintf(buf, buf_len, "%s", prog_name);
 
   process_name = basename(buf);
 
@@ -63,7 +62,14 @@ int daemonize_service(bool close_std_streams)
 {
   int nochdir = 1;
   int noclose = close_std_streams ? 0 : 1;
+#ifdef __MACH__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
   int rc = daemon(nochdir, noclose);
+#ifdef __MACH__
+#pragma GCC diagnostic pop
+#endif
   // Here after the fork; the parent is dead and setsid() is called
   if (rc != 0) {
     std::cerr << "Error: unable to daemonize: " << strerror(errno) << "\n";

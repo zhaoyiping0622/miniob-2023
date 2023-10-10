@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -19,41 +19,36 @@ See the Mulan PSL v2 for more details. */
 #include <limits>
 #include <sstream>
 
-#include "rc.h"
-#include "defs.h"
-#include "storage/common/index_meta.h"
-#include "storage/common/field_meta.h"
+#include "common/rc.h"
+#include "common/types.h"
+#include "common/log/log.h"
+#include "storage/index/index_meta.h"
+#include "storage/field/field_meta.h"
 
 class Field;
 
-struct RID {
+/**
+ * @brief 标识一个记录的位置
+ * 一个记录是放在某个文件的某个页面的某个槽位。这里不记录文件信息，记录页面和槽位信息
+ */
+struct RID
+{
   PageNum page_num;  // record's page number
   SlotNum slot_num;  // record's slot number
-  // bool    valid;    // true means a valid record
 
   RID() = default;
-  RID(const PageNum _page_num, const SlotNum _slot_num)
-    : page_num(_page_num), slot_num(_slot_num)
-  {}
+  RID(const PageNum _page_num, const SlotNum _slot_num) : page_num(_page_num), slot_num(_slot_num) {}
 
   const std::string to_string() const
   {
     std::stringstream ss;
-
     ss << "PageNum:" << page_num << ", SlotNum:" << slot_num;
-
     return ss.str();
   }
 
-  bool operator==(const RID &other) const
-  {
-    return page_num == other.page_num && slot_num == other.slot_num;
-  }
+  bool operator==(const RID &other) const { return page_num == other.page_num && slot_num == other.slot_num; }
 
-  bool operator!=(const RID &other) const
-  {
-    return !(*this == other);
-  }
+  bool operator!=(const RID &other) const { return !(*this == other); }
 
   static int compare(const RID *rid1, const RID *rid2)
   {
@@ -75,6 +70,11 @@ struct RID {
     static RID rid{0, 0};
     return &rid;
   }
+
+  /**
+   * @brief 返回一个“最大的”RID
+   * 我们假设page num和slot num都不会使用对应数值类型的最大值
+   */
   static RID *max()
   {
     static RID rid{std::numeric_limits<PageNum>::max(), std::numeric_limits<SlotNum>::max()};
@@ -82,25 +82,82 @@ struct RID {
   }
 };
 
+/**
+ * @brief 表示一个记录
+ * 当前的记录都是连续存放的空间（内存或磁盘上）。
+ * 为了提高访问的效率，record通常直接记录指向页面上的内存，但是需要保证访问这种数据时，拿着锁资源。
+ * 为了方便，也提供了复制内存的方法。可以参考set_data_owner
+ */
 class Record
 {
 public:
   Record() = default;
-  ~Record() = default;
+  ~Record()
+  {
+    if (owner_ && data_ != nullptr) {
+      free(data_);
+      data_ = nullptr;
+    }
+  }
 
-  void set_data(char *data) { this->data_ = data; }
-  char *data() { return this->data_; }
+  Record(const Record &other)
+  {
+    rid_   = other.rid_;
+    data_  = other.data_;
+    len_   = other.len_;
+    owner_ = other.owner_;
+
+    if (other.owner_) {
+      char *tmp = (char *)malloc(other.len_);
+      ASSERT(nullptr != tmp, "failed to allocate memory. size=%d", other.len_);
+      memcpy(tmp, other.data_, other.len_);
+      data_ = tmp;
+    }
+  }
+
+  Record &operator=(const Record &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~Record();
+    new (this) Record(other);
+    return *this;
+  }
+
+  void set_data(char *data, int len = 0)
+  {
+    this->data_ = data;
+    this->len_  = len;
+  }
+  void set_data_owner(char *data, int len)
+  {
+    ASSERT(len != 0, "the len of data should not be 0");
+    this->~Record();
+
+    this->data_  = data;
+    this->len_   = len;
+    this->owner_ = true;
+  }
+
+  char       *data() { return this->data_; }
   const char *data() const { return this->data_; }
+  int         len() const { return this->len_; }
 
   void set_rid(const RID &rid) { this->rid_ = rid; }
-  void set_rid(const PageNum page_num, const SlotNum slot_num) { this->rid_.page_num = page_num; this->rid_.slot_num = slot_num; }
-  RID & rid() { return rid_; }
-  const RID &rid() const { return rid_; };
+  void set_rid(const PageNum page_num, const SlotNum slot_num)
+  {
+    this->rid_.page_num = page_num;
+    this->rid_.slot_num = slot_num;
+  }
+  RID       &rid() { return rid_; }
+  const RID &rid() const { return rid_; }
 
 private:
-  RID                            rid_;
+  RID rid_;
 
-  // the data buffer
-  // record will not release the memory
-  char *                         data_ = nullptr;
+  char *data_  = nullptr;
+  int   len_   = 0;       /// 如果不是record自己来管理内存，这个字段可能是无效的
+  bool  owner_ = false;   /// 表示当前是否由record来管理内存
 };

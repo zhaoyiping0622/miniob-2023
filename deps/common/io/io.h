@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,8 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2010
 //
 
-#ifndef __COMMON_IO_IO_H__
-#define __COMMON_IO_IO_H__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -29,12 +28,12 @@ namespace common {
  */
 int readFromFile(const std::string &fileName, char *&data, size_t &fileSize);
 
-int writeToFile(const std::string &fileName, const char *data, u32_t dataSize, const char *openMode);
+int writeToFile(const std::string &fileName, const char *data, uint32_t dataSize, const char *openMode);
 
 /**
  * return the line number which line.strip() isn't empty
  */
-int getFileLines(const std::string &fileName, u64_t &lineNum);
+int getFileLines(const std::string &fileName, uint64_t &lineNum);
 
 /** Get file list from the dir
  * don't care ".", "..", ".****" hidden files
@@ -48,7 +47,7 @@ int getFileLines(const std::string &fileName, u64_t &lineNum);
  */
 int getFileList(
     std::vector<std::string> &fileList, const std::string &path, const std::string &pattern, bool recursive);
-int getFileNum(u64_t &fileNum, const std::string &path, const std::string &pattern, bool recursive);
+int getFileNum(uint64_t &fileNum, const std::string &path, const std::string &pattern, bool recursive);
 int getDirList(std::vector<std::string> &dirList, const std::string &path, const std::string &pattern);
 
 int touch(const std::string &fileName);
@@ -56,10 +55,26 @@ int touch(const std::string &fileName);
 /**
  * get file size
  */
-int getFileSize(const char *filePath, u64_t &fileLen);
+int getFileSize(const char *filePath, uint64_t &fileLen);
 
+/**
+ * @brief 一次性写入所有指定数据
+ * 
+ * @param fd  写入的描述符
+ * @param buf 写入的数据
+ * @param size 写入多少数据
+ * @return int 0 表示成功，否则返回errno
+ */
 int writen(int fd, const void *buf, int size);
+
+/**
+ * @brief 一次性读取指定长度的数据
+ * 
+ * @param fd  读取的描述符
+ * @param buf 读取到这里
+ * @param size 读取的数据长度
+ * @return int 返回0表示成功。-1 表示读取到文件尾，并且没有读到size大小数据，其它表示errno
+ */
 int readn(int fd, void *buf, int size);
 
 }  // namespace common
-#endif /* __COMMON_IO_IO_H__ */

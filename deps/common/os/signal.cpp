@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -38,6 +38,7 @@ void setSignalHandler(sighandler_t func)
   setSignalHandler(SIGINT, func);
   setSignalHandler(SIGHUP, func);
   setSignalHandler(SIGTERM, func);
+  signal(SIGPIPE, SIG_IGN);
 }
 
 void blockDefaultSignals(sigset_t *signal_set, sigset_t *old_set)
@@ -73,9 +74,7 @@ void *waitForSignals(void *args)
     int ret = sigwait(signal_set, &sig_number);
     LOG_INFO("sigwait return value: %d, %d \n", ret, sig_number);
     if (ret != 0) {
-      char errstr[256];
-      strerror_r(errno, errstr, sizeof(errstr));
-      LOG_ERROR("error (%d) %s\n", errno, errstr);
+      LOG_ERROR("error (%d) %s\n", errno, strerror(errno));
     }
   }
   return NULL;

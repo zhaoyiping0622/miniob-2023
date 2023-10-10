@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -11,8 +11,7 @@ See the Mulan PSL v2 for more details. */
 //
 // Created by Longda on 2010
 //
-#ifndef __COMMON_SEDA_STAGE_EVENT_H__
-#define __COMMON_SEDA_STAGE_EVENT_H__
+#pragma once
 
 // Include Files
 #include <time.h>
@@ -146,7 +145,7 @@ private:
   UserData *ud_;                   // user data associated with event by caller
   bool cb_flag_;                   // true if this event is a callback
   std::list<HistEntry> *history_;  // List of stages which have handled ev
-  u32_t stage_hops_;               // Number of stages which have handled ev
+  uint32_t stage_hops_;               // Number of stages which have handled ev
   TimeoutInfo *tm_info_;           // the timeout info for this event
 };
 
@@ -174,7 +173,6 @@ public:
 };
 
 bool &get_event_history_flag();
-u32_t &get_max_event_hops();
+uint32_t &get_max_event_hops();
 
 }  // namespace common
-#endif  // __COMMON_SEDA_STAGE_EVENT_H__

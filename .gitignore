@@ -1,9 +1,17 @@
+./deps/3rd
 ./deps/libevent
 ./deps/googletest
 ./deps/jsoncpp
+./deps/benchmark
+.vscode
+!.vscode/tasks.json
+!.vscode/launch.json
+./docs/doxy/
 build/*
+build_*
 cmake-build-*/*
-.vscode/*
+build
+.cache/*
 .DS_Store
 .idea
 .ccls-cache
@@ -16,4 +24,5 @@ compile_commands.json
 GRTAGS
 GPATH
 GTAGS
+docs/book
 #*#

@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -161,9 +161,9 @@ bool StageEvent::has_timed_out()
 }
 
 // Accessor function which wraps value for max hops an event is allowed
-u32_t &get_max_event_hops()
+uint32_t &get_max_event_hops()
 {
-  static u32_t max_event_hops = 0;
+  static uint32_t max_event_hops = 0;
   return max_event_hops;
 }
 

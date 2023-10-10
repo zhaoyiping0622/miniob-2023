@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,37 +12,42 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2021/4/13.
 //
 
-#ifndef __OBSERVER_SESSION_SESSIONEVENT_H__
-#define __OBSERVER_SESSION_SESSIONEVENT_H__
+#pragma once
 
 #include <string.h>
 #include <string>
 
 #include "common/seda/stage_event.h"
-#include "net/connection_context.h"
+#include "sql/executor/sql_result.h"
+#include "event/sql_debug.h"
 
 class Session;
+class Communicator;
 
-class SessionEvent : public common::StageEvent {
+/**
+ * @brief 表示一个SQL请求
+ * 
+ */
+class SessionEvent : public common::StageEvent 
+{
 public:
-  SessionEvent(ConnectionContext *client);
+  SessionEvent(Communicator *client);
   virtual ~SessionEvent();
 
-  ConnectionContext *get_client() const;
+  Communicator *get_communicator() const;
   Session *session() const;
 
-  const char *get_response() const;
-  void set_response(const char *response);
-  void set_response(const char *response, int len);
-  void set_response(std::string &&response);
-  int get_response_len() const;
-  char *get_request_buf();
-  int get_request_buf_len();
+  void set_query(const std::string &query) { query_ = query; }
+
+  const std::string &query() const { return query_; }
+
+  SqlResult *sql_result() { return &sql_result_; }
+
+  SqlDebug &sql_debug() { return sql_debug_; }
 
 private:
-  ConnectionContext *client_;
-
-  std::string response_;
+  Communicator *communicator_ = nullptr;  ///< 与客户端通讯的对象
+  SqlResult     sql_result_;              ///< SQL执行结果
+  SqlDebug      sql_debug_;               ///< SQL调试信息
+  std::string   query_;                   ///< SQL语句
 };
-
-#endif  //__OBSERVER_SESSION_SESSIONEVENT_H__

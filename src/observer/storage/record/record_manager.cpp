@@ -12,58 +12,57 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 #include "storage/record/record_manager.h"
-#include "rc.h"
 #include "common/log/log.h"
 #include "common/lang/bitmap.h"
 #include "storage/common/condition_filter.h"
+#include "storage/trx/trx.h"
 
 using namespace common;
 
-int align8(int size)
-{
-  return size / 8 * 8 + ((size % 8 == 0) ? 0 : 8);
-}
+static constexpr int PAGE_HEADER_SIZE = (sizeof(PageHeader));
 
-int page_fix_size()
-{
-  return sizeof(PageHeader);
-}
+/**
+ * @brief 8字节对齐
+ * 注: ceiling(a / b) = floor((a + b - 1) / b)
+ * 
+ * @param size 待对齐的字节数
+ */
+int align8(int size) { return (size + 7) / 8 * 8; }
 
+/**
+ * @brief 计算指定大小的页面，可以容纳多少个记录
+ *
+ * @param page_size   页面的大小
+ * @param record_size 记录的大小
+ */
 int page_record_capacity(int page_size, int record_size)
 {
   // (record_capacity * record_size) + record_capacity/8 + 1 <= (page_size - fix_size)
   // ==> record_capacity = ((page_size - fix_size) - 1) / (record_size + 0.125)
-  return (int)((page_size - page_fix_size() - 1) / (record_size + 0.125));
+  return (int)((page_size - PAGE_HEADER_SIZE - 1) / (record_size + 0.125));
 }
 
-int page_bitmap_size(int record_capacity)
-{
-  return record_capacity / 8 + ((record_capacity % 8 == 0) ? 0 : 1);
-}
+/**
+ * @brief bitmap 记录了某个位置是否有有效的记录数据，这里给定记录个数时需要多少字节来存放bitmap数据
+ * 注: ceiling(a / b) = floor((a + b - 1) / b)
+ *
+ * @param record_capacity 想要存放多少记录
+ */
+int page_bitmap_size(int record_capacity) { return (record_capacity + 7) / 8; }
 
-int page_header_size(int record_capacity)
-{
-  const int bitmap_size = page_bitmap_size(record_capacity);
-  return align8(page_fix_size() + bitmap_size);
-}
 ////////////////////////////////////////////////////////////////////////////////
-RecordPageIterator::RecordPageIterator()
-{}
-RecordPageIterator::~RecordPageIterator()
-{}
+RecordPageIterator::RecordPageIterator() {}
+RecordPageIterator::~RecordPageIterator() {}
 
-void RecordPageIterator::init(RecordPageHandler &record_page_handler)
+void RecordPageIterator::init(RecordPageHandler &record_page_handler, SlotNum start_slot_num /*=0*/)
 {
   record_page_handler_ = &record_page_handler;
-  page_num_ = record_page_handler.get_page_num();
+  page_num_            = record_page_handler.get_page_num();
   bitmap_.init(record_page_handler.bitmap_, record_page_handler.page_header_->record_capacity);
-  next_slot_num_ = bitmap_.next_setted_bit(0);
+  next_slot_num_ = bitmap_.next_setted_bit(start_slot_num);
 }
 
-bool RecordPageIterator::has_next()
-{
-  return -1 != next_slot_num_;
-}
+bool RecordPageIterator::has_next() { return -1 != next_slot_num_; }
 
 RC RecordPageIterator::next(Record &record)
 {
@@ -78,12 +77,9 @@ RC RecordPageIterator::next(Record &record)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-RecordPageHandler::~RecordPageHandler()
-{
-  cleanup();
-}
+RecordPageHandler::~RecordPageHandler() { cleanup(); }
 
-RC RecordPageHandler::init(DiskBufferPool &buffer_pool, PageNum page_num)
+RC RecordPageHandler::init(DiskBufferPool &buffer_pool, PageNum page_num, bool readonly)
 {
   if (disk_buffer_pool_ != nullptr) {
     LOG_WARN("Disk buffer pool has been opened for page_num %d.", page_num);
@@ -98,10 +94,16 @@ RC RecordPageHandler::init(DiskBufferPool &buffer_pool, PageNum page_num)
 
   char *data = frame_->data();
 
+  if (readonly) {
+    frame_->read_latch();
+  } else {
+    frame_->write_latch();
+  }
   disk_buffer_pool_ = &buffer_pool;
-
-  page_header_ = (PageHeader *)(data);
-  bitmap_ = data + page_fix_size();
+  readonly_         = readonly;
+  page_header_      = (PageHeader *)(data);
+  bitmap_           = data + PAGE_HEADER_SIZE;
+  
   LOG_TRACE("Successfully init page_num %d.", page_num);
   return ret;
 }
@@ -121,10 +123,11 @@ RC RecordPageHandler::recover_init(DiskBufferPool &buffer_pool, PageNum page_num
 
   char *data = frame_->data();
 
+  frame_->write_latch();
   disk_buffer_pool_ = &buffer_pool;
-
-  page_header_ = (PageHeader *)(data);
-  bitmap_ = data + page_fix_size();
+  readonly_         = false;
+  page_header_      = (PageHeader *)(data);
+  bitmap_           = data + PAGE_HEADER_SIZE;
 
   buffer_pool.recover_page(page_num);
 
@@ -134,25 +137,26 @@ RC RecordPageHandler::recover_init(DiskBufferPool &buffer_pool, PageNum page_num
 
 RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num, int record_size)
 {
-  RC ret = init(buffer_pool, page_num);
+  RC ret = init(buffer_pool, page_num, false /*readonly*/);
   if (ret != RC::SUCCESS) {
     LOG_ERROR("Failed to init empty page page_num:record_size %d:%d.", page_num, record_size);
     return ret;
   }
 
-  int page_size = BP_PAGE_DATA_SIZE;
-  int record_phy_size = align8(record_size);
-  page_header_->record_num = 0;
-  page_header_->record_capacity = page_record_capacity(page_size, record_phy_size);
-  page_header_->record_real_size = record_size;
-  page_header_->record_size = record_phy_size;
-  page_header_->first_record_offset = page_header_size(page_header_->record_capacity);
-  bitmap_ = frame_->data() + page_fix_size();
+  page_header_->record_num          = 0;
+  page_header_->record_real_size    = record_size;
+  page_header_->record_size         = align8(record_size);
+  page_header_->record_capacity     = page_record_capacity(BP_PAGE_DATA_SIZE, page_header_->record_size);
+  page_header_->first_record_offset = align8(PAGE_HEADER_SIZE + page_bitmap_size(page_header_->record_capacity));
+  this->fix_record_capacity();
+  ASSERT(page_header_->first_record_offset + 
+         page_header_->record_capacity * page_header_->record_size <= BP_PAGE_DATA_SIZE, "Record overflow the page size");
 
+  bitmap_ = frame_->data() + PAGE_HEADER_SIZE;
   memset(bitmap_, 0, page_bitmap_size(page_header_->record_capacity));
-  
+
   if ((ret = buffer_pool.flush_page(*frame_)) != RC::SUCCESS) {
-    LOG_ERROR("Failed to flush page header %d:%d.", page_num);
+    LOG_ERROR("Failed to flush page header %d:%d.", buffer_pool.file_desc(), page_num);
     return ret;
   }
 
@@ -162,6 +166,11 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_
 RC RecordPageHandler::cleanup()
 {
   if (disk_buffer_pool_ != nullptr) {
+    if (readonly_) {
+      frame_->read_unlatch();
+    } else {
+      frame_->write_unlatch();
+    }
     disk_buffer_pool_->unpin_page(frame_);
     disk_buffer_pool_ = nullptr;
   }
@@ -171,14 +180,16 @@ RC RecordPageHandler::cleanup()
 
 RC RecordPageHandler::insert_record(const char *data, RID *rid)
 {
+  ASSERT(readonly_ == false, "cannot insert record into page while the page is readonly");
+
   if (page_header_->record_num == page_header_->record_capacity) {
-    LOG_WARN("Page is full, page_num %d:%d.", frame_->page_num());
+    LOG_WARN("Page is full, page_num %d:%d.", disk_buffer_pool_->file_desc(), frame_->page_num());
     return RC::RECORD_NOMEM;
   }
 
   // 找到空闲位置
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
-  int index = bitmap.next_unsetted_bit(0);
+  int    index = bitmap.next_unsetted_bit(0);
   bitmap.set_bit(index);
   page_header_->record_num++;
 
@@ -197,24 +208,22 @@ RC RecordPageHandler::insert_record(const char *data, RID *rid)
   return RC::SUCCESS;
 }
 
-RC RecordPageHandler::recover_insert_record(const char *data, RID *rid)
+RC RecordPageHandler::recover_insert_record(const char *data, const RID &rid)
 {
-  if (page_header_->record_num == page_header_->record_capacity) {
-    LOG_WARN("Page is full, page_num %d:%d.", frame_->page_num());
-    return RC::RECORD_NOMEM;
-  }
-  if (rid->slot_num >= page_header_->record_capacity) {
-    LOG_WARN("slot_num illegal, slot_num(%d) > record_capacity(%d).", rid->slot_num, page_header_->record_capacity);
-    return RC::RECORD_NOMEM;
+  if (rid.slot_num >= page_header_->record_capacity) {
+    LOG_WARN("slot_num illegal, slot_num(%d) > record_capacity(%d).", rid.slot_num, page_header_->record_capacity);
+    return RC::RECORD_INVALID_RID;
   }
 
   // 更新位图
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
-  bitmap.set_bit(rid->slot_num);
-  page_header_->record_num++;
+  if (!bitmap.get_bit(rid.slot_num)) {
+    bitmap.set_bit(rid.slot_num);
+    page_header_->record_num++;
+  }
 
   // 恢复数据
-  char *record_data = get_record_data(rid->slot_num);
+  char *record_data = get_record_data(rid.slot_num);
   memcpy(record_data, data, page_header_->record_real_size);
 
   frame_->mark_dirty();
@@ -222,34 +231,12 @@ RC RecordPageHandler::recover_insert_record(const char *data, RID *rid)
   return RC::SUCCESS;
 }
 
-RC RecordPageHandler::update_record(const Record *rec)
-{
-  if (rec->rid().slot_num >= page_header_->record_capacity) {
-    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.",
-	      rec->rid().slot_num, frame_->page_num());
-    return RC::INVALID_ARGUMENT;
-  }
-
-  Bitmap bitmap(bitmap_, page_header_->record_capacity);
-  if (!bitmap.get_bit(rec->rid().slot_num)) {
-    LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.",
-	      rec->rid().slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
-  } else {
-    char *record_data = get_record_data(rec->rid().slot_num);
-    memcpy(record_data, rec->data(), page_header_->record_real_size);
-    bitmap.set_bit(rec->rid().slot_num);
-    frame_->mark_dirty();
-    // LOG_TRACE("Update record. file_id=%d, page num=%d,slot=%d", file_id_, rec->rid.page_num, rec->rid.slot_num);
-    return RC::SUCCESS;
-  }
-}
-
 RC RecordPageHandler::delete_record(const RID *rid)
 {
+  ASSERT(readonly_ == false, "cannot delete record from page while the page is readonly");
+
   if (rid->slot_num >= page_header_->record_capacity) {
-    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.",
-	      rid->slot_num, frame_->page_num());
+    LOG_ERROR("Invalid slot_num %d, exceed page's record capacity, page_num %d.", rid->slot_num, frame_->page_num());
     return RC::INVALID_ARGUMENT;
   }
 
@@ -260,36 +247,31 @@ RC RecordPageHandler::delete_record(const RID *rid)
     frame_->mark_dirty();
 
     if (page_header_->record_num == 0) {
-      DiskBufferPool *disk_buffer_pool = disk_buffer_pool_;
-      PageNum page_num = get_page_num();
+      // PageNum page_num = get_page_num();
       cleanup();
-      disk_buffer_pool->dispose_page(page_num);
     }
     return RC::SUCCESS;
   } else {
-    LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.",
-	      rid->slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
+    LOG_DEBUG("Invalid slot_num %d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::RECORD_NOT_EXIST;
   }
 }
 
 RC RecordPageHandler::get_record(const RID *rid, Record *rec)
 {
   if (rid->slot_num >= page_header_->record_capacity) {
-    LOG_ERROR("Invalid slot_num:%d, exceed page's record capacity, page_num %d.",
-	      rid->slot_num, frame_->page_num());
-    return RC::RECORD_INVALIDRID;
+    LOG_ERROR("Invalid slot_num:%d, exceed page's record capacity, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::RECORD_INVALID_RID;
   }
 
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
   if (!bitmap.get_bit(rid->slot_num)) {
-    LOG_ERROR("Invalid slot_num:%d, slot is empty, page_num %d.",
-	      rid->slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
+    LOG_ERROR("Invalid slot_num:%d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
+    return RC::RECORD_NOT_EXIST;
   }
 
   rec->set_rid(*rid);
-  rec->set_data(get_record_data(rid->slot_num));
+  rec->set_data(get_record_data(rid->slot_num), page_header_->record_real_size);
   return RC::SUCCESS;
 }
 
@@ -301,12 +283,11 @@ PageNum RecordPageHandler::get_page_num() const
   return frame_->page_num();
 }
 
-bool RecordPageHandler::is_full() const
-{
-  return page_header_->record_num >= page_header_->record_capacity;
-}
+bool RecordPageHandler::is_full() const { return page_header_->record_num >= page_header_->record_capacity; }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+RecordFileHandler::~RecordFileHandler() { this->close(); }
 
 RC RecordFileHandler::init(DiskBufferPool *buffer_pool)
 {
@@ -326,6 +307,7 @@ RC RecordFileHandler::init(DiskBufferPool *buffer_pool)
 void RecordFileHandler::close()
 {
   if (disk_buffer_pool_ != nullptr) {
+    free_pages_.clear();
     disk_buffer_pool_ = nullptr;
   }
 }
@@ -334,15 +316,19 @@ RC RecordFileHandler::init_free_pages()
 {
   // 遍历当前文件上所有页面，找到没有满的页面
   // 这个效率很低，会降低启动速度
+  // NOTE: 由于是初始化时的动作，所以不需要加锁控制并发
 
   RC rc = RC::SUCCESS;
+
   BufferPoolIterator bp_iterator;
   bp_iterator.init(*disk_buffer_pool_);
   RecordPageHandler record_page_handler;
-  PageNum current_page_num = 0;
+  PageNum           current_page_num = 0;
+
   while (bp_iterator.has_next()) {
     current_page_num = bp_iterator.next();
-    rc = record_page_handler.init(*disk_buffer_pool_, current_page_num);
+
+    rc = record_page_handler.init(*disk_buffer_pool_, current_page_num, true /*readonly*/);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", current_page_num, rc, strrc(rc));
       return rc;
@@ -353,21 +339,28 @@ RC RecordFileHandler::init_free_pages()
     }
     record_page_handler.cleanup();
   }
+  LOG_INFO("record file handler init free pages done. free page num=%d, rc=%s", free_pages_.size(), strrc(rc));
   return rc;
 }
 
 RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
 {
   RC ret = RC::SUCCESS;
-  // 找到没有填满的页面
 
   RecordPageHandler record_page_handler;
-  bool page_found = false;
-  PageNum current_page_num = 0;
+  bool              page_found       = false;
+  PageNum           current_page_num = 0;
+
+  // 当前要访问free_pages对象，所以需要加锁。在非并发编译模式下，不需要考虑这个锁
+  lock_.lock();
+
+  // 找到没有填满的页面
   while (!free_pages_.empty()) {
     current_page_num = *free_pages_.begin();
-    ret = record_page_handler.init(*disk_buffer_pool_, current_page_num);
+
+    ret = record_page_handler.init(*disk_buffer_pool_, current_page_num, false /*readonly*/);
     if (ret != RC::SUCCESS) {
+      lock_.unlock();
       LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", current_page_num, ret, strrc(ret));
       return ret;
     }
@@ -379,6 +372,7 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
     record_page_handler.cleanup();
     free_pages_.erase(free_pages_.begin());
   }
+  lock_.unlock();  // 如果找到了一个有效的页面，那么此时已经拿到了页面的写锁
 
   // 找不到就分配一个新的页面
   if (!page_found) {
@@ -389,75 +383,81 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
     }
 
     current_page_num = frame->page_num();
+
     ret = record_page_handler.init_empty_page(*disk_buffer_pool_, current_page_num, record_size);
     if (ret != RC::SUCCESS) {
+      frame->unpin();
       LOG_ERROR("Failed to init empty page. ret:%d", ret);
-      if (RC::SUCCESS != disk_buffer_pool_->unpin_page(frame)) {
-        LOG_ERROR("Failed to unpin page. ");
-      }
+      // this is for allocate_page
       return ret;
     }
 
-    disk_buffer_pool_->unpin_page(frame);
+    // frame 在allocate_page的时候，是有一个pin的，在init_empty_page时又会增加一个，所以这里手动释放一个
+    frame->unpin();
+
+    // 这里的加锁顺序看起来与上面是相反的，但是不会出现死锁
+    // 上面的逻辑是先加lock锁，然后加页面写锁，这里是先加上
+    // 了页面写锁，然后加lock的锁，但是不会引起死锁。
+    // 为什么？
+    lock_.lock();
     free_pages_.insert(current_page_num);
+    lock_.unlock();
   }
 
   // 找到空闲位置
   return record_page_handler.insert_record(data, rid);
 }
 
-RC RecordFileHandler::recover_insert_record(const char *data, int record_size, RID *rid)
+RC RecordFileHandler::recover_insert_record(const char *data, int record_size, const RID &rid)
 {
   RC ret = RC::SUCCESS;
+
   RecordPageHandler record_page_handler;
 
-  ret = record_page_handler.recover_init(*disk_buffer_pool_, rid->page_num);
+  ret = record_page_handler.recover_init(*disk_buffer_pool_, rid.page_num);
   if (ret != RC::SUCCESS) {
-    LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", rid->page_num, ret, strrc(ret));
+    LOG_WARN("failed to init record page handler. page num=%d, rc=%s", rid.page_num, strrc(ret));
     return ret;
   }
 
   return record_page_handler.recover_insert_record(data, rid);
 }
 
-RC RecordFileHandler::update_record(const Record *rec)
-{
-  RC ret;
-  RecordPageHandler page_handler;
-  if ((ret = page_handler.init(*disk_buffer_pool_, rec->rid().page_num)) != RC::SUCCESS) {
-    LOG_ERROR("Failed to init record page handler.page number=%d", rec->rid().page_num);
-    return ret;
-  }
-
-  return page_handler.update_record(rec);
-}
-
 RC RecordFileHandler::delete_record(const RID *rid)
 {
   RC rc = RC::SUCCESS;
+
   RecordPageHandler page_handler;
-  if ((rc != page_handler.init(*disk_buffer_pool_, rid->page_num)) != RC::SUCCESS) {
+  if ((rc = page_handler.init(*disk_buffer_pool_, rid->page_num, false /*readonly*/)) != RC::SUCCESS) {
     LOG_ERROR("Failed to init record page handler.page number=%d. rc=%s", rid->page_num, strrc(rc));
     return rc;
   }
+
   rc = page_handler.delete_record(rid);
-  if (rc == RC::SUCCESS) {
+  // 📢 这里注意要清理掉资源，否则会与insert_record中的加锁顺序冲突而可能出现死锁
+  // delete record的加锁逻辑是拿到页面锁，删除指定记录，然后加上和释放record manager锁
+  // insert record是加上 record manager锁，然后拿到指定页面锁再释放record manager锁
+  page_handler.cleanup();
+  if (OB_SUCC(rc)) {
+    // 因为这里已经释放了页面锁，并发时，其它线程可能又把该页面填满了，那就不应该再放入 free_pages_
+    // 中。但是这里可以不关心，因为在查找空闲页面时，会自动过滤掉已经满的页面
+    lock_.lock();
     free_pages_.insert(rid->page_num);
+    LOG_TRACE("add free page %d to free page list", rid->page_num);
+    lock_.unlock();
   }
   return rc;
 }
 
-RC RecordFileHandler::get_record(const RID *rid, Record *rec)
+RC RecordFileHandler::get_record(RecordPageHandler &page_handler, const RID *rid, bool readonly, Record *rec)
 {
-  // lock?
-  RC ret = RC::SUCCESS;
   if (nullptr == rid || nullptr == rec) {
-    LOG_ERROR("Invalid rid %p or rec %p, one of them is null. ", rid, rec);
+    LOG_ERROR("Invalid rid %p or rec %p, one of them is null.", rid, rec);
     return RC::INVALID_ARGUMENT;
   }
 
-  RecordPageHandler page_handler;
-  if ((ret != page_handler.init(*disk_buffer_pool_, rid->page_num)) != RC::SUCCESS) {
+  RC ret = page_handler.init(*disk_buffer_pool_, rid->page_num, readonly);
+  if (OB_FAIL(ret)) {
     LOG_ERROR("Failed to init record page handler.page number=%d", rid->page_num);
     return ret;
   }
@@ -465,13 +465,40 @@ RC RecordFileHandler::get_record(const RID *rid, Record *rec)
   return page_handler.get_record(rid, rec);
 }
 
+RC RecordFileHandler::visit_record(const RID &rid, bool readonly, std::function<void(Record &)> visitor)
+{
+  RecordPageHandler page_handler;
+
+  RC rc = page_handler.init(*disk_buffer_pool_, rid.page_num, readonly);
+  if (OB_FAIL(rc)) {
+    LOG_ERROR("Failed to init record page handler.page number=%d", rid.page_num);
+    return rc;
+  }
+
+  Record record;
+  rc = page_handler.get_record(&rid, &record);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to get record from record page handle. rid=%s, rc=%s", rid.to_string().c_str(), strrc(rc));
+    return rc;
+  }
+
+  visitor(record);
+  return rc;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
-RC RecordFileScanner::open_scan(DiskBufferPool &buffer_pool, ConditionFilter *condition_filter)
+RecordFileScanner::~RecordFileScanner() { close_scan(); }
+
+RC RecordFileScanner::open_scan(
+    Table *table, DiskBufferPool &buffer_pool, Trx *trx, bool readonly, ConditionFilter *condition_filter)
 {
   close_scan();
 
+  table_            = table;
   disk_buffer_pool_ = &buffer_pool;
+  trx_              = trx;
+  readonly_         = readonly;
 
   RC rc = bp_iterator_.init(buffer_pool);
   if (rc != RC::SUCCESS) {
@@ -487,47 +514,84 @@ RC RecordFileScanner::open_scan(DiskBufferPool &buffer_pool, ConditionFilter *co
   return rc;
 }
 
+/**
+ * @brief 从当前位置开始找到下一条有效的记录
+ *
+ * 如果当前页面还有记录没有访问，就遍历当前的页面。
+ * 当前页面遍历完了，就遍历下一个页面，然后找到有效的记录
+ */
 RC RecordFileScanner::fetch_next_record()
 {
   RC rc = RC::SUCCESS;
   if (record_page_iterator_.is_valid()) {
+    // 当前页面还是有效的，尝试看一下是否有有效记录
     rc = fetch_next_record_in_page();
     if (rc == RC::SUCCESS || rc != RC::RECORD_EOF) {
+      // 有有效记录：RC::SUCCESS
+      // 或者出现了错误，rc != (RC::SUCCESS or RC::RECORD_EOF)
+      // RECORD_EOF 表示当前页面已经遍历完了
       return rc;
     }
   }
 
+  // 上个页面遍历完了，或者还没有开始遍历某个页面，那么就从一个新的页面开始遍历查找
   while (bp_iterator_.has_next()) {
     PageNum page_num = bp_iterator_.next();
     record_page_handler_.cleanup();
-    rc = record_page_handler_.init(*disk_buffer_pool_, page_num);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to init record page handler. rc=%d:%s", rc, strrc(rc));
+    rc = record_page_handler_.init(*disk_buffer_pool_, page_num, readonly_);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to init record page handler. page_num=%d, rc=%s", page_num, strrc(rc));
       return rc;
     }
 
     record_page_iterator_.init(record_page_handler_);
     rc = fetch_next_record_in_page();
     if (rc == RC::SUCCESS || rc != RC::RECORD_EOF) {
+      // 有有效记录：RC::SUCCESS
+      // 或者出现了错误，rc != (RC::SUCCESS or RC::RECORD_EOF)
+      // RECORD_EOF 表示当前页面已经遍历完了
       return rc;
     }
   }
+
+  // 所有的页面都遍历完了，没有数据了
   next_record_.rid().slot_num = -1;
+  record_page_handler_.cleanup();
   return RC::RECORD_EOF;
 }
 
+/**
+ * @brief 遍历当前页面，尝试找到一条有效的记录
+ */
 RC RecordFileScanner::fetch_next_record_in_page()
 {
   RC rc = RC::SUCCESS;
   while (record_page_iterator_.has_next()) {
     rc = record_page_iterator_.next(next_record_);
     if (rc != RC::SUCCESS) {
+      const auto page_num = record_page_handler_.get_page_num();
+      LOG_TRACE("failed to get next record from page. page_num=%d, rc=%s", page_num, strrc(rc));
       return rc;
     }
 
-    if (condition_filter_ == nullptr || condition_filter_->filter(next_record_)) {
+    // 如果有过滤条件，就用过滤条件过滤一下
+    if (condition_filter_ != nullptr && !condition_filter_->filter(next_record_)) {
+      continue;
+    }
+
+    // 如果是某个事务上遍历数据，还要看看事务访问是否有冲突
+    if (trx_ == nullptr) {
       return rc;
     }
+
+    // 让当前事务探测一下是否访问冲突，或者需要加锁、等锁等操作，由事务自己决定
+    rc = trx_->visit_record(table_, next_record_, readonly_);
+    if (rc == RC::RECORD_INVISIBLE) {
+      // 可以参考MvccTrx，表示当前记录不可见
+      // 这种模式仅在 readonly 事务下是有效的
+      continue;
+    }
+    return rc;
   }
 
   next_record_.rid().slot_num = -1;
@@ -544,18 +608,17 @@ RC RecordFileScanner::close_scan()
     condition_filter_ = nullptr;
   }
 
+  record_page_handler_.cleanup();
+
   return RC::SUCCESS;
 }
 
-bool RecordFileScanner::has_next()
-{
-  return next_record_.rid().slot_num != -1;
-}
+bool RecordFileScanner::has_next() { return next_record_.rid().slot_num != -1; }
 
 RC RecordFileScanner::next(Record &record)
 {
   record = next_record_;
-  
+
   RC rc = fetch_next_record();
   if (rc == RC::RECORD_EOF) {
     rc = RC::SUCCESS;

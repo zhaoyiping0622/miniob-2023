@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,8 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2010
 //
 
-#ifndef __COMMON_MM_MEM_H__
-#define __COMMON_MM_MEM_H__
+#pragma once
 
 #include <stdlib.h>
 #include <string.h>
@@ -36,8 +35,8 @@ public:
   const static int MEM_FILENAME_LEN = 32;
   struct MemID_t *mNext;
   char mFile[MEM_FILENAME_LEN];
-  u64_t mSize;
-  u32_t mLine;
+  uint64_t mSize;
+  uint32_t mLine;
 } MemID;
 
 class CLMemTrace {
@@ -70,7 +69,7 @@ protected:
   const static int MEM_HASHTABLE_SIZE = 16384;
 
   static MemID *mMemIDs[MEM_HASHTABLE_SIZE];
-  static u64_t mUsedSize;
+  static uint64_t mUsedSize;
   static pthread_mutex_t mMutex;
   static bool mVerbose;
 };
@@ -132,4 +131,3 @@ static void operator delete[](void *pointer);
 #endif /* MEM_DEBUG */
 
 }  // namespace common
-#endif /* __COMMON_MM_MEM_H__ */

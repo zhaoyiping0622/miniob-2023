@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -254,8 +254,8 @@ void *Threadpool::run_thread(void *pool_ptr)
   set_thread_pool_ptr(pool);
 
   // this is not portable, but is easier to map to LWP
-  s64_t threadid = gettid();
-  LOG_INFO("threadid = %llx, threadname = %s\n", threadid, pool->get_name().c_str());
+  int64_t threadid = gettid();
+  LOG_INFO("threadid = %llx, threadname = %s", threadid, pool->get_name().c_str());
 #ifdef __APPLE__ 
   pthread_setname_np(pool->get_name().c_str());
 #else

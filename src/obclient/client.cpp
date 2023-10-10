@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -25,12 +25,14 @@ See the Mulan PSL v2 for more details. */
 #include <sys/un.h>
 #include <unistd.h>
 #include <termios.h>
+#include <time.h>
 
 #include "common/defs.h"
 #include "common/lang/string.h"
 
 #ifdef USE_READLINE
 #include "readline/readline.h"
+#include "readline/history.h"
 #endif
 
 #define MAX_MEM_BUFFER_SIZE 8192
@@ -39,9 +41,31 @@ See the Mulan PSL v2 for more details. */
 using namespace common;
 
 #ifdef USE_READLINE
+const std::string HISTORY_FILE = std::string(getenv("HOME")) + "/.miniob.history";
+time_t last_history_write_time = 0;
+
 char *my_readline(const char *prompt) 
 {
-  return readline(prompt);
+  int size = history_length;
+  if (size == 0) {
+    read_history(HISTORY_FILE.c_str());
+
+    FILE *fp = fopen(HISTORY_FILE.c_str(), "a");
+    if (fp != nullptr) {
+      fclose(fp);
+    }
+  }
+
+  char *line = readline(prompt);
+  if (line != nullptr && line[0] != 0) {
+    add_history(line);
+    if (time(NULL) - last_history_write_time > 5) {
+      write_history(HISTORY_FILE.c_str());
+    }
+    // append_history doesn't work on some readlines
+    // append_history(1, HISTORY_FILE.c_str());
+  }
+  return line;
 }
 #else // USE_READLINE
 char *my_readline(const char *prompt)
@@ -51,7 +75,7 @@ char *my_readline(const char *prompt)
     fprintf(stderr, "failed to alloc line buffer");
     return nullptr;
   }
-  fprintf(stdout, prompt);
+  fprintf(stdout, "%s", prompt);
   char *s = fgets(buffer, MAX_MEM_BUFFER_SIZE, stdin);
   if (nullptr == s) {
     fprintf(stderr, "failed to read message from console");

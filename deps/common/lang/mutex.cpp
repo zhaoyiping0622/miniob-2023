@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -257,5 +257,195 @@ void LockTrace::toString(std::string &result)
 
   return;
 }
+
+void DebugMutex::lock()
+{
+#ifdef DEBUG
+  lock_.lock();
+  LOG_DEBUG("debug lock %p, lbt=%s", &lock_, lbt());
+#endif
+}
+
+void DebugMutex::unlock()
+{
+#ifdef DEBUG
+  LOG_DEBUG("debug unlock %p, lbt=%s", &lock_, lbt());
+  lock_.unlock();
+#endif 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Mutex::lock()
+{
+#ifdef CONCURRENCY
+  lock_.lock();
+  LOG_DEBUG("lock %p, lbt=%s", &lock_, lbt());
+#endif
+}
+
+bool Mutex::try_lock()
+{
+#ifdef CONCURRENCY
+  bool result = lock_.try_lock();
+  if (result) {
+    LOG_DEBUG("try lock success %p, lbt=%s", &lock_, lbt());
+  }
+  return result;
+#else
+  return true;
+#endif
+}
+
+void Mutex::unlock()
+{
+#ifdef CONCURRENCY
+  LOG_DEBUG("unlock %p, lbt=%s", &lock_, lbt());
+  lock_.unlock();
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+#ifdef CONCURRENCY
+
+void SharedMutex::lock()
+{
+  lock_.lock();
+  LOG_DEBUG("shared lock %p, lbt=%s", &lock_, lbt());
+}
+bool SharedMutex::try_lock()
+{
+  bool result = lock_.try_lock();
+  if (result) {
+    LOG_DEBUG("try shared lock : %p, lbt=%s", &lock_, lbt());
+  }
+  return result;
+}
+void SharedMutex::unlock() // unlock exclusive
+{
+  LOG_DEBUG("shared lock unlock %p, lbt=%s", &lock_, lbt());
+  lock_.unlock();
+}
+
+void SharedMutex::lock_shared()
+{
+  lock_.lock_shared();
+  LOG_DEBUG("shared lock shared: %p lbt=%s", &lock_, lbt());
+}
+bool SharedMutex::try_lock_shared()
+{
+  bool result = lock_.try_lock_shared();
+  if (result) {
+    LOG_DEBUG("shared lock try lock shared: %p, lbt=%s", &lock_, lbt());
+  }
+  return result;
+}
+void SharedMutex::unlock_shared()
+{
+  LOG_DEBUG("shared lock unlock shared %p lbt=%s", &lock_, lbt());
+  lock_.unlock_shared();
+}
+
+#else // CONCURRENCY undefined
+
+void SharedMutex::lock()
+{}
+bool SharedMutex::try_lock()
+{
+  return true;
+}
+void SharedMutex::unlock() // unlock exclusive
+{}
+
+void SharedMutex::lock_shared()
+{}
+bool SharedMutex::try_lock_shared()
+{
+  return true;
+}
+void SharedMutex::unlock_shared()
+{}
+
+#endif // CONCURRENCY end
+
+////////////////////////////////////////////////////////////////////////////////
+#ifndef CONCURRENCY
+void RecursiveSharedMutex::lock_shared()
+{}
+
+bool RecursiveSharedMutex::try_lock_shared()
+{
+  return true;
+}
+
+void RecursiveSharedMutex::unlock_shared()
+{}
+
+void RecursiveSharedMutex::lock()
+{}
+
+void RecursiveSharedMutex::unlock()
+{}
+
+#else // ifdef CONCURRENCY
+
+void RecursiveSharedMutex::lock_shared()
+{
+  unique_lock<mutex> lock(mutex_);
+  while (exclusive_lock_count_ > 0) {
+    shared_lock_cv_.wait(lock);
+  }
+  shared_lock_count_++;
+}
+
+bool RecursiveSharedMutex::try_lock_shared()
+{
+  unique_lock<mutex> lock(mutex_);
+  if (exclusive_lock_count_ == 0) {
+    shared_lock_count_++;
+    return true;
+  }
+  return false;
+}
+
+void RecursiveSharedMutex::unlock_shared()
+{
+  unique_lock<mutex> lock(mutex_);
+  shared_lock_count_--;
+  if (shared_lock_count_ == 0) {
+    exclusive_lock_cv_.notify_one();
+  }
+}
+
+void RecursiveSharedMutex::lock()
+{
+  unique_lock<mutex> lock(mutex_);
+  while (shared_lock_count_ > 0 || exclusive_lock_count_ > 0) {
+    if (recursive_owner_ == this_thread::get_id()) {
+      recursive_count_++;
+      return;
+    }
+    exclusive_lock_cv_.wait(lock);
+  }
+  recursive_owner_ = this_thread::get_id();
+  recursive_count_ = 1;
+  exclusive_lock_count_++;
+}
+
+void RecursiveSharedMutex::unlock()
+{
+  unique_lock<mutex> lock(mutex_);
+  if (recursive_owner_ == this_thread::get_id() && recursive_count_ > 1) {
+    recursive_count_--;
+  } else {
+    recursive_owner_ = thread::id();
+    recursive_count_ = 0;
+    exclusive_lock_count_--;
+    if (exclusive_lock_count_ == 0) {
+      shared_lock_cv_.notify_all();
+      exclusive_lock_cv_.notify_one();
+    }
+  }
+}
+#endif // CONCURRENCY
 
 }  // namespace common

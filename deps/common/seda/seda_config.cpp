@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -198,7 +198,7 @@ void SedaConfig::init_event_history()
   get_event_history_flag() = ev_hist;
 
   // set max event hops
-  u32_t max_event_hops = 100;
+  uint32_t max_event_hops = 100;
   key = MAX_EVENT_HISTORY_NUM;
   it = base_section.find(key);
   if (it != base_section.end()) {

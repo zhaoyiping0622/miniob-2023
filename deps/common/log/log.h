@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,24 +12,27 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2010
 //
 
-#ifndef __COMMON_LOG_LOG_H__
-#define __COMMON_LOG_LOG_H__
+#pragma once
 
+#include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
-#include <time.h>
 
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <set>
 #include <string>
+#include <functional>
 
 #include "common/defs.h"
 
 namespace common {
+
+const unsigned int ONE_KILO = 1024;
+const unsigned int FILENAME_LENGTH_MAX = 256;  // the max filename length
 
 const int LOG_STATUS_OK = 0;
 const int LOG_STATUS_ERR = 1;
@@ -47,7 +50,8 @@ typedef enum {
 
 typedef enum { LOG_ROTATE_BYDAY = 0, LOG_ROTATE_BYSIZE, LOG_ROTATE_LAST } LOG_ROTATE;
 
-class Log {
+class Log 
+{
 public:
   Log(const std::string &log_name, const LOG_LEVEL log_level = LOG_LEVEL_INFO,
       const LOG_LEVEL console_level = LOG_LEVEL_WARN);
@@ -105,6 +109,14 @@ public:
 
   int rotate(const int year = 0, const int month = 0, const int day = 0);
 
+  /**
+   * @brief 设置一个在日志中打印当前上下文信息的回调函数
+   * @details 比如设置一个获取当前session标识的函数，那么每次在打印日志时都会输出session信息。
+   *          这个回调函数返回了一个intptr_t类型的数据，可能返回字符串更好，但是现在够用了。
+   */
+  void set_context_getter(std::function<intptr_t()> context_getter);
+  intptr_t context_id();
+  
 private:
   void check_param_valid();
 
@@ -137,6 +149,8 @@ private:
 
   typedef std::set<std::string> DefaultSet;
   DefaultSet default_set_;
+
+  std::function<intptr_t()> context_getter_;
 };
 
 class LoggerFactory {
@@ -157,33 +171,39 @@ extern Log *g_log;
 #define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+#define LOG_HEAD_SIZE 128
+
 #define LOG_HEAD(prefix, level)                                            \
   if (common::g_log) {                                                     \
-    time_t now_time;                                                       \
-    time(&now_time);                                                       \
-    struct tm *p = localtime(&now_time);                                   \
-    char sz_head[64] = {0};                                                \
+    struct timeval tv;                                                     \
+    gettimeofday(&tv, NULL);                                               \
+    struct tm *p = localtime(&tv.tv_sec);                                  \
+    char sz_head[LOG_HEAD_SIZE] = {0};                                     \
     if (p) {                                                               \
-      sprintf(sz_head,                                                     \
-          "%d-%d-%d %d:%d:%u pid:%u tid:%llx ",                            \
+      int usec = (int)tv.tv_usec;                                          \
+      snprintf(sz_head, LOG_HEAD_SIZE,                                     \
+          "%04d-%02d-%02d %02d:%02d:%02u.%06d pid:%u tid:%llx ctx:%lx",    \
           p->tm_year + 1900,                                               \
           p->tm_mon + 1,                                                   \
           p->tm_mday,                                                      \
           p->tm_hour,                                                      \
           p->tm_min,                                                       \
           p->tm_sec,                                                       \
-          (u32_t)getpid(),                                                 \
-          gettid());                                                       \
+          usec,                                                            \
+          (int32_t)getpid(),                                               \
+          gettid(),                                                        \
+          common::g_log->context_id());                                    \
       common::g_log->rotate(p->tm_year + 1900, p->tm_mon + 1, p->tm_mday); \
     }                                                                      \
     snprintf(prefix,                                                       \
         sizeof(prefix),                                                    \
-        "[%s %s %s %s %u]>>",                                              \
+        "[%s %s %s@%s:%u] >> ",                                            \
         sz_head,                                                           \
         (common::g_log)->prefix_msg(level),                                \
-        __FILE_NAME__,                                                     \
         __FUNCTION__,                                                      \
-        (u32_t)__LINE__);                                                  \
+        __FILE_NAME__,                                                     \
+        (int32_t)__LINE__                                                  \
+        );                                                                 \
   }
 
 #define LOG_OUTPUT(level, fmt, ...)                                    \
@@ -285,20 +305,30 @@ int Log::out(const LOG_LEVEL console_level, const LOG_LEVEL log_level, T &msg)
 }
 
 #ifndef ASSERT
+#ifdef DEBUG
 #define ASSERT(expression, description, ...)   \
   do {                                         \
     if (!(expression)) {                       \
-      if (common::g_log) {                     \
-        LOG_PANIC(description, ##__VA_ARGS__); \
-        LOG_PANIC("\n");                       \
-      }                                        \
+      LOG_PANIC(description, ##__VA_ARGS__);   \
       assert(expression);                      \
     }                                          \
   } while (0)
+
+#else // DEBUG
+#define ASSERT(expression, description, ...)   \
+  do {                                         \
+     (void)(expression);                       \
+  } while (0)
+#endif // DEBUG
+
 #endif  // ASSERT
 
 #define SYS_OUTPUT_FILE_POS ", File:" << __FILE__ << ", line:" << __LINE__ << ",function:" << __FUNCTION__
 #define SYS_OUTPUT_ERROR ",error:" << errno << ":" << strerror(errno)
 
+/**
+ * 获取当前函数调用栈
+ */
+const char *lbt();
+
 }  // namespace common
-#endif  //__COMMON_LOG_LOG_H__

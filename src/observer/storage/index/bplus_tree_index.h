@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -9,16 +9,20 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by Meiyi & wangyunlai.wyl on 2021/5/19.
+// Created by wangyunlai.wyl on 2021/5/19.
 //
 
-#ifndef __OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_
-#define __OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_
+#pragma once
 
 #include "storage/index/index.h"
 #include "storage/index/bplus_tree.h"
 
-class BplusTreeIndex : public Index {
+/**
+ * @brief B+树索引
+ * @ingroup Index
+ */
+class BplusTreeIndex : public Index 
+{
 public:
   BplusTreeIndex() = default;
   virtual ~BplusTreeIndex() noexcept;
@@ -33,8 +37,8 @@ public:
   /**
    * 扫描指定范围的数据
    */
-  IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
-			       const char *right_key, int right_len, bool right_inclusive) override;
+  IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive, const char *right_key,
+      int right_len, bool right_inclusive) override;
 
   RC sync() override;
 
@@ -43,7 +47,12 @@ private:
   BplusTreeHandler index_handler_;
 };
 
-class BplusTreeIndexScanner : public IndexScanner {
+/**
+ * @brief B+树索引扫描器
+ * @ingroup Index
+ */
+class BplusTreeIndexScanner : public IndexScanner 
+{
 public:
   BplusTreeIndexScanner(BplusTreeHandler &tree_handle);
   ~BplusTreeIndexScanner() noexcept override;
@@ -51,10 +60,9 @@ public:
   RC next_entry(RID *rid) override;
   RC destroy() override;
 
-  RC open(const char *left_key, int left_len, bool left_inclusive,
-          const char *right_key, int right_len, bool right_inclusive);
+  RC open(const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len,
+      bool right_inclusive);
+
 private:
   BplusTreeScanner tree_scanner_;
 };
-
-#endif  //__OBSERVER_STORAGE_COMMON_BPLUS_TREE_INDEX_H_

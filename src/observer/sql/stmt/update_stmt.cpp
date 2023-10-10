@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -15,10 +15,10 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/update_stmt.h"
 
 UpdateStmt::UpdateStmt(Table *table, Value *values, int value_amount)
-  : table_ (table), values_(values), value_amount_(value_amount)
+    : table_(table), values_(values), value_amount_(value_amount)
 {}
 
-RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
 {
   // TODO
   stmt = nullptr;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -19,22 +19,19 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/conf/ini.h"
 #include "common/log/log.h"
-#include "common/seda/timer_stage.h"
-
 #include "common/lang/mutex.h"
-#include "common/metrics/metrics_registry.h"
+#include "common/lang/string.h"
 #include "common/seda/callback.h"
 #include "event/session_event.h"
 #include "event/sql_event.h"
 #include "net/server.h"
+#include "net/communicator.h"
 #include "session/session.h"
 
 using namespace common;
 
-const std::string SessionStage::SQL_METRIC_TAG = "SessionStage.sql";
-
 // Constructor
-SessionStage::SessionStage(const char *tag) : Stage(tag), plan_cache_stage_(nullptr), sql_metric_(nullptr)
+SessionStage::SessionStage(const char *tag) : Stage(tag)
 {}
 
 // Destructor
@@ -70,69 +67,21 @@ bool SessionStage::set_properties()
 // Initialize stage params and validate outputs
 bool SessionStage::initialize()
 {
-  LOG_TRACE("Enter");
-
-  std::list<Stage *>::iterator stgp = next_stage_list_.begin();
-  plan_cache_stage_ = *(stgp++);
-
-  MetricsRegistry &metricsRegistry = get_metrics_registry();
-  sql_metric_ = new SimpleTimer();
-  metricsRegistry.register_metric(SQL_METRIC_TAG, sql_metric_);
-  LOG_TRACE("Exit");
   return true;
 }
 
 // Cleanup after disconnection
 void SessionStage::cleanup()
 {
-  LOG_TRACE("Enter");
 
-  MetricsRegistry &metricsRegistry = get_metrics_registry();
-  if (sql_metric_ != nullptr) {
-    metricsRegistry.unregister(SQL_METRIC_TAG);
-    delete sql_metric_;
-    sql_metric_ = nullptr;
-  }
-
-  LOG_TRACE("Exit");
 }
 
 void SessionStage::handle_event(StageEvent *event)
 {
-  LOG_TRACE("Enter\n");
-
   // right now, we just support only one event.
   handle_request(event);
 
-  LOG_TRACE("Exit\n");
-  return;
-}
-
-void SessionStage::callback_event(StageEvent *event, CallbackContext *context)
-{
-  LOG_TRACE("Enter\n");
-
-  SessionEvent *sev = dynamic_cast<SessionEvent *>(event);
-  if (nullptr == sev) {
-    LOG_ERROR("Cannot cat event to sessionEvent");
-    return;
-  }
-
-  const char *response = sev->get_response();
-  int len = sev->get_response_len();
-  if (len <= 0 || response == nullptr) {
-    response = "No data\n";
-    len = strlen(response) + 1;
-  }
-  Server::send(sev->get_client(), response, len);
-  if ('\0' != response[len - 1]) {
-    // 这里强制性的给发送一个消息终结符，如果需要发送多条消息，需要调整
-    char end = 0;
-    Server::send(sev->get_client(), &end, 1);
-  }
-
-  // sev->done();
-  LOG_TRACE("Exit\n");
+  event->done_immediate();
   return;
 }
 
@@ -144,29 +93,68 @@ void SessionStage::handle_request(StageEvent *event)
     return;
   }
 
-  TimerStat sql_stat(*sql_metric_);
-  if (nullptr == sev->get_request_buf()) {
-    LOG_ERROR("Invalid request buffer.");
-    sev->done_immediate();
-    return;
-  }
-
-  std::string sql = sev->get_request_buf();
+  std::string sql = sev->query();
   if (common::is_blank(sql.c_str())) {
-    sev->done_immediate();
     return;
   }
 
-  CompletionCallback *cb = new (std::nothrow) CompletionCallback(this, nullptr);
-  if (cb == nullptr) {
-    LOG_ERROR("Failed to new callback for SessionEvent");
+  Session::set_current_session(sev->session());
+  sev->session()->set_current_request(sev);
+  SQLStageEvent sql_event(sev, sql);
+  (void)handle_sql(&sql_event);
 
-    sev->done_immediate();
-    return;
+  Communicator *communicator = sev->get_communicator();
+  bool need_disconnect = false;
+  RC rc = communicator->write_result(sev, need_disconnect);
+  LOG_INFO("write result return %s", strrc(rc));
+  if (need_disconnect) {
+    Server::close_connection(communicator);
+  }
+  sev->session()->set_current_request(nullptr);
+  Session::set_current_session(nullptr);
+}
+
+/**
+ * 处理一个SQL语句经历这几个阶段。
+ * 虽然看起来流程比较多，但是对于大多数SQL来说，更多的可以关注parse和executor阶段。
+ * 通常只有select、delete等带有查询条件的语句才需要进入optimize。
+ * 对于DDL语句，比如create table、create index等，没有对应的查询计划，可以直接搜索
+ * create_table_executor、create_index_executor来看具体的执行代码。
+ * select、delete等DML语句，会产生一些执行计划，如果感觉繁琐，可以跳过optimize直接看
+ * execute_stage中的执行，通过explain语句看需要哪些operator，然后找对应的operator来
+ * 调试或者看代码执行过程即可。
+ */
+RC SessionStage::handle_sql(SQLStageEvent *sql_event)
+{
+  RC rc = query_cache_stage_.handle_request(sql_event);
+  if (OB_FAIL(rc)) {
+    LOG_TRACE("failed to do query cache. rc=%s", strrc(rc));
+    return rc;
   }
 
-  sev->push_callback(cb);
+  rc = parse_stage_.handle_request(sql_event);
+  if (OB_FAIL(rc)) {
+    LOG_TRACE("failed to do parse. rc=%s", strrc(rc));
+    return rc;
+  }
 
-  SQLStageEvent *sql_event = new SQLStageEvent(sev, sql);
-  plan_cache_stage_->handle_event(sql_event);
+  rc = resolve_stage_.handle_request(sql_event);
+  if (OB_FAIL(rc)) {
+    LOG_TRACE("failed to do resolve. rc=%s", strrc(rc));
+    return rc;
+  }
+  
+  rc = optimize_stage_.handle_request(sql_event);
+  if (rc != RC::UNIMPLENMENT && rc != RC::SUCCESS) {
+    LOG_TRACE("failed to do optimize. rc=%s", strrc(rc));
+    return rc;
+  }
+  
+  rc = execute_stage_.handle_request(sql_event);
+  if (OB_FAIL(rc)) {
+    LOG_TRACE("failed to do execute. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  return rc;
 }

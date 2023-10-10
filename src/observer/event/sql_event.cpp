@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -27,14 +27,6 @@ SQLStageEvent::~SQLStageEvent() noexcept
 {
   if (session_event_ != nullptr) {
     session_event_ = nullptr;
-    // SessionEvent *session_event = session_event_;
-    // session_event_ = nullptr;
-    // session_event->doneImmediate();
-  }
-
-  if (query_ != nullptr) {
-    query_destroy(query_);
-    query_ = nullptr;
   }
 
   if (stmt_ != nullptr) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,29 +12,16 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2021/4/13.
 //
 
-#ifndef __OBSERVER_SQL_PLAN_CACHE_STAGE_H__
-#define __OBSERVER_SQL_PLAN_CACHE_STAGE_H__
+#pragma once
 
-#include "common/seda/stage.h"
+#include "common/rc.h"
 
-class PlanCacheStage : public common::Stage {
-public:
-  ~PlanCacheStage();
-  static Stage *make_stage(const std::string &tag);
-
-protected:
-  // common function
-  PlanCacheStage(const char *tag);
-  bool set_properties();
-
-  bool initialize();
-  void cleanup();
-  void handle_event(common::StageEvent *event);
-  void callback_event(common::StageEvent *event, common::CallbackContext *context);
-
-protected:
-private:
-  Stage *parse_stage_ = nullptr;
+/**
+ * @brief 尝试从Plan的缓存中获取Plan，如果没有命中，则执行Optimizer
+ * @ingroup SQLStage
+ * @details 实际上现在什么都没做。不过PlanCache对数据库的优化提升明显，是一个非常有趣的功能，
+ * 感兴趣的同学可以参考OceanBase的实现
+ */
+class PlanCacheStage
+{
 };
-
-#endif  //__OBSERVER_SQL_PLAN_CACHE_STAGE_H__

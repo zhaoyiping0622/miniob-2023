@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -21,78 +21,91 @@ See the Mulan PSL v2 for more details. */
 #include "common/io/io.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
-#include "common/seda/timer_stage.h"
+#include "sql/expr/expression.h"
+#include "sql/operator/logical_operator.h"
+#include "sql/executor/sql_result.h"
+#include "sql/stmt/stmt.h"
+#include "event/sql_event.h"
+#include "event/session_event.h"
 
+using namespace std;
 using namespace common;
 
-//! Constructor
-OptimizeStage::OptimizeStage(const char *tag) : Stage(tag)
-{}
-
-//! Destructor
-OptimizeStage::~OptimizeStage()
-{}
-
-//! Parse properties, instantiate a stage object
-Stage *OptimizeStage::make_stage(const std::string &tag)
+RC OptimizeStage::handle_request(SQLStageEvent *sql_event)
 {
-  OptimizeStage *stage = new (std::nothrow) OptimizeStage(tag.c_str());
-  if (stage == nullptr) {
-    LOG_ERROR("new OptimizeStage failed");
-    return nullptr;
+  unique_ptr<LogicalOperator> logical_operator;
+  RC rc = create_logical_plan(sql_event, logical_operator);
+  if (rc != RC::SUCCESS) {
+    if (rc != RC::UNIMPLENMENT) {
+      LOG_WARN("failed to create logical plan. rc=%s", strrc(rc));
+    }
+    return rc;
   }
-  stage->set_properties();
-  return stage;
+
+  rc = rewrite(logical_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to rewrite plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  rc = optimize(logical_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to optimize plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  unique_ptr<PhysicalOperator> physical_operator;
+  rc = generate_physical_plan(logical_operator, physical_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to generate physical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+
+  sql_event->set_operator(std::move(physical_operator));
+
+  return rc;
 }
 
-//! Set properties for this object set in stage specific properties
-bool OptimizeStage::set_properties()
+RC OptimizeStage::optimize(unique_ptr<LogicalOperator> &oper)
 {
-  //  std::string stageNameStr(stage_name_);
-  //  std::map<std::string, std::string> section = g_properties()->get(
-  //    stageNameStr);
-  //
-  //  std::map<std::string, std::string>::iterator it;
-  //
-  //  std::string key;
-
-  return true;
+  // do nothing
+  return RC::SUCCESS;
 }
 
-//! Initialize stage params and validate outputs
-bool OptimizeStage::initialize()
+RC OptimizeStage::generate_physical_plan(
+    unique_ptr<LogicalOperator> &logical_operator, unique_ptr<PhysicalOperator> &physical_operator)
 {
-  LOG_TRACE("Enter");
-
-  std::list<Stage *>::iterator stgp = next_stage_list_.begin();
-  execute_stage_ = *(stgp++);
-
-  LOG_TRACE("Exit");
-  return true;
+  RC rc = RC::SUCCESS;
+  rc = physical_plan_generator_.create(*logical_operator, physical_operator);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create physical operator. rc=%s", strrc(rc));
+  }
+  return rc;
 }
 
-//! Cleanup after disconnection
-void OptimizeStage::cleanup()
+RC OptimizeStage::rewrite(unique_ptr<LogicalOperator> &logical_operator)
 {
-  LOG_TRACE("Enter");
+  RC rc = RC::SUCCESS;
+  
+  bool change_made = false;
+  do {
+    change_made = false;
+    rc = rewriter_.rewrite(logical_operator, change_made);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to do expression rewrite on logical plan. rc=%s", strrc(rc));
+      return rc;
+    }
+  } while (change_made);
 
-  LOG_TRACE("Exit");
+  return rc;
 }
 
-void OptimizeStage::handle_event(StageEvent *event)
+RC OptimizeStage::create_logical_plan(SQLStageEvent *sql_event, unique_ptr<LogicalOperator> &logical_operator)
 {
-  LOG_TRACE("Enter\n");
+  Stmt *stmt = sql_event->stmt();
+  if (nullptr == stmt) {
+    return RC::UNIMPLENMENT;
+  }
 
-  // optimize sql plan, here just pass the event to the next stage
-  execute_stage_->handle_event(event);
-
-  LOG_TRACE("Exit\n");
-  return;
-}
-
-void OptimizeStage::callback_event(StageEvent *event, CallbackContext *context)
-{
-  LOG_TRACE("Enter\n");
-  LOG_TRACE("Exit\n");
-  return;
+  return logical_plan_generator_.create(stmt, logical_operator);
 }

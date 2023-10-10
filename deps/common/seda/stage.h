@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -205,7 +205,7 @@ public:
 
   /**
    * Perform Stage-specific processing for an event
-   * Processing one event without swtich thread.
+   * Processing one event without switch thread.
    * Handle the event according to requirements of specific stage.  Pure
    * virtual member function.
    *
@@ -222,7 +222,8 @@ public:
    *
    * @param[in] event Pointer to event that initiated the callback.
    */
-  virtual void callback_event(StageEvent *event, CallbackContext *context) = 0;
+  virtual void callback_event(StageEvent *event, CallbackContext *context)
+  {}
 
   /**
    * Perform Stage-specific callback processing for a timed out event

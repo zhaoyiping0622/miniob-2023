@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,8 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2010
 //
 
-#ifndef __COMMON_SEDA_TIMER_STAGE_H__
-#define __COMMON_SEDA_TIMER_STAGE_H__
+#pragma once
 
 #include <pthread.h>
 #include <sys/time.h>
@@ -46,7 +45,7 @@ public:
   TimerToken(const struct timeval &t);
   TimerToken(const TimerToken &tt);
   const struct timeval &get_time() const;
-  u64_t get_nonce() const;
+  uint64_t get_nonce() const;
   bool operator<(const TimerToken &other) const;
   TimerToken &operator=(const TimerToken &src);
   std::string to_string() const;
@@ -54,11 +53,11 @@ public:
   friend bool timer_token_less_than(const TimerToken &tt1, const TimerToken &tt2);
 
 private:
-  void set(const struct timeval &t, u64_t n);
-  static u64_t next_nonce();
+  void set(const struct timeval &t, uint64_t n);
+  static uint64_t next_nonce();
 
   struct timeval time;
-  u64_t nonce;
+  uint64_t nonce;
 };
 
 /**
@@ -105,7 +104,7 @@ public:
    *    The amount of time (in microseconds) before the timer
    *    triggering the callback should fire.
    */
-  TimerRegisterEvent(StageEvent *cb, u64_t time_relative_usec);
+  TimerRegisterEvent(StageEvent *cb, uint64_t time_relative_usec);
 
   /**
    *  \brief Create an event to request the registration of a timer
@@ -287,7 +286,7 @@ public:
    *  \brief Return the number of events that have been registered
    *  but not yet triggered or cancelled.
    */
-  u32_t get_num_events();
+  uint32_t get_num_events();
 
 protected:
   TimerStage(const char *tag);
@@ -316,9 +315,9 @@ private:
   pthread_cond_t timer_condv_;
 
   bool shutdown_;              // true if stage has received the shutdown signal
-  u32_t num_events_;           // the number of timer events currently outstanding
+  uint32_t num_events_;           // the number of timer events currently outstanding
   pthread_t timer_thread_id_;  // thread id of the timer maintenance thread
 };
 
 }  // namespace common
-#endif  // __COMMON_SEDA_TIMER_STAGE_H__
+

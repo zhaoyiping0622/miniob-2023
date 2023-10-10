@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include <exception>
 #include <stdarg.h>
 #include <stdio.h>
+#include <execinfo.h>
 
 #include "common/lang/string.h"
 #include "common/log/log.h"
@@ -28,7 +29,7 @@ Log::Log(const std::string &log_file_name, const LOG_LEVEL log_level, const LOG_
 {
   prefix_map_[LOG_LEVEL_PANIC] = "PANIC:";
   prefix_map_[LOG_LEVEL_ERR] = "ERROR:";
-  prefix_map_[LOG_LEVEL_WARN] = "WARNNING:";
+  prefix_map_[LOG_LEVEL_WARN] = "WARN:";
   prefix_map_[LOG_LEVEL_INFO] = "INFO:";
   prefix_map_[LOG_LEVEL_DEBUG] = "DEBUG:";
   prefix_map_[LOG_LEVEL_TRACE] = "TRACE:";
@@ -43,6 +44,8 @@ Log::Log(const std::string &log_file_name, const LOG_LEVEL log_level, const LOG_
   rotate_type_ = LOG_ROTATE_BYDAY;
 
   check_param_valid();
+
+  context_getter_ = []() { return 0; };
 }
 
 Log::~Log(void)
@@ -213,16 +216,15 @@ int Log::rotate_by_day(const int year, const int month, const int day)
   return 0;
 }
 
+#define MAX_LOG_NUM 999
+
 int Log::rename_old_logs()
 {
   int log_index = 1;
   int max_log_index = 0;
-  char log_index_str[4] = {0};
 
-  while (log_index < 999) {
-    snprintf(log_index_str, sizeof(log_index_str), "%03d", log_index);
-
-    std::string log_name = log_name_ + "." + log_index_str;
+  while (log_index < MAX_LOG_NUM) {
+    std::string log_name = log_name_ + "." + size_to_pad_str(log_index, 3);
     int result = access(log_name.c_str(), R_OK);
     if (result) {
       break;
@@ -232,15 +234,16 @@ int Log::rename_old_logs()
     log_index++;
   }
 
+  if (log_index == MAX_LOG_NUM) {
+    std::string log_name_rm = log_name_ + "." + size_to_pad_str(log_index, 3);
+    remove(log_name_rm.c_str());
+  }
+
   log_index = max_log_index;
   while (log_index > 0) {
-    snprintf(log_index_str, sizeof(log_index_str), "%03d", log_index);
+    std::string log_name_old = log_name_ + "." + size_to_pad_str(log_index, 3);
 
-    std::string log_name_old = log_name_ + "." + log_index_str;
-
-    snprintf(log_index_str, sizeof(log_index_str), "%03d", log_index + 1);
-
-    std::string log_name_new = log_name_ + "." + log_index_str;
+    std::string log_name_new = log_name_ + "." + size_to_pad_str(log_index + 1, 3);
 
     int result = rename(log_name_old.c_str(), log_name_new.c_str());
     if (result) {
@@ -310,6 +313,20 @@ int Log::rotate(const int year, const int month, const int day)
   return result;
 }
 
+void Log::set_context_getter(std::function<intptr_t()> context_getter)
+{
+  if (context_getter) {
+    context_getter_ = context_getter;
+  } else if (!context_getter_) {
+    context_getter_ = []() { return 0; };
+  }
+}
+
+intptr_t Log::context_id()
+{
+  return context_getter_();
+}
+
 LoggerFactory::LoggerFactory()
 {
   // Auto-generated constructor stub
@@ -339,11 +356,29 @@ int LoggerFactory::init_default(
     const std::string &log_file, LOG_LEVEL log_level, LOG_LEVEL console_level, LOG_ROTATE rotate_type)
 {
   if (g_log != nullptr) {
-    LOG_WARN("Default logger has been initialized");
+    LOG_INFO("Default logger has been initialized");
     return 0;
   }
 
   return init(log_file, &g_log, log_level, console_level, rotate_type);
+}
+
+const char *lbt()
+{
+  constexpr int buffer_size = 100;
+  void *buffer[buffer_size];
+  
+  constexpr int bt_buffer_size = 4096;
+  thread_local char backtrace_buffer[bt_buffer_size];
+
+  int size = backtrace(buffer, buffer_size);
+  int offset = 0;
+  for (int i = 0; i < size && offset < bt_buffer_size - 1; i++) {
+    const char *format = (0 == i) ? "0x%lx" : " 0x%lx";
+    offset += snprintf(backtrace_buffer + offset, sizeof(backtrace_buffer) - offset, format,
+                       reinterpret_cast<intptr_t>(buffer[i]));
+  }
+  return backtrace_buffer;
 }
 
 }  // namespace common

@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -12,8 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Longda on 2010
 //
 
-#ifndef __COMMON_OS_PROCESS_PARAM_H__
-#define __COMMON_OS_PROCESS_PARAM_H__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -110,6 +109,37 @@ public:
     return unix_socket_path_;
   }
 
+  void set_protocol(const char *protocol)
+  {
+    protocol_ = protocol;
+  }
+
+  const std::string &get_protocol() const
+  {
+    return protocol_;
+  }
+
+  void set_trx_kit_name(const char *kit_name)
+  {
+    if (kit_name) {
+      trx_kit_name_ = kit_name;
+    }
+  }
+  const std::string &trx_kit_name() const
+  {
+    return trx_kit_name_;
+  }
+
+  void set_buffer_pool_memory_size(int bytes)
+  {
+    buffer_pool_memory_size_ = bytes;
+  }
+
+  int buffer_pool_memory_size() const
+  {
+    return buffer_pool_memory_size_;
+  }
+
 private:
   std::string std_out_;           // The output file
   std::string std_err_;           // The err output file
@@ -119,9 +149,11 @@ private:
   std::vector<std::string> args;  // arguments
   int server_port_ = -1;          // server port(if valid, will overwrite the port in the config file)
   std::string unix_socket_path_;
+  std::string protocol_;
+  std::string trx_kit_name_;
+  int buffer_pool_memory_size_ = -1;
 };
 
 ProcessParam *&the_process_param();
 
 }  // namespace common
-#endif  //__COMMON_OS_PROCESS_PARAM_H__

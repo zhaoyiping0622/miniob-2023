@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -19,9 +19,11 @@ See the Mulan PSL v2 for more details. */
 #include <unistd.h>
 #include <iostream>
 
-#include "init.h"
+#include "common/init.h"
+#include "common/ini_setting.h"
 #include "common/os/process.h"
 #include "common/os/signal.h"
+#include "common/lang/string.h"
 #include "net/server.h"
 #include "net/server_param.h"
 
@@ -37,7 +39,9 @@ void usage()
   std::cout << "-p: server port. if not specified, the item in the config file will be used" << std::endl;
   std::cout << "-f: path of config file." << std::endl;
   std::cout << "-s: use unix socket and the argument is socket address" << std::endl;
-  exit(0);
+  std::cout << "-P: protocol. {plain(default), mysql, cli}." << std::endl;
+  std::cout << "-t: transaction model. {vacuous(default), mvcc}." << std::endl;
+  std::cout << "-n: buffer pool memory size in byte" << std::endl;
 }
 
 void parse_parameter(int argc, char **argv)
@@ -51,13 +55,16 @@ void parse_parameter(int argc, char **argv)
   // Process args
   int opt;
   extern char *optarg;
-  while ((opt = getopt(argc, argv, "dp:s:f:o:e:h")) > 0) {
+  while ((opt = getopt(argc, argv, "dp:P:s:t:f:o:e:hn:")) > 0) {
     switch (opt) {
       case 's':
         process_param->set_unix_socket_path(optarg);
         break;
       case 'p':
         process_param->set_server_port(atoi(optarg));
+        break;
+      case 'P':
+        process_param->set_protocol(optarg);
         break;
       case 'f':
         process_param->set_conf(optarg);
@@ -68,13 +75,19 @@ void parse_parameter(int argc, char **argv)
       case 'e':
         process_param->set_std_err(optarg);
         break;
-      case 'd':
-        process_param->set_demon(true);
+      case 't':
+        process_param->set_trx_kit_name(optarg);
+        break;
+      case 'n':
+        process_param->set_buffer_pool_memory_size(atoi(optarg));
         break;
       case 'h':
-      default:
         usage();
+        exit(0);
         return;
+      default:
+        std::cout << "Unknown option: " << static_cast<char>(opt) << ", ignored" << std::endl;
+        break;
     }
   }
 }
@@ -116,8 +129,16 @@ Server *init_server()
   server_param.listen_addr = listen_addr;
   server_param.max_connection_num = max_connection_num;
   server_param.port = port;
+  if (0 == strcasecmp(process_param->get_protocol().c_str(), "mysql")) {
+    server_param.protocol = CommunicateProtocol::MYSQL;
+  } else if (0 == strcasecmp(process_param->get_protocol().c_str(), "cli")) {
+    server_param.use_std_io = true;
+    server_param.protocol = CommunicateProtocol::CLI;
+  } else {
+    server_param.protocol = CommunicateProtocol::PLAIN;
+  }
 
-  if (process_param->get_unix_socket_path().size() > 0) {
+  if (process_param->get_unix_socket_path().size() > 0 && !server_param.use_std_io) {
     server_param.use_unix_socket = true;
     server_param.unix_socket_path = process_param->get_unix_socket_path();
   }
@@ -148,13 +169,14 @@ void quit_signal_handle(int signum)
 
 int main(int argc, char **argv)
 {
+  int rc = STATUS_SUCCESS;
+
   setSignalHandler(quit_signal_handle);
 
   parse_parameter(argc, argv);
 
-  int rc = STATUS_SUCCESS;
   rc = init(the_process_param());
-  if (rc) {
+  if (rc != STATUS_SUCCESS) {
     std::cerr << "Shutdown due to failed to init!" << std::endl;
     cleanup();
     return rc;
@@ -170,3 +192,11 @@ int main(int argc, char **argv)
 
   delete g_server;
 }
+
+/**
+ * @mainpage MiniOB
+ * 
+ * MiniOB 是 OceanBase 与华中科技大学联合开发的、面向"零"基础同学的数据库入门学习项目。
+ *
+ * MiniOB 设计的目标是面向在校学生、数据库从业者、爱好者，或者对基础技术有兴趣的爱好者, 整体代码量少，易于上手并学习, 是一个系统性的数据库学习项目。miniob 设置了一系列由浅入深的题目，以帮助同学们"零"基础入门, 让同学们快速了解数据库并深入学习数据库内核，期望通过相关训练之后，能够熟练掌握数据库内核模块的功能与协同关系, 并能够在使用数据库时，设计出高效的 SQL 。miniob 为了更好的学习数据库实现原理, 对诸多模块都做了简化，比如不考虑并发操作, 安全特性, 复杂的事物管理等功能。
+ */

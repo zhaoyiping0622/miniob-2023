@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
+/* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
 You may obtain a copy of Mulan PSL v2 at:
@@ -9,7 +9,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 //
-// Created by Meiyi & wangyunlai.wyl on 2021/5/19.
+// Created by wangyunlai.wyl on 2021/5/19.
 //
 
 #include "storage/index/bplus_tree_index.h"
@@ -79,8 +79,7 @@ RC BplusTreeIndex::open(const char *file_name, const IndexMeta &index_meta, cons
 RC BplusTreeIndex::close()
 {
   if (inited_) {
-    LOG_INFO("Begin to close index, index:%s, field:%s",
-        index_meta_.name(), index_meta_.field());
+    LOG_INFO("Begin to close index, index:%s, field:%s", index_meta_.name(), index_meta_.field());
     index_handler_.close();
     inited_ = false;
   }
@@ -98,8 +97,8 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
   return index_handler_.delete_entry(record + field_meta_.offset(), rid);
 }
 
-IndexScanner *BplusTreeIndex::create_scanner(const char *left_key, int left_len, bool left_inclusive,
-					     const char *right_key, int right_len, bool right_inclusive)
+IndexScanner *BplusTreeIndex::create_scanner(
+    const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len, bool right_inclusive)
 {
   BplusTreeIndexScanner *index_scanner = new BplusTreeIndexScanner(index_handler_);
   RC rc = index_scanner->open(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive);
@@ -125,15 +124,15 @@ BplusTreeIndexScanner::~BplusTreeIndexScanner() noexcept
   tree_scanner_.close();
 }
 
-RC BplusTreeIndexScanner::open(const char *left_key, int left_len, bool left_inclusive,
-                               const char *right_key, int right_len, bool right_inclusive)
+RC BplusTreeIndexScanner::open(
+    const char *left_key, int left_len, bool left_inclusive, const char *right_key, int right_len, bool right_inclusive)
 {
   return tree_scanner_.open(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive);
 }
 
 RC BplusTreeIndexScanner::next_entry(RID *rid)
 {
-  return tree_scanner_.next_entry(rid);
+  return tree_scanner_.next_entry(*rid);
 }
 
 RC BplusTreeIndexScanner::destroy()
