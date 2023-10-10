@@ -196,7 +196,7 @@ RC SimpleTrx::redo(Db *db, const CLogRecord &log_record) {
 
   case CLogType::DELETE: {
     RC rc = Trx::delete_record(table, data_record.rid_);
-    if (rc == RC::SUCCESS) {
+    if (rc != RC::SUCCESS) {
       LOG_WARN("failed to recover delete. table=%s, log record=%s, rc=%s", table->name(),
                log_record.to_string().c_str(), strrc(rc));
       return rc;
