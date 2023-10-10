@@ -46,6 +46,8 @@ struct RID {
 
   bool operator==(const RID &other) const { return page_num == other.page_num && slot_num == other.slot_num; }
 
+  bool operator<(const RID &other) const { return compare(this, &other) < 0; }
+
   bool operator!=(const RID &other) const { return !(*this == other); }
 
   static int compare(const RID *rid1, const RID *rid2) {
