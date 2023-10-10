@@ -12,6 +12,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   vector<vector<Value>> value_list;
   trx_ = trx;
   while ((rc = children_[0]->next(nullptr)) == RC::SUCCESS) {
+    // FIXME(zhaoyiping): 这里之后要统一改成接口
     Record *record;
     Tuple *tuple = children_[0]->current_tuple();
     rc = tuple->get_record(table_, record);
@@ -21,6 +22,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     memcpy(r.data(), record->data(), r.size());
     rc = trx->delete_record(table_, *record);
     if (rc != RC::SUCCESS) {
+      rollback();
       return rc;
     }
     deleted_records_.push_back(r);
@@ -29,6 +31,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       Value value;
       rc = unit.value->get_value(*tuple, value);
       if (rc != RC::SUCCESS) {
+        rollback();
         return rc;
       }
       values.push_back(value);
@@ -43,10 +46,27 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     RID rid;
     rc = update(deleted_records_[i], value_list[i], rid);
     if (rc != RC::SUCCESS) {
+      rollback();
       return rc;
     }
+    inserted_records_.push_back(rid);
   }
   return RC::SUCCESS;
+}
+
+RC UpdatePhysicalOperator::insert_all(vector<vector<char>> &v) {
+  RC rc_ret = RC::SUCCESS;
+  for (auto &x : v) {
+    RID rid;
+    RC rc = insert(x, rid);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("fail to insert all");
+      if (rc_ret == RC::SUCCESS) {
+        rc_ret = rc;
+      }
+    }
+  }
+  return rc_ret;
 }
 
 RC UpdatePhysicalOperator::insert(vector<char> &v, RID &rid) {
@@ -63,6 +83,20 @@ RC UpdatePhysicalOperator::insert(vector<char> &v, RID &rid) {
   }
   rid = record.rid();
   return rc;
+}
+
+RC UpdatePhysicalOperator::remove_all(const vector<RID> &rids) {
+  RC rc_ret = RC::SUCCESS;
+  for (auto &rid : rids) {
+    RC rc = trx_->delete_record(table_, rid);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("fail to delete record");
+      if (rc_ret == RC::SUCCESS) {
+        rc_ret = rc;
+      }
+    }
+  }
+  return rc_ret;
 }
 
 RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &rid) {
@@ -94,17 +128,17 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
       }
     }
     int offset = meta->offset();
-    memset(v.data() + offset, 0, meta->len());
-    if (meta->type() != CHARS) {
-      memcpy(v.data() + offset, value.data(), std::min(attr_type_to_size(meta->type()), meta->len()));
-    } else {
-      strncpy(v.data() + offset, value.data(), meta->len());
-    }
+    memcpy(v.data() + offset, value.data(), attr_type_to_size(meta->type()));
     if (value.is_null()) {
       null_value |= 1 << meta->index();
     } else {
-      null_value &= (-1) ^ (1 << meta->index());
+      null_value &= -1 ^ (1 << meta->index());
     }
   }
   return insert(v, rid);
+}
+
+void UpdatePhysicalOperator::rollback() {
+  remove_all(inserted_records_);
+  insert_all(deleted_records_);
 }
