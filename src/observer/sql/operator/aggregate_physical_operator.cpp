@@ -186,14 +186,21 @@ RC AvgAggregator::add_value(Value value) {
   if (value.is_null())
     return RC::SUCCESS;
   if (now_.is_null())
-    now_ = value;
+    now_ = value, count_ = 1;
   else {
     count_++;
-    now_.set_float(now_.get_float() + (value.get_float() - now_.get_float()) / count_);
+    now_.set_float(now_.get_float() + value.get_float());
   }
   return RC::SUCCESS;
 }
-Value AvgAggregator::get_value() const { return now_; }
+Value AvgAggregator::get_value() const {
+  Value ret;
+  if (count_)
+    ret.set_float(now_.get_float() / count_);
+  else
+    ret.set_null();
+  return ret;
+}
 
 Aggregator *Aggregator::create(AggregationType type, Value value) {
   switch (type) {

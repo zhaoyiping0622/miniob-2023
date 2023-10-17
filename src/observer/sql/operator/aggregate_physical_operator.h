@@ -105,7 +105,7 @@ private:
 
 class AvgAggregator : public Aggregator {
 public:
-  AvgAggregator(Value init_value) : now_(init_value), count_(1) {}
+  AvgAggregator(Value init_value) : now_(init_value), count_(!init_value.is_null()) {}
   AggregationType type() const override { return AggregationType::AGGR_AVG; }
   RC add_value(Value value) override;
   Value get_value() const override;
