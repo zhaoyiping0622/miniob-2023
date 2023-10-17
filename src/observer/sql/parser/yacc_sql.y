@@ -241,9 +241,12 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
 %type <sql_node>            command_wrapper
+%type <string>              non_reserve
+%type <string>              id
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 
+%left AS
 %left OR
 %left AND
 %left '+' '-'
@@ -318,7 +321,7 @@ rollback_stmt:
     ;
 
 drop_table_stmt:    /*drop table 语句的语法解析树*/
-    DROP TABLE ID {
+    DROP TABLE id {
       $$ = new ParsedSqlNode(SCF_DROP_TABLE);
       auto *drop_table = new DropTableSqlNode;
       $$->node.drop_table = drop_table;
@@ -333,7 +336,7 @@ show_tables_stmt:
     ;
 
 desc_table_stmt:
-    DESC ID  {
+    DESC id  {
       $$ = new ParsedSqlNode(SCF_DESC_TABLE);
       auto *desc_table = new DescTableSqlNode;
       $$->node.desc_table = desc_table;
@@ -343,7 +346,7 @@ desc_table_stmt:
     ;
 
 show_index_stmt:
-    SHOW INDEX FROM ID {
+    SHOW INDEX FROM id {
       $$ = new ParsedSqlNode(SCF_SHOW_INDEX);
       auto *show_index = new ShowIndexSqlNode;
       $$->node.show_index = show_index;
@@ -353,7 +356,7 @@ show_index_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE unique INDEX ID ON ID LBRACE ID ids RBRACE
+    CREATE unique INDEX id ON id LBRACE id ids RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode *create_index = new CreateIndexSqlNode;
@@ -383,14 +386,14 @@ ids:
    {
       $$ = new std::vector<std::string>();
    }
-   | COMMA ID ids {
+   | COMMA id ids {
       $3->push_back($2);
       free($2);
       $$ = $3;
    }
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
-    DROP INDEX ID ON ID
+    DROP INDEX id ON id
     {
       $$ = new ParsedSqlNode(SCF_DROP_INDEX);
       auto *drop_index = new DropIndexSqlNode;
@@ -403,7 +406,7 @@ drop_index_stmt:      /*drop index 语句的语法解析树*/
     ;
 
 create_table_stmt:    /*create table 语句的语法解析树*/
-    CREATE TABLE ID attr_list as_select
+    CREATE TABLE id attr_list as_select
     {
       $$ = new ParsedSqlNode(SCF_CREATE_TABLE);
       CreateTableSqlNode *create_table = new CreateTableSqlNode;
@@ -461,7 +464,7 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE null_def
+    id type LBRACE number RBRACE null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
@@ -470,7 +473,7 @@ attr_def:
       $$->nullable = $6;
       free($1);
     }
-    | ID type null_def
+    | id type null_def
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
@@ -505,7 +508,7 @@ type:
     ;
 
 insert_stmt:        /*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES record record_list
+    INSERT INTO id VALUES record record_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
       auto *insertion = new InsertSqlNode;
@@ -575,7 +578,7 @@ value_expr:
     }
 
 delete_stmt:    /*  delete 语句的语法解析树*/
-    DELETE FROM ID where 
+    DELETE FROM id where 
     {
       $$ = new ParsedSqlNode(SCF_DELETE);
       auto *deletion = new DeleteSqlNode;
@@ -587,7 +590,7 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     ;
 
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET update_set_list where 
+    UPDATE id SET update_set_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       auto *update = new UpdateSqlNode;
@@ -611,7 +614,7 @@ update_set_list:
     }
 
 update_set:
-    ID EQ expression {
+    id EQ expression {
       $$ = new UpdateSetSqlNode;
       $$->field_name = $1;
       free($1);
@@ -659,7 +662,7 @@ from:
     ;
 
 joined_tables:
-    joined_tables_inner INNER JOIN ID as_info joined_on {
+    joined_tables_inner INNER JOIN id as_info joined_on {
       $$ = new JoinSqlNode;
       $$->relation=$4;
       free($4);
@@ -670,12 +673,12 @@ joined_tables:
     }
 
 joined_tables_inner:
-    ID {
+    id {
       $$ = new JoinSqlNode;
       $$->relation = $1;
       free($1);
     }
-    | joined_tables_inner INNER JOIN ID as_info joined_on {
+    | joined_tables_inner INNER JOIN id as_info joined_on {
       $$ = new JoinSqlNode;
       $$->relation=$4;
       free($4);
@@ -883,10 +886,10 @@ as_info:
     {
       $$ = "";
     }
-    | ID {
+    | id {
       $$ = $1;
     }
-    | AS ID {
+    | AS id {
       $$ = $2;
     }
 
@@ -908,19 +911,19 @@ set_expr:
     ;
 
 rel_attr:
-    ID {
+    id {
       $$ = new FieldExprSqlNode;
       $$->field_name = $1;
       free($1);
     }
-    | ID DOT ID {
+    | id DOT id {
       $$ = new FieldExprSqlNode;
       $$->table_name  = $1;
       $$->field_name = $3;
       free($1);
       free($3);
     }
-    | ID DOT '*' {
+    | id DOT '*' {
       $$ = new FieldExprSqlNode;
       $$->table_name  = $1;
       $$->field_name = "*";
@@ -930,14 +933,14 @@ rel_attr:
 
 rel_list:
     /* empty */
-    ID as_info {
+    id as_info {
       $$ = new JoinSqlNode;
       $$->relation = $1;
       $$->alias = $2;
       if(*$2) free($2);
       free($1);
     }
-    | rel_list COMMA ID as_info {
+    | rel_list COMMA id as_info {
       $$ = new JoinSqlNode;
       $$->relation = $3;
       free($3);
@@ -1048,7 +1051,7 @@ func_op:
     | DATE_FORMAT { $$ = FunctionType::DATE_FORMAT; }
 
 load_data_stmt:
-    LOAD DATA INFILE SSS INTO TABLE ID 
+    LOAD DATA INFILE SSS INTO TABLE id 
     {
       char *tmp_file_name = common::substr($4, 1, strlen($4) - 2);
       
@@ -1072,7 +1075,7 @@ explain_stmt:
     ;
 
 set_variable_stmt:
-    SET ID EQ value
+    SET id EQ value
     {
       $$ = new ParsedSqlNode(SCF_SET_VARIABLE);
       auto *set_variable = new SetVariableSqlNode;
@@ -1087,6 +1090,41 @@ set_variable_stmt:
 opt_semicolon: /*empty*/
     | SEMICOLON
     ;
+
+id:
+    non_reserve {
+      $$ = $1;
+    }
+    | ID {
+      $$ = $1;
+    }
+
+non_reserve:
+    TABLES {
+      $$ = strdup("tables");
+    }
+    | HELP {
+      $$ = strdup("help");
+    }
+    | DATA {
+      $$ = strdup("data");
+    }
+    | MIN {
+      $$ = strdup("min");
+    }
+    | MAX {
+      $$ = strdup("max");
+    }
+    | AVG {
+      $$ = strdup("avg");
+    }
+    | SUM {
+      $$ = strdup("sum");
+    }
+    | COUNT {
+      $$ = strdup("count");
+    }
+
 %%
 //_____________________________________________________________________
 extern void scan_string(const char *str, yyscan_t scanner);
