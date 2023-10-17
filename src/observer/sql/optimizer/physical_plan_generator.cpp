@@ -26,6 +26,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/cached_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
+#include "sql/operator/create_table_logical_operator.h"
+#include "sql/operator/create_table_physical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/delete_physical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
@@ -106,6 +108,9 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
   } break;
   case LogicalOperatorType::CACHED: {
     return create_plan(static_cast<CachedLogicalOperator &>(logical_operator), oper);
+  } break;
+  case LogicalOperatorType::CREATE_TABLE: {
+    return create_plan(static_cast<CreateTableLogicalOperator &>(logical_operator), oper);
   } break;
 
   default: {
@@ -434,5 +439,24 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &logical_oper, std::
       return rc;
     op->add_child(std::move(cop));
   }
+  return RC::SUCCESS;
+}
+
+RC PhysicalPlanGenerator::create_plan(CreateTableLogicalOperator &logical_oper,
+                                      std::unique_ptr<PhysicalOperator> &oper) {
+  CreateTablePhysicalOperator *op = new CreateTablePhysicalOperator;
+  oper.reset(op);
+  for (auto &child : logical_oper.children()) {
+    std::unique_ptr<PhysicalOperator> cop;
+    RC rc = create(*child, cop);
+    if (rc != RC::SUCCESS)
+      return rc;
+    op->add_child(std::move(cop));
+  }
+  op->db_ = logical_oper.db_;
+  op->schema_ = logical_oper.schema_;
+  op->table_name_ = logical_oper.table_name_;
+  op->attr_infos_ = logical_oper.attr_infos_;
+  op->types_ = logical_oper.types_;
   return RC::SUCCESS;
 }

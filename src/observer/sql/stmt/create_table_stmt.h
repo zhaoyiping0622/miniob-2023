@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
+#include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 
 class Db;
@@ -36,10 +37,16 @@ public:
 
   const std::string &table_name() const { return table_name_; }
   const std::vector<AttrInfoSqlNode> &attr_infos() const { return attr_infos_; }
+  const std::unique_ptr<SelectStmt> &select_stmt() const { return select_stmt_; }
 
   static RC create(Db *db, const CreateTableSqlNode &create_table, Stmt *&stmt);
+
+  friend class LogicalPlanGenerator;
 
 private:
   std::string table_name_;
   std::vector<AttrInfoSqlNode> attr_infos_;
+
+  Db *db_;
+  std::unique_ptr<SelectStmt> select_stmt_;
 };

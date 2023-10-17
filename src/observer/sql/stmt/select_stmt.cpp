@@ -224,11 +224,17 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       table_alias[x.second->name()] = x.first;
   }
 
+  std::vector<FieldType> types;
+
   auto append_cell = [&](Expression *expression, std::string alias = "") {
+    FieldType type;
+    type.type = expression->value_type();
     if (alias.size()) {
       schema->append_cell(alias.c_str());
     } else if (expression->type() == ExprType::FIELD) {
       Field &field = static_cast<FieldExpr *>(expression)->field();
+      type.length = field.meta()->len();
+      type.nullable = field.meta()->nullable();
       if (father_tables == nullptr && tables.size() == 1) {
         schema->append_cell(TupleCellSpec(field.table_name(), field.field_name(), field.field_name()));
       } else {
@@ -242,6 +248,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
     } else {
       schema->append_cell(expression->name().c_str());
     }
+    types.push_back(type);
   };
 
   for (int i = 0; i < expressions.size(); i++) {
@@ -358,7 +365,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->current_tables_.swap(current_tables);
   if (father_tables)
     select_stmt->father_tables_ = *father_tables;
-  select_stmt->schema_.swap(schema);
+  select_stmt->schema_ = schema;
 
   select_stmt->sub_queries_.swap(sub_queries);
 
@@ -370,6 +377,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->orderby_stmt_.swap(orderby);
 
   select_stmt->use_father_ = !father_fields.empty();
+
+  select_stmt->types_ = types;
 
   stmt = select_stmt;
   return RC::SUCCESS;

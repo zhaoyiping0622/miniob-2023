@@ -184,6 +184,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <rel_attr_list>       rel_attr_list
 %type <rel_attr_list>       groupby
 %type <attr_infos>          attr_def_list
+%type <attr_infos>          attr_list
 %type <attr_info>           attr_def
 %type <expression_list>     record
 %type <record_list>         record_list
@@ -219,6 +220,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <string>              as_info
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
+%type <sql_node>            as_select
 %type <sql_node>            insert_stmt
 %type <sql_node>            update_stmt
 %type <sql_node>            delete_stmt
@@ -401,24 +403,42 @@ drop_index_stmt:      /*drop index 语句的语法解析树*/
     ;
 
 create_table_stmt:    /*create table 语句的语法解析树*/
-    CREATE TABLE ID LBRACE attr_def attr_def_list RBRACE
+    CREATE TABLE ID attr_list as_select
     {
       $$ = new ParsedSqlNode(SCF_CREATE_TABLE);
       CreateTableSqlNode *create_table = new CreateTableSqlNode;
       $$->node.create_table = create_table;
       create_table->relation_name = $3;
       free($3);
-
-      std::vector<AttrInfoSqlNode> *src_attrs = $6;
-
-      if (src_attrs != nullptr) {
-        create_table->attr_infos.swap(*src_attrs);
+      if($4 != nullptr) {
+        create_table->attr_infos.swap(*$4);
+        delete $4;
       }
-      create_table->attr_infos.emplace_back(*$5);
-      std::reverse(create_table->attr_infos.begin(), create_table->attr_infos.end());
-      delete $5;
+      create_table->select = $5;
     }
     ;
+
+attr_list:
+    {
+      $$ = nullptr;
+    }
+    | LBRACE attr_def attr_def_list RBRACE {
+      if ($3 == nullptr) {
+        $$ = new std::vector<AttrInfoSqlNode>;
+      } else {
+        $$ = $3;
+      }
+      $$->emplace_back(*$2);
+      std::reverse($$->begin(), $$->end());
+    }
+
+as_select:
+    {
+      $$ = nullptr;
+    }
+    | AS select_stmt {
+      $$ = $2;
+    }
 
 attr_def_list:
     /* empty */

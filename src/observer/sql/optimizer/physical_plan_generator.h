@@ -33,6 +33,7 @@ class AggregateLogicalOperator;
 class SortLogicalOperator;
 class SubQueryLogicalOperator;
 class CachedLogicalOperator;
+class CreateTableLogicalOperator;
 
 /**
  * @brief 物理计划生成器
@@ -61,4 +62,5 @@ private:
   RC create_plan(SubQueryLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper);
   RC create_plan(CachedLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper);
   RC create_plan(UpdateLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper);
+  RC create_plan(CreateTableLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper);
 };

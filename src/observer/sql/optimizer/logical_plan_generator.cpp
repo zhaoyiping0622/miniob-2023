@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/aggregate_logical_operator.h"
 #include "sql/operator/cached_logical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
+#include "sql/operator/create_table_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
 #include "sql/operator/insert_logical_operator.h"
@@ -33,6 +34,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/update_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
+#include "sql/stmt/create_table_stmt.h"
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/explain_stmt.h"
 #include "sql/stmt/filter_stmt.h"
@@ -77,6 +79,10 @@ RC LogicalPlanGenerator::create(Stmt *stmt, unique_ptr<LogicalOperator> &logical
   case StmtType::EXPLAIN: {
     ExplainStmt *explain_stmt = static_cast<ExplainStmt *>(stmt);
     rc = create_plan(explain_stmt, logical_operator);
+  } break;
+  case StmtType::CREATE_TABLE: {
+    CreateTableStmt *create_table_stmt = static_cast<CreateTableStmt *>(stmt);
+    rc = create_plan(create_table_stmt, logical_operator);
   } break;
   default: {
     rc = RC::UNIMPLENMENT;
@@ -300,5 +306,25 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<Lo
   }
   logical_operator.reset(new UpdateLogicalOperator(table, update_stmt->units()));
   logical_operator->add_child(std::move(table_get_oper));
+  return rc;
+}
+RC LogicalPlanGenerator::create_plan(CreateTableStmt *create_table_stmt,
+                                     std::unique_ptr<LogicalOperator> &logical_operator) {
+  RC rc = RC::SUCCESS;
+  auto &select_stmt = create_table_stmt->select_stmt();
+  CreateTableLogicalOperator *oper = new CreateTableLogicalOperator;
+  std::unique_ptr<LogicalOperator> select_oper;
+  if (select_stmt != nullptr) {
+    oper->schema_ = select_stmt->schema();
+    oper->types_ = select_stmt->types();
+    rc = create(select_stmt.get(), select_oper);
+    if (rc != RC::SUCCESS)
+      return rc;
+    oper->add_child(std::move(select_oper));
+  }
+  oper->table_name_ = create_table_stmt->table_name();
+  oper->attr_infos_ = create_table_stmt->attr_infos();
+  oper->db_ = create_table_stmt->db_;
+  logical_operator.reset(oper);
   return rc;
 }

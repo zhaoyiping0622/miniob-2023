@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/value.h"
 
 class Expression;
+struct ParsedSqlNode;
 
 /**
  * @brief 表达式类型
@@ -441,6 +442,7 @@ struct AttrInfoSqlNode {
 struct CreateTableSqlNode {
   std::string relation_name;               ///< Relation name
   std::vector<AttrInfoSqlNode> attr_infos; ///< attributes
+  ParsedSqlNode *select = nullptr;
 };
 
 /**

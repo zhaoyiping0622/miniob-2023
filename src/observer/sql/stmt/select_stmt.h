@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/parser/value.h"
 #include "sql/stmt/aggregation_stmt.h"
 #include "sql/stmt/join_stmt.h"
 #include "sql/stmt/orderby_stmt.h"
@@ -31,6 +32,12 @@ class FieldMeta;
 class FilterStmt;
 class Db;
 class Table;
+
+struct FieldType {
+  AttrType type;
+  int length = 0;
+  bool nullable = false;
+};
 
 /**
  * @brief 表示select语句
@@ -57,10 +64,11 @@ public:
   std::unique_ptr<FilterStmt> &having_stmt() { return having_stmt_; }
   std::unique_ptr<OrderByStmt> &orderby_stmt() { return orderby_stmt_; }
   std::unique_ptr<JoinStmt> &join_stmt() { return join_stmt_; }
-  const std::shared_ptr<TupleSchema> &schema() const { return schema_; }
+  std::shared_ptr<TupleSchema> schema() { return schema_; }
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
   std::vector<std::unique_ptr<SubQueryStmt>> &sub_queries() { return sub_queries_; }
   bool use_father() const { return use_father_; }
+  const std::vector<FieldType> &types() const { return types_; }
 
 private:
   std::unique_ptr<JoinStmt> join_stmt_;
@@ -81,5 +89,9 @@ private:
 
   std::unique_ptr<OrderByStmt> orderby_stmt_; // 排序
 
+  std::vector<FieldType> types_;
+
   bool use_father_ = false;
 };
+
+std::vector<AttrInfoSqlNode> get_result_descriptions(SelectStmt *select);
