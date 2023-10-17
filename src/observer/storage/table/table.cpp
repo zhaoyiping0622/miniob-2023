@@ -305,6 +305,12 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
     }
+    // 对于超过长度的字符串报错
+    if (field->type() == CHARS) {
+      if (value.length() > field->len()) {
+        return RC::INVALID_ARGUMENT;
+      }
+    }
   }
 
   // 复制所有字段的值
