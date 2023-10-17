@@ -439,6 +439,9 @@ as_select:
     | AS select_stmt {
       $$ = $2;
     }
+    | select_stmt {
+      $$ = $1;
+    }
 
 attr_def_list:
     /* empty */
