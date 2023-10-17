@@ -105,12 +105,13 @@ private:
 
 class AvgAggregator : public Aggregator {
 public:
-  AvgAggregator(Value init_value) : now_(init_value), count_(!init_value.is_null()) {}
+  AvgAggregator(Value init_value)
+      : now_(init_value.is_null() ? 0 : init_value.get_float()), count_(!init_value.is_null()) {}
   AggregationType type() const override { return AggregationType::AGGR_AVG; }
   RC add_value(Value value) override;
   Value get_value() const override;
 
 private:
-  Value now_;
+  double now_ = 0;
   int count_;
 };
