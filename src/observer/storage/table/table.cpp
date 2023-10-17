@@ -633,7 +633,6 @@ RC Table::init_text_buffer_pool(const char *base_dir) {
   return rc;
 }
 
-// TODO(zhaoyiping): 这里要改
 RC Table::get_text(int offset, Value &value) {
   std::string tmp;
   int page_num = offset / BP_PAGE_SIZE;
@@ -651,13 +650,15 @@ RC Table::get_text(int offset, Value &value) {
       }
     }
     frame->unpin();
+    if (end)
+      break;
   }
   value.set_text(tmp.c_str());
   return RC::SUCCESS;
 }
 
 RC Table::add_text(const char *data, int &offset) {
-  int len = std::min(TEXT_SIZE, (int)strlen(data));
+  int len = std::min(TEXT_SIZE, (int)strlen(data) + 1);
   int num = (len - 1) / BP_PAGE_SIZE + 1;
 
   int ret = -1;
@@ -677,5 +678,6 @@ RC Table::add_text(const char *data, int &offset) {
     frame->mark_dirty();
     frame->unpin();
   }
+  offset = ret;
   return RC::SUCCESS;
 }
