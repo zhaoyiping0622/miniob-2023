@@ -123,7 +123,6 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         EXISTS
         LIKE
         NULL_V
-        NULLABLE
         IS
         AS
 
@@ -466,7 +465,7 @@ null_def:
     | NOT NULL_V {
       $$ = false;
     }
-    | NULLABLE {
+    | NULL_V {
       $$ = true;
     }
 
