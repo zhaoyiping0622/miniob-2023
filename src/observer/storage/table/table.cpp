@@ -630,48 +630,52 @@ RC Table::init_text_buffer_pool(const char *base_dir) {
     return rc;
   }
 
-  text_num_ = text_buffer_pool_->page_num() * BP_PAGE_SIZE;
   return rc;
 }
 
+// TODO(zhaoyiping): 这里要改
 RC Table::get_text(int offset, Value &value) {
+  std::string tmp;
   int page_num = offset / BP_PAGE_SIZE;
-  int idx = offset % BP_PAGE_SIZE;
-  Frame *frame = nullptr;
-  RC rc = text_buffer_pool_->get_this_page(page_num, &frame);
-  if (rc != RC::SUCCESS)
-    return rc;
-  value.set_text(frame->data() + idx);
-  frame->unpin();
+  for (int i = 0; i < TEXT_SIZE / BP_PAGE_SIZE; i++) {
+    Frame *frame = nullptr;
+    RC rc = text_buffer_pool_->get_this_page(page_num + i, &frame);
+    if (rc != RC::SUCCESS)
+      return rc;
+    bool end = false;
+    for (int j = 0; j < BP_PAGE_SIZE && !end; j++) {
+      if (frame->data()[j] == 0) {
+        end = true;
+      } else {
+        tmp += frame->data()[j];
+      }
+    }
+    frame->unpin();
+  }
+  value.set_text(tmp.c_str());
   return RC::SUCCESS;
 }
 
 RC Table::add_text(const char *data, int &offset) {
-  int page_num = text_num_ / BP_PAGE_SIZE;
-  int page_of = text_num_ % BP_PAGE_SIZE;
-  Frame *frame = nullptr;
+  int len = std::min(TEXT_SIZE, (int)strlen(data));
+  int num = (len - 1) / BP_PAGE_SIZE + 1;
+
+  int ret = -1;
+
   RC rc = RC::SUCCESS;
-  if (page_num == text_buffer_pool_->page_num()) {
+
+  for (int i = 0; i < num; i++) {
+    Frame *frame = nullptr;
     rc = text_buffer_pool_->allocate_page(&frame);
-    if (rc != RC::SUCCESS) {
+    if (rc != RC::SUCCESS)
       return rc;
+    if (ret == -1) {
+      ret = frame->page_num() * BP_PAGE_SIZE;
     }
-    if (frame->page_num() != page_num) {
-      LOG_ERROR("failed to alloc new page");
-      frame->unpin();
-      return rc;
-    }
-  } else {
-    rc = text_buffer_pool_->get_this_page(page_num, &frame);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
+    frame->clear_page();
+    strncpy(frame->data(), data + i * BP_PAGE_SIZE, BP_PAGE_SIZE);
+    frame->mark_dirty();
+    frame->unpin();
   }
-  memset(frame->data() + page_of, 0, TEXT_SIZE);
-  strncpy(frame->data() + page_of, data, TEXT_SIZE);
-  frame->mark_dirty();
-  offset = text_num_;
-  text_num_ += TEXT_SIZE;
-  frame->unpin();
   return RC::SUCCESS;
 }

@@ -111,7 +111,6 @@ public:
 
 private:
   DiskBufferPool *text_buffer_pool_ = nullptr; /// text文件关联的buffer pool
-  int text_num_ = 0;                           ///
   RC init_text_buffer_pool(const char *base_dir);
 
 public:

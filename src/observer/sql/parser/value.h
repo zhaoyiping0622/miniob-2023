@@ -23,7 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
-const int TEXT_SIZE = 4096;
+const int TEXT_SIZE = 65536;
 
 const int INVALID_COMPARE = std::numeric_limits<int>::min();
 /**
