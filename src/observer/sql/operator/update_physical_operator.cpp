@@ -128,7 +128,14 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
       }
     }
     int offset = meta->offset();
-    memcpy(v.data() + offset, value.data(), attr_type_to_size(meta->type()));
+    if (meta->type() != CHARS) {
+      memcpy(v.data() + offset, value.data(), attr_type_to_size(meta->type()));
+    } else {
+      if (value.length() > meta->len()) {
+        return RC::INVALID_ARGUMENT;
+      }
+      memcpy(v.data() + offset, value.data(), value.length());
+    }
     if (value.is_null()) {
       null_value |= 1 << meta->index();
     } else {
