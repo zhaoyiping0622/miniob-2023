@@ -3,6 +3,7 @@
 #include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/parser/value.h"
 #include <utility>
 
 RC CreateTablePhysicalOperator::open(Trx *trx) {
@@ -66,6 +67,9 @@ RC CreateTablePhysicalOperator::open(Trx *trx) {
                                             .name = name,
                                             .length = static_cast<size_t>(types_[i].length),
                                             .nullable = types_[i].nullable});
+    }
+    if (attr_infos_[i].length == 0) {
+      attr_infos_[i].length = attr_type_to_size(attr_infos_[i].type);
     }
   }
   rc = db_->create_table(table_name_.c_str(), attr_infos_.size(), attr_infos_.data());
