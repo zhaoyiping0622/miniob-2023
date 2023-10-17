@@ -54,7 +54,9 @@ static std::string trans(char c, struct tm &tm) {
   case 'D': {
     int t = tm.tm_mday;
     std::string ret;
-    if (t % 10 == 1) {
+    if (t / 10 == 1) {
+      ret = "th";
+    } else if (t % 10 == 1) {
       ret = "st";
     } else if (t % 10 == 2) {
       ret = "nd";
