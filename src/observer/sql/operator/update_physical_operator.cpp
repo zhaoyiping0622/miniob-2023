@@ -135,6 +135,7 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
         return RC::INVALID_ARGUMENT;
       }
       memcpy(v.data() + offset, value.data(), value.length());
+      memset(v.data() + offset + value.length(), 0, meta->len() - value.length());
     }
     if (value.is_null()) {
       null_value |= 1 << meta->index();
