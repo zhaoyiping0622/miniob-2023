@@ -132,6 +132,7 @@ ParsedSqlNode::~ParsedSqlNode() {
   case SCF_UPDATE: delete node.update; break;
   case SCF_DELETE: delete node.deletion; break;
   case SCF_CREATE_TABLE: delete node.create_table; break;
+  case SCF_CREATE_VIEW: delete node.create_view; break;
   case SCF_DROP_TABLE: delete node.drop_table; break;
   case SCF_CREATE_INDEX: delete node.create_index; break;
   case SCF_DROP_INDEX: delete node.drop_index; break;
@@ -150,4 +151,14 @@ int sql_parse(const char *st, ParsedSqlResult *sql_result);
 RC parse(const char *st, ParsedSqlResult *sql_result) {
   sql_parse(st, sql_result);
   return RC::SUCCESS;
+}
+
+CreateTableSqlNode::~CreateTableSqlNode() {
+  if (select)
+    delete select;
+}
+
+CreateViewSqlNode::~CreateViewSqlNode() {
+  if (select)
+    delete select;
 }

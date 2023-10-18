@@ -344,6 +344,7 @@ struct SelectSqlNode {
   JoinSqlNode *tables = nullptr;                       ///< 查询的表，以及join条件
   ConjunctionExprSqlNode *conditions = nullptr;        ///< 查询条件，使用AND串联起来多个条件
   ConjunctionExprSqlNode *having_conditions = nullptr; ///< having查询条件
+  std::string sql;
   ~SelectSqlNode() {
     for (auto *x : attributes)
       delete x;
@@ -443,6 +444,14 @@ struct CreateTableSqlNode {
   std::string relation_name;               ///< Relation name
   std::vector<AttrInfoSqlNode> attr_infos; ///< attributes
   ParsedSqlNode *select = nullptr;
+  ~CreateTableSqlNode();
+};
+
+struct CreateViewSqlNode {
+  std::string view_name; ///< Relation name
+  ParsedSqlNode *select = nullptr;
+  std::string select_sql;
+  ~CreateViewSqlNode();
 };
 
 /**
@@ -544,6 +553,7 @@ enum SqlCommandFlag {
   SCF_UPDATE,
   SCF_DELETE,
   SCF_CREATE_TABLE,
+  SCF_CREATE_VIEW,
   SCF_DROP_TABLE,
   SCF_CREATE_INDEX,
   SCF_DROP_INDEX,
@@ -576,6 +586,7 @@ public:
     DeleteSqlNode *deletion;
     UpdateSqlNode *update;
     CreateTableSqlNode *create_table;
+    CreateViewSqlNode *create_view;
     DropTableSqlNode *drop_table;
     CreateIndexSqlNode *create_index;
     DropIndexSqlNode *drop_index;

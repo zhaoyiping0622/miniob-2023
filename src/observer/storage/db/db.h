@@ -22,9 +22,11 @@ See the Mulan PSL v2 for more details. */
 #include "common/rc.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/trx/trx.h"
+#include "storage/view/view.h"
 
 class Table;
 class CLogManager;
+class SelectStmt;
 
 /**
  * @brief 一个DB实例负责管理一批表
@@ -50,6 +52,9 @@ public:
 
   Table *find_table(const char *table_name) const;
   Table *find_table(int32_t table_id) const;
+
+  RC create_view(const char *view_name, const char *sql, SelectStmt *select);
+  View *find_view(const char *view_name) const;
 
   const char *name() const;
 

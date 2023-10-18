@@ -36,6 +36,7 @@ class Db;
   DEFINE_ENUM_ITEM(UPDATE)                                                                                             \
   DEFINE_ENUM_ITEM(DELETE)                                                                                             \
   DEFINE_ENUM_ITEM(CREATE_TABLE)                                                                                       \
+  DEFINE_ENUM_ITEM(CREATE_VIEW)                                                                                        \
   DEFINE_ENUM_ITEM(DROP_TABLE)                                                                                         \
   DEFINE_ENUM_ITEM(CREATE_INDEX)                                                                                       \
   DEFINE_ENUM_ITEM(DROP_INDEX)                                                                                         \

@@ -125,6 +125,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         NULL_V
         IS
         AS
+        VIEW
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -225,6 +226,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <sql_node>            update_stmt
 %type <sql_node>            delete_stmt
 %type <sql_node>            create_table_stmt
+%type <sql_node>            create_view_stmt
 %type <sql_node>            drop_table_stmt
 %type <sql_node>            show_tables_stmt
 %type <sql_node>            show_index_stmt
@@ -268,6 +270,7 @@ command_wrapper:
   | update_stmt
   | delete_stmt
   | create_table_stmt
+  | create_view_stmt
   | drop_table_stmt
   | show_tables_stmt
   | show_index_stmt
@@ -420,6 +423,17 @@ create_table_stmt:    /*create table 语句的语法解析树*/
       create_table->select = $5;
     }
     ;
+
+create_view_stmt:
+    CREATE VIEW ID AS select_stmt
+    {
+      $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
+      CreateViewSqlNode *create_view = new CreateViewSqlNode;
+      create_view.view_name = $3;
+      free($3);
+      create_select.view_name = $5;
+      create_select.select_sql = $5->sql;
+    }
 
 attr_list:
     {
@@ -646,6 +660,7 @@ select_stmt:        /*  select 语句的语法解析树*/
 
       selection->conditions = $4;
       selection->having_conditions=$6;
+      selection->sql = token_name(sql_string, &@$);
     }
     ;
 
