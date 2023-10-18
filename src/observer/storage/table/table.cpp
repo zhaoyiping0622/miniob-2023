@@ -658,7 +658,10 @@ RC Table::get_text(int offset, Value &value) {
 }
 
 RC Table::add_text(const char *data, int &offset) {
-  int len = std::min(TEXT_SIZE, (int)strlen(data) + 1);
+  int len = strlen(data) + 1;
+  if (len > TEXT_SIZE) {
+    return RC::INVALID_ARGUMENT;
+  }
   int num = (len - 1) / BP_PAGE_SIZE + 1;
 
   int ret = -1;
