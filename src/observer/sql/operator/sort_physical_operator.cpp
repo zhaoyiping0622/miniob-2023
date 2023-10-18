@@ -43,8 +43,12 @@ RC SortPhysicalOperator::init(Tuple *env_tuple) {
   // sort
   std::sort(values_.begin(), values_.end(), [&](pair<Record, Record> &a, pair<Record, Record> &b) {
     for (int i = 0; i < orders_.size(); i++) {
+      if (a.first[i].is_null() && b.first[i].is_null())
+        continue;
       if (b.first[i].is_null())
         return false;
+      if (a.first[i].is_null())
+        return true;
       auto cmp = (a.first[i] <=> b.first[i]);
       if (cmp == strong_ordering::equal)
         continue;
