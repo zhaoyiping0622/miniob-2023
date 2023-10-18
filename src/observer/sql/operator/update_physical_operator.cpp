@@ -1,6 +1,7 @@
 #include "sql/operator/update_physical_operator.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "event/sql_debug.h"
 #include "sql/expr/tuple.h"
 #include "sql/parser/value.h"
 #include <cstring>
@@ -16,13 +17,16 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     Record *record;
     Tuple *tuple = children_[0]->current_tuple();
     rc = tuple->get_record(table_, record);
-    if (rc != RC::SUCCESS)
+    if (rc != RC::SUCCESS) {
+      sql_debug("UpdatePhysicalOperator: 21");
       return rc;
+    }
     vector<char> r(table_->table_meta().record_size());
     memcpy(r.data(), record->data(), r.size());
     rc = trx->delete_record(table_, *record);
     if (rc != RC::SUCCESS) {
       rollback();
+      sql_debug("UpdatePhysicalOperator: 29");
       return rc;
     }
     deleted_records_.push_back(r);
@@ -31,6 +35,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       Value value;
       rc = unit.value->get_value(*tuple, value);
       if (rc != RC::SUCCESS) {
+        sql_debug("UpdatePhysicalOperator: 38");
         rollback();
         return rc;
       }
@@ -40,12 +45,14 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   }
   children_[0]->close();
   if (rc != RC::RECORD_EOF) {
+    sql_debug("UpdatePhysicalOperator: 48");
     return rc;
   }
   for (int i = 0; i < deleted_records_.size(); i++) {
     RID rid;
     rc = update(deleted_records_[i], value_list[i], rid);
     if (rc != RC::SUCCESS) {
+      sql_debug("UpdatePhysicalOperator: 55");
       rollback();
       return rc;
     }
