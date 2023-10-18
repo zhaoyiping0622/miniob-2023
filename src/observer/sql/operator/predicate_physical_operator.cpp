@@ -37,7 +37,8 @@ RC PredicatePhysicalOperator::next(Tuple *env_tuple) {
 
   filter_tuple_.set_right(env_tuple);
 
-  while (RC::SUCCESS == (rc = oper->next(env_tuple))) {
+  while (RC::SUCCESS == (rc = oper->next(env_tuple)) || rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
+    RC pre_rc = rc;
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
@@ -54,7 +55,7 @@ RC PredicatePhysicalOperator::next(Tuple *env_tuple) {
     }
 
     if (value.get_boolean()) {
-      return rc;
+      return pre_rc;
     }
   }
   return rc;
