@@ -130,11 +130,7 @@ RC MvccTrx::insert_record(Table *table, Record &record) {
   ASSERT(rc == RC::SUCCESS, "failed to append insert record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
          trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
 
-  pair<OperationSet::iterator, bool> ret = operations_.insert(Operation(Operation::Type::INSERT, table, record.rid()));
-  if (!ret.second) {
-    rc = RC::INTERNAL;
-    LOG_WARN("failed to insert operation(insertion) into operation set: duplicate");
-  }
+  insert_operation(Operation(Operation::Type::INSERT, table, record.rid()));
   return rc;
 }
 
@@ -158,9 +154,17 @@ RC MvccTrx::delete_record(Table *table, Record &record) {
   ASSERT(rc == RC::SUCCESS, "failed to append delete record log. trx id=%d, table id=%d, rid=%s, record len=%d, rc=%s",
          trx_id_, table->table_id(), record.rid().to_string().c_str(), record.len(), strrc(rc));
 
-  operations_.insert(Operation(Operation::Type::DELETE, table, record.rid()));
-
+  insert_operation(Operation(Operation::Type::DELETE, table, record.rid()));
   return RC::SUCCESS;
+}
+
+void MvccTrx::insert_operation(Operation op) {
+  auto it = operations_.find(op);
+  if (it != operations_.end()) {
+    operations_.erase(it);
+  } else {
+    operations_.insert(op);
+  }
 }
 
 RC MvccTrx::visit_record(Table *table, Record &record, bool readonly) {
@@ -178,6 +182,9 @@ RC MvccTrx::visit_record(Table *table, Record &record, bool readonly) {
     } else {
       rc = RC::RECORD_INVISIBLE;
     }
+  } else if (end_xid < 0 && begin_xid < 0) {
+    // 插入没有提交，删除也没有提交
+    rc = RC::RECORD_INVISIBLE;
   } else if (begin_xid < 0) {
     // begin xid 小于0说明是刚插入而且没有提交的数据
     rc = (-begin_xid == trx_id_) ? RC::SUCCESS : RC::RECORD_INVISIBLE;
@@ -392,7 +399,7 @@ RC MvccTrx::redo(Db *db, const CLogRecord &log_record) {
                log_record.to_string().c_str(), strrc(rc));
       return rc;
     }
-    operations_.insert(Operation(Operation::Type::INSERT, table, record.rid()));
+    insert_operation(Operation(Operation::Type::INSERT, table, record.rid()));
   } break;
 
   case CLogType::DELETE: {
@@ -413,7 +420,7 @@ RC MvccTrx::redo(Db *db, const CLogRecord &log_record) {
     ASSERT(rc == RC::SUCCESS, "failed to get record while committing. rid=%s, rc=%s",
            data_record.rid_.to_string().c_str(), strrc(rc));
 
-    operations_.insert(Operation(Operation::Type::DELETE, table, data_record.rid_));
+    insert_operation(Operation(Operation::Type::DELETE, table, data_record.rid_));
   } break;
 
   case CLogType::MTR_COMMIT: {

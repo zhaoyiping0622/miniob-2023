@@ -95,6 +95,9 @@ private:
   static const int32_t MAX_TRX_ID = std::numeric_limits<int32_t>::max();
 
 private:
+  void insert_operation(Operation op);
+
+private:
   using OperationSet = std::unordered_set<Operation, OperationHasher, OperationEqualer>;
   MvccTrxKit &trx_kit_;
   CLogManager *log_manager_ = nullptr;
