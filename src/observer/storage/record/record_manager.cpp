@@ -500,9 +500,14 @@ RC RecordFileScanner::open_scan(Table *table, DiskBufferPool &buffer_pool, Trx *
  */
 RC RecordFileScanner::fetch_next_record() {
   RC rc = RC::SUCCESS;
+  concurrency_locked_ = false;
   if (record_page_iterator_.is_valid()) {
     // 当前页面还是有效的，尝试看一下是否有有效记录
     rc = fetch_next_record_in_page();
+    if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
+      concurrency_locked_ = true;
+      rc = RC::SUCCESS;
+    }
     if (rc == RC::SUCCESS || rc != RC::RECORD_EOF) {
       // 有有效记录：RC::SUCCESS
       // 或者出现了错误，rc != (RC::SUCCESS or RC::RECORD_EOF)
@@ -523,6 +528,10 @@ RC RecordFileScanner::fetch_next_record() {
 
     record_page_iterator_.init(record_page_handler_);
     rc = fetch_next_record_in_page();
+    if (rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
+      concurrency_locked_ = true;
+      rc = RC::SUCCESS;
+    }
     if (rc == RC::SUCCESS || rc != RC::RECORD_EOF) {
       // 有有效记录：RC::SUCCESS
       // 或者出现了错误，rc != (RC::SUCCESS or RC::RECORD_EOF)
@@ -581,8 +590,11 @@ RC RecordFileScanner::close_scan() {
 
 bool RecordFileScanner::has_next() { return next_record_.rid().slot_num != -1; }
 
-RC RecordFileScanner::next(Record &record) {
+RC RecordFileScanner::next(Record &record, bool *locked_) {
   record = next_record_;
+  if (locked_) {
+    *locked_ = concurrency_locked_;
+  }
 
   RC rc = fetch_next_record();
   if (rc == RC::RECORD_EOF) {

@@ -351,7 +351,7 @@ public:
    * 
    * @details 获取下一条记录之前先调用has_next()判断是否还有数据
    */
-  RC next(Record &record);
+  RC next(Record &record, bool *locked_ = nullptr);
 
 private:
   /**
@@ -375,4 +375,5 @@ private:
   RecordPageHandler record_page_handler_;   ///< 处理文件某页面的记录
   RecordPageIterator record_page_iterator_; ///< 遍历某个页面上的所有record
   Record next_record_;                      ///< 获取的记录放在这里缓存起来
+  bool concurrency_locked_ = false;
 };

@@ -20,23 +20,16 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 RC TableScanPhysicalOperator::open(Trx *trx) {
-  tuple_.set_schema(table_, table_->table_meta().field_metas());
+  RC rc = table_->get_record_scanner(record_scanner_, trx, readonly_);
+  if (rc == RC::SUCCESS) {
+    tuple_.set_schema(table_, table_->table_meta().field_metas());
+  }
   trx_ = trx;
-  opened_ = false;
-  return RC::SUCCESS;
+  return rc;
 }
 
 RC TableScanPhysicalOperator::next(Tuple *env_tuple) {
   RC rc = RC::SUCCESS;
-  if (!opened_) {
-    rc = table_->get_record_scanner(record_scanner_, trx_, readonly_);
-    if (rc != RC::SUCCESS && rc != RC::LOCKED_CONCURRENCY_CONFLICT) {
-      if (!record_scanner_.has_next()) {
-        return RC::RECORD_EOF;
-      }
-    }
-    opened_ = true;
-  }
 
   if (!record_scanner_.has_next()) {
     return RC::RECORD_EOF;
@@ -44,11 +37,11 @@ RC TableScanPhysicalOperator::next(Tuple *env_tuple) {
 
   bool filter_result = false;
   while (record_scanner_.has_next()) {
-    rc = record_scanner_.next(current_record_);
-    if (rc != RC::SUCCESS && rc != RC::LOCKED_CONCURRENCY_CONFLICT) {
+    bool locked_ = false;
+    rc = record_scanner_.next(current_record_, &locked_);
+    if (rc != RC::SUCCESS) {
       return rc;
     }
-    RC pre_rc = rc;
 
     tuple_.set_record(&current_record_);
     rc = filter(tuple_, filter_result);
@@ -58,10 +51,10 @@ RC TableScanPhysicalOperator::next(Tuple *env_tuple) {
 
     if (filter_result) {
       sql_debug("get a tuple: %s", tuple_.to_string().c_str());
-      break;
-    } else if (pre_rc == RC::LOCKED_CONCURRENCY_CONFLICT) {
-      sql_debug("get a locked tuple: %s", tuple_.to_string().c_str());
-      rc = pre_rc;
+      if (locked_) {
+        sql_debug("get a locked tuple: %s", tuple_.to_string().c_str());
+        rc = RC::LOCKED_CONCURRENCY_CONFLICT;
+      }
       break;
     } else {
       sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
