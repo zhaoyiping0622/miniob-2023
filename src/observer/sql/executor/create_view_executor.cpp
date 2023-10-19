@@ -9,4 +9,6 @@ RC CreateViewExecutor::execute(SQLStageEvent *sql_event) {
   ASSERT(stmt->type() == StmtType::CREATE_VIEW, "create view executor can not run this command: %d",
          static_cast<int>(stmt->type()));
   auto *create_view_stmt = static_cast<CreateViewStmt *>(stmt);
+  return session->get_current_db()->create_view(create_view_stmt->view_name().c_str(), create_view_stmt->sql().c_str(),
+                                                create_view_stmt->select_stmt().release());
 }

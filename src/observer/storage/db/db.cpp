@@ -22,12 +22,14 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/os/path.h"
+#include "common/rc.h"
 #include "storage/clog/clog.h"
 #include "storage/common/meta_util.h"
 #include "storage/field/field.h"
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
+#include "storage/view/view.h"
 
 Db::~Db() {
   for (auto &iter : opened_tables_) {
@@ -65,6 +67,12 @@ RC Db::init(const char *name, const char *dbpath) {
   rc = open_all_tables();
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to open all tables. dbpath=%s, rc=%s", dbpath, strrc(rc));
+    return rc;
+  }
+
+  rc = open_all_views();
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to open all views. dbpath=%s, rc=%s", dbpath, strrc(rc));
     return rc;
   }
 
@@ -185,6 +193,44 @@ RC Db::open_all_tables() {
   return rc;
 }
 
+RC Db::open_all_views() {
+  std::vector<std::string> view_meta_files;
+  int ret = common::list_file(path_.c_str(), VIEW_META_FILE_PATTERN, view_meta_files);
+  if (ret < 0) {
+    LOG_ERROR("Failed to list view meta files under %s.", path_.c_str());
+    return RC::IOERR_READ;
+  }
+
+  RC rc = RC::SUCCESS;
+  // 首先把所有view都找到，不要parse sql
+  for (const std::string &filename : view_meta_files) {
+    View *view = new View;
+    rc = view->open_without_parse(filename.c_str());
+    if (rc != RC::SUCCESS) {
+      delete view;
+      LOG_ERROR("Failed to open view. filename=%s", filename.c_str());
+      return rc;
+    }
+    if (opened_views_.count(view->name())) {
+      delete view;
+      LOG_ERROR("Duplicate table with difference file name. table=%s, the other filename=%s", view->name().c_str(),
+                filename.c_str());
+      return RC::INTERNAL;
+    }
+    opened_views_[view->name()] = view;
+    LOG_INFO("Open view: %s, file: %s", view->name().c_str(), filename.c_str());
+  }
+  // parse sql，将所有view初始化完成
+  for (auto &[_, view] : opened_views_) {
+    rc = view->parse_sql(this);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to parse view sql, name =%s", view->name().c_str());
+      return rc;
+    }
+  }
+  return rc;
+}
+
 const char *Db::name() const { return name_.c_str(); }
 
 void Db::all_tables(std::vector<std::string> &table_names) const {
@@ -211,3 +257,25 @@ RC Db::sync() {
 RC Db::recover() { return clog_manager_->recover(this); }
 
 CLogManager *Db::clog_manager() { return clog_manager_.get(); }
+
+RC Db::create_view(const char *view_name, const char *sql, SelectStmt *select) {
+  if (opened_views_.count(view_name)) {
+    return RC::SCHEMA_VIEW_EXIST;
+  }
+  View *view = new View;
+  RC rc = RC::SUCCESS;
+  auto view_file_path = view_meta_file(path_.c_str(), view_name);
+  rc = view->create_view(view_file_path.c_str(), view_name, select);
+  if (rc != RC::SUCCESS)
+    return rc;
+  opened_views_[view_name] = view;
+  return RC::SUCCESS;
+}
+
+View *Db::find_view(const char *view_name) const {
+  auto it = opened_views_.find(view_name);
+  if (it == opened_views_.end()) {
+    return nullptr;
+  }
+  return it->second;
+}

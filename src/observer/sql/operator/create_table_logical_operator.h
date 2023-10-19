@@ -20,5 +20,5 @@ private:
   std::string table_name_;
   std::vector<AttrInfoSqlNode> attr_infos_;
   Db *db_;
-  std::vector<FieldType> types_;
+  std::vector<FieldInfo> types_;
 };

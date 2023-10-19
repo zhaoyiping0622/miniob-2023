@@ -21,5 +21,5 @@ private:
   std::shared_ptr<TupleSchema> schema_;
   std::string table_name_;
   std::vector<AttrInfoSqlNode> attr_infos_;
-  std::vector<FieldType> types_;
+  std::vector<FieldInfo> types_;
 };

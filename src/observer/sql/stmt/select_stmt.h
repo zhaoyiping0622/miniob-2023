@@ -33,10 +33,11 @@ class FilterStmt;
 class Db;
 class Table;
 
-struct FieldType {
+struct FieldInfo {
   AttrType type;
   int length = 0;
   bool nullable = false;
+  Field raw_field;
 };
 
 /**
@@ -68,7 +69,8 @@ public:
   const std::unique_ptr<AggregationStmt> &aggregation_stmt() const { return aggregation_stmt_; }
   std::vector<std::unique_ptr<SubQueryStmt>> &sub_queries() { return sub_queries_; }
   bool use_father() const { return use_father_; }
-  const std::vector<FieldType> &types() const { return types_; }
+  const std::vector<FieldInfo> &types() const { return types_; }
+  std::string sql() { return sql_; }
 
 private:
   std::unique_ptr<JoinStmt> join_stmt_;
@@ -89,7 +91,9 @@ private:
 
   std::unique_ptr<OrderByStmt> orderby_stmt_; // 排序
 
-  std::vector<FieldType> types_;
+  std::vector<FieldInfo> types_;
+
+  std::string sql_;
 
   bool use_father_ = false;
 };

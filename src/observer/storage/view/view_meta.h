@@ -1,8 +1,12 @@
+#pragma once
+
 #include "common/lang/serializable.h"
 #include "common/rc.h"
 #include "sql/parser/value.h"
 #include <json/value.h>
 #include <string>
+
+class SelectStmt;
 
 class ViewFieldMeta {
 public:
@@ -15,6 +19,8 @@ public:
 
   void to_json(Json::Value &json_value) const;
   static RC from_json(const Json::Value &json_value, ViewFieldMeta &field);
+
+  friend class ViewMeta;
 
 private:
   std::string name_;
@@ -33,11 +39,16 @@ public:
   virtual void to_string(std::string &output) const override;
 
 public:
+  RC create(const char *view_name, SelectStmt *select);
+  RC init(SelectStmt *select);
+
+public:
   bool updatable() const { return updatable_; }
   bool insertable() const { return insertable_; }
   bool deletable() const { return deletable_; }
-  std::string name() const { return name_; }
-  std::string sql() const { return sql_; }
+  std::string &name() { return name_; }
+  std::string &sql() { return sql_; }
+  std::vector<ViewFieldMeta> &metas() { return metas_; };
 
 private:
   std::string name_;
@@ -48,4 +59,9 @@ private:
   bool updatable_;
   bool insertable_;
   bool deletable_;
+
+private:
+  bool get_updatable(SelectStmt *select);
+  bool get_insertable(SelectStmt *select);
+  bool get_deletable(SelectStmt *select);
 };

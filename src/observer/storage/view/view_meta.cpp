@@ -1,7 +1,9 @@
 #include "view_meta.h"
+#include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/parser/value.h"
+#include "sql/stmt/select_stmt.h"
 #include "json/reader.h"
 #include "json/value.h"
 #include "json/writer.h"
@@ -124,4 +126,78 @@ int ViewMeta::deserialize(std::istream &is) {
   }
 
   return (int)(is.tellg() - old_pos);
+}
+RC ViewMeta::create(const char *view_name, SelectStmt *select) {
+  name_ = view_name;
+  sql_ = select->sql();
+  auto schema = select->schema();
+  auto types = select->types();
+  if (schema->cell_num() != types.size()) {
+    LOG_ERROR("schema size not equal to types size");
+    return RC::INTERNAL;
+  }
+  std::set<std::string> view_field_names;
+  for (int i = 0; i < schema->cell_num(); i++) {
+    ViewFieldMeta meta;
+    auto &spec = schema->cell_at(i);
+    auto &info = types[i];
+    string name;
+    if (!common::is_blank(spec.field_name())) {
+      name = spec.field_name();
+    } else {
+      // 如果是有alias，那么field_name应该是空
+      name = spec.alias();
+    }
+    if (view_field_names.count(name)) {
+      return RC::INVALID_ARGUMENT;
+    }
+    view_field_names.insert(name);
+    meta.name_ = name;
+    meta.type_ = info.type;
+    meta.length_ = info.length;
+    if (info.raw_field.table()) {
+      meta.table_name_ = info.raw_field.table_name();
+      meta.field_name_ = info.raw_field.field_name();
+    }
+    metas_.push_back(meta);
+  }
+  return init(select);
+}
+
+RC ViewMeta::init(SelectStmt *select) {
+  // mysql规则来判断是否可以update insert delete
+  updatable_ = get_updatable(select);
+  insertable_ = get_insertable(select);
+  deletable_ = get_deletable(select);
+  return RC::SUCCESS;
+}
+
+// TODO(zhaoyiping): 还没实现完成
+
+// FIXME(zhaoyiping): Nondependent subqueries check
+// 目前没check这个
+
+bool ViewMeta::get_updatable(SelectStmt *select) {
+  // 有聚合 直接g
+  if (select->aggregation_stmt()) {
+    return false;
+  }
+  auto schema = select->schema();
+  if (select->sub_queries().size()) {
+  }
+}
+bool ViewMeta::get_insertable(SelectStmt *select) {
+  // 有聚合 直接g
+  if (select->aggregation_stmt()) {
+    return false;
+  }
+  auto schema = select->schema();
+  if (select->sub_queries().size()) {
+  }
+}
+bool ViewMeta::get_deletable(SelectStmt *select) {
+  // 有聚合 直接g
+  if (select->aggregation_stmt()) {
+    return false;
+  }
 }

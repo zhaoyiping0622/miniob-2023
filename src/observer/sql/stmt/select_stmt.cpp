@@ -224,11 +224,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       table_alias[x.second->name()] = x.first;
   }
 
-  std::vector<FieldType> types;
+  std::vector<FieldInfo> types;
 
   auto append_cell = [&](Expression *expression, std::string alias = "") {
-    FieldType type;
+    FieldInfo type;
     type.type = expression->value_type();
+    type.length = attr_type_to_size(type.type);
     if (alias.size()) {
       schema->append_cell(alias.c_str());
     } else if (expression->type() == ExprType::FIELD) {
@@ -247,6 +248,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       }
     } else {
       schema->append_cell(expression->name().c_str());
+    }
+    if (expression->type() == ExprType::FIELD) {
+      type.raw_field = static_cast<FieldExpr *>(expression)->field();
     }
     types.push_back(type);
   };
@@ -379,6 +383,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->use_father_ = !father_fields.empty();
 
   select_stmt->types_ = types;
+  select_stmt->sql_ = select_sql.sql;
 
   stmt = select_stmt;
   return RC::SUCCESS;
