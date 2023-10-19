@@ -146,7 +146,7 @@ RC MvccTrx::delete_record(Table *table, Record &record) {
          end_xid, trx_id_, record.rid().to_string().c_str());
   if (end_xid != trx_kit_.max_trx_id()) {
     // 当前不是多版本数据中的最新记录，不需要删除
-    return RC::SUCCESS;
+    return RC::RECORD_DELETED;
   }
 
   end_field.set_int(record, -trx_id_);

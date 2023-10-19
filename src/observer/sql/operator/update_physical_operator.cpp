@@ -25,6 +25,8 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     memcpy(r.data(), record->data(), r.size());
     rc = trx->delete_record(table_, *record);
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_DELETED)
+        continue;
       rollback();
       sql_debug("UpdatePhysicalOperator: 29");
       return rc;
