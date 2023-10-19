@@ -27,12 +27,15 @@ See the Mulan PSL v2 for more details. */
 
 static TrxKit *global_trxkit = nullptr;
 
+extern bool global_unique;
+
 TrxKit *TrxKit::create(const char *name) {
   if (common::is_blank(name) || 0 == strcasecmp(name, "vacuous")) {
     return new VacuousTrxKit();
   }
 
   if (0 == strcasecmp(name, "mvcc")) {
+    global_unique = false;
     return new MvccTrxKit();
   }
 
