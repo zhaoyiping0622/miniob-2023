@@ -6,6 +6,8 @@
 #include "sql/parser/value.h"
 #include <cstring>
 
+#define line_sql_debug(fmt, ...) sql_debug(__FILE__ ":%d" fmt, __LINE__, __VA_ARGS__)
+
 RC UpdatePhysicalOperator::open(Trx *trx) {
   RC rc = children_[0]->open(trx);
   if (rc != RC::SUCCESS)
@@ -18,7 +20,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     Tuple *tuple = children_[0]->current_tuple();
     rc = tuple->get_record(table_, record);
     if (rc != RC::SUCCESS) {
-      sql_debug("UpdatePhysicalOperator: 21");
+      line_sql_debug("rc=%s", strrc(rc));
       return rc;
     }
     vector<char> r(table_->table_meta().record_size());
@@ -28,7 +30,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       if (rc == RC::RECORD_DELETED)
         continue;
       rollback();
-      sql_debug("UpdatePhysicalOperator: 29");
+      line_sql_debug("rc=%s", strrc(rc));
       return rc;
     }
     deleted_records_.push_back(r);
@@ -37,7 +39,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
       Value value;
       rc = unit.value->get_value(*tuple, value);
       if (rc != RC::SUCCESS) {
-        sql_debug("UpdatePhysicalOperator: 38");
+        line_sql_debug("rc=%s", strrc(rc));
         rollback();
         return rc;
       }
@@ -47,14 +49,14 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   }
   children_[0]->close();
   if (rc != RC::RECORD_EOF) {
-    sql_debug("UpdatePhysicalOperator: 48");
+    line_sql_debug("rc=%s", strrc(rc));
     return rc;
   }
   for (int i = 0; i < deleted_records_.size(); i++) {
     RID rid;
     rc = update(deleted_records_[i], value_list[i], rid);
     if (rc != RC::SUCCESS) {
-      sql_debug("UpdatePhysicalOperator: 55");
+      line_sql_debug("rc=%s", strrc(rc));
       rollback();
       return rc;
     }
@@ -82,11 +84,13 @@ RC UpdatePhysicalOperator::insert(vector<char> &v, RID &rid) {
   Record record;
   RC rc = table_->make_record(v.data(), v.size(), record);
   if (rc != RC::SUCCESS) {
+    line_sql_debug("rc=%s", strrc(rc));
     LOG_ERROR("fail to make record");
     return rc;
   }
   rc = trx_->insert_record(table_, record);
   if (rc != RC::SUCCESS) {
+    line_sql_debug("rc=%s", strrc(rc));
     LOG_ERROR("fail to insert record");
     return rc;
   }
@@ -116,22 +120,27 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
     Value value;
     if (!values[i].get_only(value)) {
       LOG_WARN("list not has one value");
+      line_sql_debug("rc=%s", strrc(rc));
       return RC::INVALID_ARGUMENT;
     }
     const auto *meta = unit.field.meta();
     if (value.attr_type() != meta->type()) {
       if (value.attr_type() == NULLS) {
         if (!meta->nullable()) {
+          line_sql_debug("rc=%s", strrc(RC::INVALID_ARGUMENT));
           LOG_WARN("field %s should not be null", meta->name());
           return RC::INVALID_ARGUMENT;
         }
       } else if (meta->type() == TEXTS) {
         int page_of;
         rc = table_->add_text(value.get_string().c_str(), page_of);
-        if (rc != RC::SUCCESS)
+        if (rc != RC::SUCCESS) {
+          line_sql_debug("rc=%s", strrc(rc));
           return rc;
+        }
         value.set_int(page_of);
       } else if (!Value::convert(value.attr_type(), meta->type(), value)) {
+        line_sql_debug("rc=%s", strrc(RC::INVALID_ARGUMENT));
         LOG_WARN("failed to convert update value");
         return RC::INVALID_ARGUMENT;
       }
@@ -141,6 +150,7 @@ RC UpdatePhysicalOperator::update(vector<char> v, vector<Value> &values, RID &ri
       memcpy(v.data() + offset, value.data(), attr_type_to_size(meta->type()));
     } else {
       if (value.length() > meta->len()) {
+        line_sql_debug("rc=%s", strrc(RC::INVALID_ARGUMENT));
         return RC::INVALID_ARGUMENT;
       }
       memcpy(v.data() + offset, value.data(), value.length());
