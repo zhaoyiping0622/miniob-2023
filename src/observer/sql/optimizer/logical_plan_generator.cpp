@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/physical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/project_logical_operator.h"
+#include "sql/operator/rename_logical_operator.h"
 #include "sql/operator/sort_logical_operator.h"
 #include "sql/operator/sub_query_logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
@@ -122,6 +123,15 @@ RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fiel
   rc = get_table_get_operator(table, current_fields, readonly, table_oper);
   if (rc != RC::SUCCESS)
     return rc;
+  if (table->name() != join_stmt->alias()) {
+    // TODO(zhaoyiping): 改名
+    auto *rename = new RenameLogicalOperator;
+    rename->add_child(std::move(table_oper));
+    for (auto &x : current_fields) {
+      rename->add_rename(TupleCellSpec(x), TupleCellSpec(join_stmt->alias().c_str(), x.field_name()));
+    }
+    table_oper.reset(rename);
+  }
   if (join_stmt->sub_join() == nullptr) {
     logical_operator.swap(table_oper);
     return rc;

@@ -42,6 +42,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/project_physical_operator.h"
+#include "sql/operator/rename_logical_operator.h"
+#include "sql/operator/rename_physical_operator.h"
 #include "sql/operator/sort_logical_operator.h"
 #include "sql/operator/sort_physical_operator.h"
 #include "sql/operator/sub_query_logical_operator.h"
@@ -116,6 +118,9 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
   } break;
   case LogicalOperatorType::CREATE_TABLE: {
     return create_plan(static_cast<CreateTableLogicalOperator &>(logical_operator), oper);
+  } break;
+  case LogicalOperatorType::RENAME: {
+    return create_plan(static_cast<RenameLogicalOperator &>(logical_operator), oper);
   } break;
 
   default: {
@@ -471,4 +476,17 @@ RC PhysicalPlanGenerator::create_plan(ViewGetLogicalOperator &logical_oper, std:
     return RC::INTERNAL;
   }
   return create(*children[0], oper);
+}
+RC PhysicalPlanGenerator::create_plan(RenameLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  auto &children = logical_oper.children();
+  if (children.size() != 1) {
+    return RC::INTERNAL;
+  }
+  std::unique_ptr<PhysicalOperator> child_oper;
+  RC rc = create(*children[0], child_oper);
+  if (rc != RC::SUCCESS)
+    return rc;
+  oper.reset(new RenamePhysicalOperator(logical_oper.spec_map_));
+  oper->add_child(std::move(child_oper));
+  return RC::SUCCESS;
 }

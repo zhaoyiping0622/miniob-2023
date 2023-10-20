@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -514,4 +515,46 @@ public:
 private:
   Tuple *left_ = nullptr;
   Tuple *right_ = nullptr;
+};
+
+class RenameTuple : public Tuple {
+public:
+  RenameTuple(std::vector<std::pair<TupleCellSpec, TupleCellSpec>> spec_map) : spec_map_(spec_map) {
+    for (auto &x : spec_map) {
+      r_spec_map_.emplace_back(x.second, x.first);
+    }
+  }
+
+  int cell_num() const override { return sub_tuple_->cell_num(); }
+  RC cell_at(int index, Value &cell) const override { return sub_tuple_->cell_at(index, cell); }
+  RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
+    for (int i = 0; i < spec_map_.size(); i++) {
+      if (spec_map_[i].first == spec)
+        return sub_tuple_->find_cell(spec_map_[i].second, cell);
+    }
+    return sub_tuple_->find_cell(spec, cell);
+  }
+  RC spec_at(int index, TupleCellSpec &spec) const override {
+    RC rc = sub_tuple_->spec_at(index, spec);
+    if (rc != RC::SUCCESS)
+      return rc;
+    for (int i = 0; i < spec_map_.size(); i++) {
+      if (r_spec_map_[i].first == spec) {
+        spec = r_spec_map_[i].second;
+        return RC::SUCCESS;
+      }
+    }
+    return RC::SUCCESS;
+  }
+
+  virtual RC get_record(Table *table, Record *&record) override { return sub_tuple_->get_record(table, record); }
+
+  virtual RC get_record_map(TableRecordMap &record_map) override { return sub_tuple_->get_record_map(record_map); }
+
+  void set_sub_tuple(Tuple *sub_tuple) { sub_tuple_ = sub_tuple; }
+
+private:
+  std::vector<std::pair<TupleCellSpec, TupleCellSpec>> spec_map_;
+  std::vector<std::pair<TupleCellSpec, TupleCellSpec>> r_spec_map_;
+  Tuple *sub_tuple_;
 };

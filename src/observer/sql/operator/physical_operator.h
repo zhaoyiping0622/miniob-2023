@@ -53,6 +53,7 @@ enum class PhysicalOperatorType {
   SORT,
   SUB_QUERY,
   CREATE_TABLE,
+  RENAME,
 };
 
 /**

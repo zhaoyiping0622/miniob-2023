@@ -46,6 +46,7 @@ enum class LogicalOperatorType {
   CACHED,       ///< 缓存
   UPDATE,       ///< 更新
   CREATE_TABLE, ///< 创建表
+  RENAME,       ///< rename
 };
 
 /**

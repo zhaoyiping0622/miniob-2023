@@ -40,6 +40,7 @@ RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<Table
   }
 
   stmt = new JoinStmt;
+  stmt->alias_ = alias_name;
   stmt->table_ = table;
   if (sql_node->sub_join == nullptr) {
     return RC::SUCCESS;

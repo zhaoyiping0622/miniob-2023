@@ -95,6 +95,9 @@ RC PredicatePushdownRewriter::apply_expression(LogicalOperator *father, std::uni
   if (oper->type() == LogicalOperatorType::TABLE_GET) {
     auto *table_get_oper = static_cast<TableGetLogicalOperator *>(oper.get());
     table_get_oper->add_predicate(std::move(expr));
+  } else if (oper->type() == LogicalOperatorType::RENAME) {
+    // 不能穿透rename
+    return rc;
   } else if (father == nullptr || father->type() == LogicalOperatorType::PREDICATE) {
     // 当前层是最高层，或者上一层就有过滤表达式
     return rc;

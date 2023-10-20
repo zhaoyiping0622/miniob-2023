@@ -775,7 +775,11 @@ RC FieldExpr::create(Db *db, Table *default_table, std::unordered_map<std::strin
   if (rc != RC::SUCCESS) {
     return RC::SCHEMA_FIELD_NOT_EXIST;
   }
-  expr = new FieldExpr(table, field);
+  if (table->name() != table_name) {
+    expr = new NamedExpr(field->type(), TupleCellSpec(table_name.c_str(), field_name.c_str()));
+  } else {
+    expr = new FieldExpr(table, field);
+  }
   return RC::SUCCESS;
 }
 
