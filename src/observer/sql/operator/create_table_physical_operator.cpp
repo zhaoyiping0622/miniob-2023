@@ -57,7 +57,7 @@ RC CreateTablePhysicalOperator::open(Trx *trx) {
     if (i < attr_infos_.size()) {
       if (attr_infos_[i].name != name || attr_infos_[i].type != types_[i].type ||
           types_[i].length && attr_infos_[i].length != types_[i].length ||
-          types_[i].nullable && attr_infos_[i].nullable) {
+          types_[i].nullable != attr_infos_[i].nullable) {
         return RC::INVALID_ARGUMENT;
       }
     } else {
