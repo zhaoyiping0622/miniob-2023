@@ -2206,7 +2206,7 @@ yyreduce:
   case 52: /* null_def: %empty  */
 #line 503 "yacc_sql.y"
     {
-      (yyval.bools) = false;
+      (yyval.bools) = true;
     }
 #line 2212 "yacc_sql.cpp"
     break;

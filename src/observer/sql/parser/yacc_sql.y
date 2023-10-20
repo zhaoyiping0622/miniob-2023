@@ -501,7 +501,7 @@ attr_def:
 
 null_def:
     {
-      $$ = false;
+      $$ = true;
     }
     | NOT NULL_V {
       $$ = false;
