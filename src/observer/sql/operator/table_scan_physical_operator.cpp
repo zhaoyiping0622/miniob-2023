@@ -50,14 +50,14 @@ RC TableScanPhysicalOperator::next(Tuple *env_tuple) {
     }
 
     if (filter_result) {
-      sql_debug("get a tuple: %s", tuple_.to_string().c_str());
+      // sql_debug("get a tuple: %s", tuple_.to_string().c_str());
       if (locked_) {
-        sql_debug("get a locked tuple: %s", tuple_.to_string().c_str());
+        // sql_debug("get a locked tuple: %s", tuple_.to_string().c_str());
         rc = RC::LOCKED_CONCURRENCY_CONFLICT;
       }
       break;
     } else {
-      sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
+      // sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
       rc = RC::RECORD_EOF;
     }
   }

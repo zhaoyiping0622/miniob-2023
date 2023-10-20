@@ -39,6 +39,6 @@ RC CreateTableStmt::create(Db *db, const CreateTableSqlNode &create_table, Stmt 
     LOG_WARN("table %s has no fields", create_table.relation_name.c_str());
     return RC::INVALID_ARGUMENT;
   }
-  sql_debug("create table statement: table name %s", create_table.relation_name.c_str());
+  // sql_debug("create table statement: table name %s", create_table.relation_name.c_str());
   return RC::SUCCESS;
 }

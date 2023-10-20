@@ -73,6 +73,8 @@ RC DeletePhysicalOperator::next(Tuple *env_tuple) {
     }
     rc = trx_->delete_record(real_table, *record);
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_DELETED)
+        continue;
       LOG_WARN("failed to delete record: %s", strrc(rc));
       return rc;
     }
