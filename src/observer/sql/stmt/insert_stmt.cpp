@@ -47,14 +47,6 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   vector<vector<Value>> record_values;
   RC rc;
 
-  if (table->view()) {
-    auto *view = table->view();
-    std::vector<int> tmp;
-    table = view->view_meta().get_insert_table(db, tmp);
-    if (table == nullptr)
-      return RC::INVALID_ARGUMENT;
-  }
-
   for (auto &record_expr : records) {
     vector<Value> record;
     record.reserve(record_expr.size());
@@ -79,6 +71,14 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
       return rc;
     }
     record_values.push_back(record);
+  }
+
+  if (table->view()) {
+    auto *view = table->view();
+    std::vector<int> tmp;
+    table = view->view_meta().get_insert_table(db, tmp);
+    if (table == nullptr)
+      return RC::INVALID_ARGUMENT;
   }
 
   // everything alright
