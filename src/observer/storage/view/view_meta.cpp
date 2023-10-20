@@ -298,9 +298,6 @@ Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
       return nullptr;
   }
   auto &table_meta = tmp->table_meta();
-  if (table_meta.field_num() - table_meta.sys_field_num() != metas_.size()) {
-    return nullptr;
-  }
   for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
     bool found = false;
     for (int j = 0; j < metas_.size(); j++) {
@@ -310,8 +307,12 @@ Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
         break;
       }
     }
-    if (!found)
-      return nullptr;
+    if (!found) {
+      if (table_meta.field(i)->nullable())
+        order.push_back(-1);
+      else
+        return nullptr;
+    }
   }
   return tmp;
 }

@@ -90,8 +90,15 @@ RC InsertStmt::check_record(Db *db, Table *table, std::vector<Value> &record) {
       return RC::INVALID_ARGUMENT;
     }
     std::vector<Value> values;
-    for (auto x : order)
-      values.push_back(std::move(record[x]));
+    for (auto x : order) {
+      if (x != -1)
+        values.push_back(std::move(record[x]));
+      else {
+        Value tmp;
+        tmp.set_null();
+        values.push_back(tmp);
+      }
+    }
     record.swap(values);
   }
 
