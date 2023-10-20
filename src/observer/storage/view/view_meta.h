@@ -8,6 +8,7 @@
 #include <string>
 
 class SelectStmt;
+class Db;
 
 class ViewFieldMeta {
 public:
@@ -15,9 +16,13 @@ public:
   AttrType type() const { return type_; }
   int length() const { return length_; }
 
+public:
   std::string table_name() const { return table_name_; }
   std::string field_name() const { return field_name_; }
 
+  bool is_reference() const { return table_name_.size() != 0; }
+
+public:
   void to_json(Json::Value &json_value) const;
   static RC from_json(const Json::Value &json_value, ViewFieldMeta &field);
 
@@ -52,6 +57,8 @@ public:
   std::string &name() { return name_; }
   std::string &sql() { return sql_; }
   std::vector<ViewFieldMeta> &metas() { return metas_; };
+
+  Table *get_insert_table(Db* db, std::vector<int> &order);
 
 public:
   ViewFieldMeta *field(const char *name);

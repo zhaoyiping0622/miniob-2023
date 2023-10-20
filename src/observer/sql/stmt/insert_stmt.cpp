@@ -14,9 +14,11 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/insert_stmt.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
+#include <utility>
 
 InsertStmt::InsertStmt(Table *table, std::vector<std::vector<Value>> records) : table_(table), records_(records) {}
 
@@ -57,11 +59,19 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
       }
       record.push_back(value);
     }
-    rc = check_record(table, record);
+    rc = check_record(db, table, record);
     if (rc != RC::SUCCESS) {
       return rc;
     }
     record_values.push_back(record);
+  }
+
+  if (table->view()) {
+    auto *view = table->view();
+    std::vector<int> tmp;
+    table = view->view_meta().get_insert_table(db, tmp);
+    if (table == nullptr)
+      return RC::INVALID_ARGUMENT;
   }
 
   // everything alright
@@ -69,7 +79,22 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   return RC::SUCCESS;
 }
 
-RC InsertStmt::check_record(Table *table, const std::vector<Value> &record) {
+RC InsertStmt::check_record(Db *db, Table *table, std::vector<Value> &record) {
+  auto *view = table->view();
+
+  if (view != nullptr) {
+    std::vector<int> order;
+    table = view->view_meta().get_insert_table(db, order);
+    if (table == nullptr) {
+      LOG_WARN("view %s is not insertable", view->view_meta().name().c_str());
+      return RC::INVALID_ARGUMENT;
+    }
+    std::vector<Value> values;
+    for (auto x : order)
+      values.push_back(std::move(record[x]));
+    record.swap(values);
+  }
+
   const TableMeta &table_meta = table->table_meta();
   const char *table_name = table_meta.name();
   const int field_num = table_meta.field_num() - table_meta.sys_field_num();

@@ -248,3 +248,35 @@ ViewFieldMeta *ViewMeta::field(const char *name) {
   }
   return nullptr;
 }
+
+Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
+  Table *tmp = nullptr;
+  for (auto &x : metas_) {
+    if (!x.is_reference())
+      return nullptr;
+    auto *table = db->find_table(x.table_name().c_str());
+    if (table == nullptr)
+      return nullptr;
+    if (tmp == nullptr)
+      tmp = table;
+    if (tmp != table)
+      return nullptr;
+  }
+  auto &table_meta = tmp->table_meta();
+  if (table_meta.field_num() - table_meta.sys_field_num() != metas_.size()) {
+    return nullptr;
+  }
+  for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+    bool found = false;
+    for (int j = 0; j < metas_.size(); j++) {
+      if (metas_[j].field_name() == table_meta.field(i)->name()) {
+        order.push_back(j);
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+      return nullptr;
+  }
+  return tmp;
+}
