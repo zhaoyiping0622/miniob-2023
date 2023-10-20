@@ -36,7 +36,7 @@ class Table;
 struct FieldInfo {
   AttrType type;
   int length = 0;
-  bool nullable = false;
+  bool nullable = true;
   Field raw_field;
 };
 
