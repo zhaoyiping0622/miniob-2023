@@ -13,8 +13,11 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/delete_physical_operator.h"
+#include "common/global_context.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/stmt/delete_stmt.h"
+#include "storage/default/default_handler.h"
 #include "storage/record/record.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
@@ -42,6 +45,18 @@ RC DeletePhysicalOperator::next(Tuple *env_tuple) {
     return RC::RECORD_EOF;
   }
 
+  Table *real_table;
+
+  if (table_->view()) {
+    auto *view = table_->view();
+    Db *db = GlobalContext::instance().handler_->find_db("sys");
+    real_table = view->view_meta().get_delete_table(db);
+    if (real_table == nullptr)
+      return RC::INVALID_ARGUMENT;
+  } else {
+    real_table = table_;
+  }
+
   PhysicalOperator *child = children_[0].get();
   while (RC::SUCCESS == (rc = child->next(env_tuple))) {
     Tuple *tuple = child->current_tuple();
@@ -50,9 +65,13 @@ RC DeletePhysicalOperator::next(Tuple *env_tuple) {
       return rc;
     }
 
-    RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    Record &record = row_tuple->record();
-    rc = trx_->delete_record(table_, record);
+    Record *record;
+    rc = tuple->get_record(real_table, record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("fail to get record");
+      return rc;
+    }
+    rc = trx_->delete_record(real_table, *record);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to delete record: %s", strrc(rc));
       return rc;

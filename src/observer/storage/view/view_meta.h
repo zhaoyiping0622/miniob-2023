@@ -59,6 +59,7 @@ public:
   std::vector<ViewFieldMeta> &metas() { return metas_; };
 
   Table *get_insert_table(Db* db, std::vector<int> &order);
+  Table *get_delete_table(Db* db);
 
 public:
   ViewFieldMeta *field(const char *name);

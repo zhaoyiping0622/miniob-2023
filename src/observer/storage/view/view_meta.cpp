@@ -248,6 +248,21 @@ ViewFieldMeta *ViewMeta::field(const char *name) {
   }
   return nullptr;
 }
+Table *ViewMeta::get_delete_table(Db *db) {
+  Table *tmp = nullptr;
+  for (auto &x : metas_) {
+    if (x.table_name().empty())
+      continue;
+    auto *table = db->find_table(x.table_name().c_str());
+    if (table == nullptr)
+      return nullptr;
+    if (tmp == nullptr)
+      tmp = table;
+    if (tmp != table)
+      return nullptr;
+  }
+  return tmp;
+}
 
 Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
   Table *tmp = nullptr;
