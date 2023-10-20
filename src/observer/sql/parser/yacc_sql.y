@@ -123,6 +123,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
         EXISTS
         LIKE
         NULL_V
+        NULLABLE
         IS
         AS
         VIEW
@@ -527,6 +528,9 @@ null_def:
       $$ = false;
     }
     | NULL_V {
+      $$ = true;
+    }
+    | NULLABLE {
       $$ = true;
     }
 
@@ -1163,6 +1167,9 @@ non_reserve:
     }
     | COUNT {
       $$ = strdup("count");
+    }
+    | NULLABLE {
+      $$ = strdup("nullable");
     }
 
 %%
