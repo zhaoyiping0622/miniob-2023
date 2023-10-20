@@ -4,6 +4,7 @@
 #include "common/rc.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/value.h"
+#include "storage/field/field.h"
 #include <json/value.h>
 #include <string>
 
@@ -19,7 +20,7 @@ public:
 public:
   std::string table_name() const { return table_name_; }
   std::string field_name() const { return field_name_; }
-
+  Field raw_field();
   bool is_reference() const { return table_name_.size() != 0; }
 
 public:
@@ -58,8 +59,9 @@ public:
   std::string &sql() { return sql_; }
   std::vector<ViewFieldMeta> &metas() { return metas_; };
 
-  Table *get_insert_table(Db* db, std::vector<int> &order);
-  Table *get_delete_table(Db* db);
+  Table *get_insert_table(Db *db, std::vector<int> &order);
+  Table *get_delete_table(Db *db);
+  Table *get_update_table(Db *db, std::vector<std::string> fields, std::vector<Field> &view_field_metas);
 
 public:
   ViewFieldMeta *field(const char *name);
@@ -73,6 +75,7 @@ private:
   bool updatable_;
   bool insertable_;
   bool deletable_;
+  bool has_aggregation_;
 
 private:
   bool get_updatable(SelectStmt *select);

@@ -1,13 +1,16 @@
 #include "view_meta.h"
+#include "common/global_context.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/value.h"
 #include "sql/stmt/select_stmt.h"
+#include "storage/default/default_handler.h"
 #include "json/reader.h"
 #include "json/value.h"
 #include "json/writer.h"
+#include <cassert>
 
 static const Json::StaticString VIEW_NAME("name");
 static const Json::StaticString VIEW_SQL("sql");
@@ -15,6 +18,7 @@ static const Json::StaticString VIEW_METAS("metas");
 static const Json::StaticString VIEW_UPDATABLE("updatable");
 static const Json::StaticString VIEW_INSERTABLE("insertable");
 static const Json::StaticString VIEW_DELETABLE("deletable");
+static const Json::StaticString VIEW_HAS_AGGREGATION("has_aggregation");
 
 static const Json::StaticString VIEW_FIELD_NAME("name");
 static const Json::StaticString VIEW_FIELD_TYPE("type");
@@ -68,6 +72,15 @@ RC ViewFieldMeta::from_json(const Json::Value &json_value, ViewFieldMeta &field)
   return RC::SUCCESS;
 }
 
+Field ViewFieldMeta::raw_field() {
+  Db *db = GlobalContext::instance().handler_->find_db("sys");
+  auto *table = db->find_table(table_name().c_str());
+  assert(table != nullptr);
+  auto *field_meta = table->table_meta().field(field_name().c_str());
+  assert(field_meta != nullptr);
+  return Field(table, field_meta);
+}
+
 int ViewMeta::get_serial_size() const { return -1; }
 void ViewMeta::to_string(std::string &output) const {}
 
@@ -78,6 +91,7 @@ int ViewMeta::serialize(std::ostream &os) const {
   view_value[VIEW_INSERTABLE] = insertable_;
   view_value[VIEW_UPDATABLE] = updatable_;
   view_value[VIEW_DELETABLE] = deletable_;
+  view_value[VIEW_HAS_AGGREGATION] = has_aggregation_;
   for (int i = 0; i < metas_.size(); i++) {
     Json::Value value;
     metas_[i].to_json(value);
@@ -153,6 +167,13 @@ int ViewMeta::deserialize(std::istream &is) {
   }
   deletable_ = view_deletable_value.asBool();
 
+  const Json::Value &view_has_aggregation_value = view_value[VIEW_HAS_AGGREGATION];
+  if (!view_has_aggregation_value.isBool()) {
+    LOG_ERROR("Invalid view has_aggregation. json value=%s", view_has_aggregation_value.toStyledString().c_str());
+    return -1;
+  }
+  has_aggregation_ = view_has_aggregation_value.asBool();
+
   return (int)(is.tellg() - old_pos);
 }
 
@@ -201,6 +222,7 @@ RC ViewMeta::create(const char *view_name, SelectStmt *select) {
 }
 
 RC ViewMeta::init(SelectStmt *select) {
+  has_aggregation_ = select->aggregation_stmt()->has_aggregate();
   // mysql规则来判断是否可以update insert delete
   updatable_ = get_updatable(select);
   insertable_ = get_insertable(select);
@@ -249,6 +271,8 @@ ViewFieldMeta *ViewMeta::field(const char *name) {
   return nullptr;
 }
 Table *ViewMeta::get_delete_table(Db *db) {
+  if (has_aggregation_)
+    return nullptr;
   Table *tmp = nullptr;
   for (auto &x : metas_) {
     if (x.table_name().empty())
@@ -265,6 +289,8 @@ Table *ViewMeta::get_delete_table(Db *db) {
 }
 
 Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
+  if (has_aggregation_)
+    return nullptr;
   Table *tmp = nullptr;
   for (auto &x : metas_) {
     if (!x.is_reference())
@@ -292,6 +318,34 @@ Table *ViewMeta::get_insert_table(Db *db, vector<int> &order) {
     }
     if (!found)
       return nullptr;
+  }
+  return tmp;
+}
+
+Table *ViewMeta::get_update_table(Db *db, std::vector<std::string> fields, std::vector<Field> &view_field_metas) {
+  if (has_aggregation_)
+    return nullptr;
+  Table *tmp = nullptr;
+  for (auto &field : fields) {
+    ViewFieldMeta *meta = nullptr;
+    for (auto &x : metas_) {
+      if (!x.is_reference())
+        continue;
+      if (field == x.name()) {
+        auto *table = db->find_table(x.table_name().c_str());
+        if (table == nullptr)
+          return nullptr;
+        if (tmp == nullptr)
+          tmp = table;
+        if (tmp != table)
+          return nullptr;
+        meta = &x;
+        break;
+      }
+    }
+    if (meta == nullptr)
+      return nullptr;
+    view_field_metas.push_back(meta->raw_field());
   }
   return tmp;
 }

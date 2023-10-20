@@ -1,8 +1,11 @@
 #include "sql/operator/update_physical_operator.h"
+#include "common/global_context.h"
 #include "common/log/log.h"
 #include "common/rc.h"
 #include "sql/expr/tuple.h"
 #include "sql/parser/value.h"
+#include "storage/default/default_handler.h"
+#include <cassert>
 #include <cstring>
 
 RC UpdatePhysicalOperator::open(Trx *trx) {
@@ -10,6 +13,22 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
   if (rc != RC::SUCCESS)
     return rc;
   vector<vector<Value>> value_list;
+  if (table_->view()) {
+    auto *view = table_->view();
+    std::vector<std::string> fields;
+    for (auto &unit : units_) {
+      fields.push_back(unit.field.meta()->name());
+    }
+    Db *db = GlobalContext::instance().handler_->find_db("sys");
+    std::vector<Field> real_fields;
+    table_ = view->view_meta().get_update_table(db, fields, real_fields);
+    if (table_ == nullptr)
+      return RC::INVALID_ARGUMENT;
+    assert(units_.size() == real_fields.size());
+    for (int i = 0; i < units_.size(); i++) {
+      units_[i].field = real_fields[i];
+    }
+  }
   trx_ = trx;
   while ((rc = children_[0]->next(nullptr)) == RC::SUCCESS) {
     // FIXME(zhaoyiping): 这里之后要统一改成接口
