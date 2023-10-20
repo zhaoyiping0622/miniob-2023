@@ -94,8 +94,9 @@ RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
     sr.sort_fields.swap(key);
     sr.ret_fields.swap(record);
     rc = subtuple->get_record_map(sr.record_map);
-    if (rc != RC::SUCCESS)
-      return rc;
+    if (rc != RC::SUCCESS) {
+      sr.record_map.clear();
+    }
     values_.emplace_back(std::move(sr));
   }
   if (rc != RC::RECORD_EOF) {
