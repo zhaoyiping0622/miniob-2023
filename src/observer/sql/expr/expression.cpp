@@ -909,6 +909,7 @@ pair<int, int> function_args(FunctionType type) {
   case FunctionType::ROUND: return {1, 2};
   case FunctionType::DATE_FORMAT: return {2, 2};
   }
+  return {-1, -1};
 }
 
 RC FunctionExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
