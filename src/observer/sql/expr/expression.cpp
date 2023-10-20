@@ -347,12 +347,17 @@ RC ArithmeticExpr::get_value(const Tuple &tuple, Value &value) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-NamedExpr::NamedExpr(AttrType value_type, TupleCellSpec spec) : value_type_(value_type), spec_(spec) {}
+NamedExpr::NamedExpr(AttrType value_type, TupleCellSpec spec, Table *table)
+    : value_type_(value_type), spec_(spec), table_(table) {}
 RC NamedExpr::get_value(const Tuple &tuple, Value &value) const { return tuple.find_cell(spec_, value); }
 RC NamedExpr::try_get_value(Value &value) const { return RC::INVALID_ARGUMENT; }
 ExprType NamedExpr::type() const { return ExprType::NAMED; }
 AttrType NamedExpr::value_type() const { return value_type_; }
-set<Field> NamedExpr::reference_fields() const { return {}; }
+set<Field> NamedExpr::reference_fields() const {
+  if (table_)
+    return {field_};
+  return {};
+}
 RC Expression::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                       const ExprSqlNode *expr_node, Expression *&expr, ExprGenerator *fallback) {
   RC rc = RC::SUCCESS;
@@ -764,6 +769,16 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
 
   return RC::SUCCESS;
 }
+RC FieldExpr::create(Table *table, const FieldMeta *field, std::string table_name, Expression *&expr) {
+  if (table->name() != table_name) {
+    auto named_expr = new NamedExpr(field->type(), TupleCellSpec(table_name.c_str(), field->name()), table);
+    named_expr->field() = Field(table, field);
+    expr = named_expr;
+  } else {
+    expr = new FieldExpr(table, field);
+  }
+  return RC::SUCCESS;
+}
 
 RC FieldExpr::create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                      const FieldExprSqlNode *field_node, Expression *&expr) {
@@ -775,12 +790,7 @@ RC FieldExpr::create(Db *db, Table *default_table, std::unordered_map<std::strin
   if (rc != RC::SUCCESS) {
     return RC::SCHEMA_FIELD_NOT_EXIST;
   }
-  if (table->name() != table_name) {
-    expr = new NamedExpr(field->type(), TupleCellSpec(table_name.c_str(), field_name.c_str()));
-  } else {
-    expr = new FieldExpr(table, field);
-  }
-  return RC::SUCCESS;
+  return create(table, field, table_name, expr);
 }
 
 RC ValueExpr::create(const ValueExprSqlNode *value_node, Expression *&expr) {

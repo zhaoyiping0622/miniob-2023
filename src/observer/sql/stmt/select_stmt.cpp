@@ -31,11 +31,25 @@ See the Mulan PSL v2 for more details. */
 
 SelectStmt::~SelectStmt() {}
 
-static void wildcard_fields(Table *table, std::vector<std::unique_ptr<Expression>> &field_metas) {
-  const TableMeta &table_meta = table->table_meta();
-  const int field_num = table_meta.field_num();
-  for (int i = table_meta.sys_field_num(); i < field_num; i++) {
-    field_metas.emplace_back(new FieldExpr(table, table_meta.field(i)));
+static void wildcard_fields(std::unordered_map<std::string, Table *> &table_map, std::string name,
+                            std::vector<std::unique_ptr<Expression>> &field_metas) {
+  if (name.size() == 0) {
+    for (auto &x : table_map) {
+      Expression *expr;
+      auto &table_meta = x.second->table_meta();
+      for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+        FieldExpr::create(x.second, table_meta.field(i), x.first, expr);
+        field_metas.emplace_back(expr);
+      }
+    }
+  } else {
+    Expression *expr;
+    auto *table = table_map[name];
+    auto &table_meta = table->table_meta();
+    for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+      FieldExpr::create(table, table_meta.field(i), name, expr);
+      field_metas.emplace_back(expr);
+    }
   }
 }
 
@@ -185,9 +199,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         LOG_WARN("alias to star");
         return RC::INVALID_ARGUMENT;
       }
-      for (Table *table : tables) {
-        wildcard_fields(table, expressions);
-      }
+      wildcard_fields(table_map, "", expressions);
     } else if (expression->type() == ExprType::FIELD && expression->get_field()->field_name == "*") {
       if (attribute->alias.size()) {
         LOG_WARN("alias to star");
@@ -199,7 +211,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         LOG_WARN("table %s not exists", table_name.c_str());
         return RC::SCHEMA_FIELD_NOT_EXIST;
       }
-      wildcard_fields(it->second, expressions);
+      wildcard_fields(table_map, table_name, expressions);
     } else {
       Expression *expr;
       RC rc = Expression::create(db, default_table, &table_map, expression, expr, &aggregator_generator);
@@ -232,6 +244,14 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
     type.length = attr_type_to_size(type.type);
     if (alias.size()) {
       schema->append_cell(alias.c_str());
+    } else if (expression->type() == ExprType::NAMED) {
+      NamedExpr *expr = static_cast<NamedExpr *>(expression);
+      schema->append_cell(expr->spec());
+      if (expr->table()) {
+        Field &field = expr->field();
+        type.length = field.meta()->len();
+        type.nullable = field.meta()->nullable();
+      }
     } else if (expression->type() == ExprType::FIELD) {
       Field &field = static_cast<FieldExpr *>(expression)->field();
       type.length = field.meta()->len();
@@ -251,6 +271,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
     }
     if (expression->type() == ExprType::FIELD) {
       type.raw_field = static_cast<FieldExpr *>(expression)->field();
+    } else if (expression->type() == ExprType::NAMED) {
+      type.raw_field = static_cast<NamedExpr *>(expression)->field();
     }
     types.push_back(type);
   };

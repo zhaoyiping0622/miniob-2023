@@ -127,8 +127,13 @@ RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fiel
     // TODO(zhaoyiping): 改名
     auto *rename = new RenameLogicalOperator;
     rename->add_child(std::move(table_oper));
+    auto &table_meta = table->table_meta();
+    for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+      auto field_meta = table_meta.field(i);
+      rename->add_rename(TupleCellSpec(join_stmt->alias().c_str(), field_meta->name()),
+                         TupleCellSpec(table->name(), field_meta->name()));
+    }
     for (auto &x : current_fields) {
-      rename->add_rename(TupleCellSpec(x), TupleCellSpec(join_stmt->alias().c_str(), x.field_name()));
     }
     table_oper.reset(rename);
   }

@@ -124,6 +124,8 @@ public:
   static RC create(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
                    const FieldExprSqlNode *field_node, Expression *&expr);
 
+  static RC create(Table *table, const FieldMeta *field, std::string table_name, Expression *&expr);
+
   virtual std::set<Field> reference_fields() const override;
 
   virtual std::string to_string() const override { return string(table_name()) + "." + field_name(); }
@@ -441,7 +443,7 @@ private:
  */
 class NamedExpr : public Expression {
 public:
-  NamedExpr(AttrType value_type, TupleCellSpec spec);
+  NamedExpr(AttrType value_type, TupleCellSpec spec, Table *table = nullptr);
   virtual ~NamedExpr() = default;
 
   virtual RC get_value(const Tuple &tuple, Value &value) const override;
@@ -452,9 +454,15 @@ public:
 
   virtual std::string to_string() const override { return name(); }
 
+  Table *table() const { return table_; }
+  TupleCellSpec &spec() { return spec_; }
+  Field &field() { return field_; }
+
 private:
   AttrType value_type_;
   TupleCellSpec spec_;
+  Table *table_;
+  Field field_;
 };
 
 class SetExpr : public Expression {
