@@ -184,7 +184,7 @@ TupleCellSpec ViewFieldMeta::get_tuple_spec() const {
   return TupleCellSpec(name().c_str());
 }
 
-RC ViewMeta::create(const char *view_name, SelectStmt *select) {
+RC ViewMeta::create(const char *view_name, SelectStmt *select, std::vector<std::string> &names) {
   name_ = view_name;
   sql_ = select->sql();
   auto schema = select->schema();
@@ -198,13 +198,7 @@ RC ViewMeta::create(const char *view_name, SelectStmt *select) {
     ViewFieldMeta meta;
     auto &spec = schema->cell_at(i);
     auto &info = types[i];
-    string name;
-    if (!common::is_blank(spec.field_name())) {
-      name = spec.field_name();
-    } else {
-      // 如果是有alias，那么field_name应该是空
-      name = spec.alias();
-    }
+    string name = names[i];
     if (view_field_names.count(name)) {
       return RC::INVALID_ARGUMENT;
     }

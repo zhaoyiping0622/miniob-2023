@@ -267,14 +267,14 @@ RC Db::recover() { return clog_manager_->recover(this); }
 
 CLogManager *Db::clog_manager() { return clog_manager_.get(); }
 
-RC Db::create_view(const char *view_name, const char *sql, SelectStmt *select) {
+RC Db::create_view(const char *view_name, const char *sql, SelectStmt *select, std::vector<std::string> &names) {
   if (opened_tables_.count(view_name)) {
     return RC::SCHEMA_VIEW_EXIST;
   }
   View *view = new View;
   RC rc = RC::SUCCESS;
   auto view_file_path = view_meta_file(path_.c_str(), view_name);
-  rc = view->create_view(this, view_file_path.c_str(), view_name, select);
+  rc = view->create_view(this, view_file_path.c_str(), view_name, select, names);
   if (rc != RC::SUCCESS)
     return rc;
   opened_tables_[view_name] = new Table(view);

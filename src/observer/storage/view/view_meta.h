@@ -48,7 +48,7 @@ public:
   virtual void to_string(std::string &output) const override;
 
 public:
-  RC create(const char *view_name, SelectStmt *select);
+  RC create(const char *view_name, SelectStmt *select, std::vector<std::string> &names);
   RC init(SelectStmt *select);
 
 public:

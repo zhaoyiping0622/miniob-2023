@@ -10,7 +10,7 @@ class View {
 public:
   View();
   ~View();
-  RC create_view(Db *db, const char *view_file_name, const char *view_name, SelectStmt *select);
+  RC create_view(Db *db, const char *view_file_name, const char *view_name, SelectStmt *select, std::vector<std::string> &names);
   RC open(Db *db, const char *meta_file);
   RC open_without_parse(const char *meta_file);
   RC parse_sql(Db *db);

@@ -53,7 +53,7 @@ public:
   Table *find_table(const char *table_name) const;
   Table *find_table(int32_t table_id) const;
 
-  RC create_view(const char *view_name, const char *sql, SelectStmt *select);
+  RC create_view(const char *view_name, const char *sql, SelectStmt *select, std::vector<std::string> &names);
   View *find_view(const char *view_name) const;
 
   const char *name() const;

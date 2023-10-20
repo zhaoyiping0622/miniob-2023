@@ -10,7 +10,8 @@
 #include <fcntl.h>
 
 // 搞出来select各项，然后初始化ViewMeta，然后把它持久化
-RC View::create_view(Db *db, const char *view_file_name, const char *view_name, SelectStmt *select) {
+RC View::create_view(Db *db, const char *view_file_name, const char *view_name, SelectStmt *select,
+                     std::vector<std::string> &names) {
   db_ = db;
   select_.reset(select);
   int fd = ::open(view_file_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
@@ -24,7 +25,7 @@ RC View::create_view(Db *db, const char *view_file_name, const char *view_name, 
   }
 
   close(fd);
-  RC rc = view_meta_.create(view_name, select);
+  RC rc = view_meta_.create(view_name, select, names);
   if (rc != RC::SUCCESS)
     return rc;
   std::fstream fs;

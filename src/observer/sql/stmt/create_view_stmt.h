@@ -14,9 +14,11 @@ public:
   std::string &view_name() { return view_name_; }
   std::unique_ptr<SelectStmt> &select_stmt() { return select_stmt_; }
   std::string &sql() { return sql_; }
+  std::vector<std::string> &names() { return names_; }
 
 private:
   std::string view_name_;
   std::unique_ptr<SelectStmt> select_stmt_;
   std::string sql_;
+  std::vector<std::string> names_;
 };

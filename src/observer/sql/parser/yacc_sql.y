@@ -211,6 +211,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <update_set>          update_set
 %type <update_set_list>     update_set_list
 %type <id_list>             ids
+%type <id_list>             view_ids
 %type <order_unit>          order_unit
 %type <order>               order
 %type <bools>               null_def
@@ -425,15 +426,34 @@ create_table_stmt:    /*create table 语句的语法解析树*/
     ;
 
 create_view_stmt:
-    CREATE VIEW ID AS select_stmt
+    CREATE VIEW id view_ids AS select_stmt
     {
       $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
       CreateViewSqlNode *create_view = new CreateViewSqlNode;
       $$->node.create_view = create_view;
       create_view->view_name = $3;
       free($3);
-      create_view->select = $5;
-      create_view->select_sql = $5->node.selection->sql;
+      if($4 != nullptr) {
+        create_view->names.swap(*$4);
+        delete $4;
+      }
+      create_view->select = $6;
+      create_view->select_sql = $6->node.selection->sql;
+    }
+
+view_ids:
+    {
+      $$ = nullptr;
+    }
+    | LBRACE id ids RBRACE {
+      if ($3 == nullptr) {
+        $$ = new std::vector<std::string>();
+      } else {
+        $$ = $3;
+      }
+      $$->push_back($2);
+      free($2);
+      std::reverse($$->begin(), $$->end());
     }
 
 attr_list:
