@@ -205,6 +205,7 @@ RC ViewMeta::init(SelectStmt *select) {
 // 目前没check这个
 
 bool ViewMeta::get_updatable(SelectStmt *select) {
+  return false;
   // 有聚合 直接g
   if (select->aggregation_stmt()) {
     return false;
@@ -214,6 +215,7 @@ bool ViewMeta::get_updatable(SelectStmt *select) {
   }
 }
 bool ViewMeta::get_insertable(SelectStmt *select) {
+  return false;
   // 有聚合 直接g
   if (select->aggregation_stmt()) {
     return false;
@@ -223,6 +225,7 @@ bool ViewMeta::get_insertable(SelectStmt *select) {
   }
 }
 bool ViewMeta::get_deletable(SelectStmt *select) {
+  return false;
   // 有聚合 直接g
   if (select->aggregation_stmt()) {
     return false;

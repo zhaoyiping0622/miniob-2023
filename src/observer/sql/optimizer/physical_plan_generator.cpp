@@ -50,6 +50,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_scan_physical_operator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/update_physical_operator.h"
+#include "sql/operator/view_get_logical_operator.h"
 #include "sql/optimizer/physical_plan_generator.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/index/index.h"
@@ -66,6 +67,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<P
 
   case LogicalOperatorType::TABLE_GET: {
     return create_plan(static_cast<TableGetLogicalOperator &>(logical_operator), oper);
+  } break;
+
+  case LogicalOperatorType::VIEW_GET: {
+    return create_plan(static_cast<ViewGetLogicalOperator &>(logical_operator), oper);
   } break;
 
   case LogicalOperatorType::PREDICATE: {
@@ -459,4 +464,11 @@ RC PhysicalPlanGenerator::create_plan(CreateTableLogicalOperator &logical_oper,
   op->attr_infos_ = logical_oper.attr_infos_;
   op->types_ = logical_oper.types_;
   return RC::SUCCESS;
+}
+RC PhysicalPlanGenerator::create_plan(ViewGetLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
+  auto &children = logical_oper.children();
+  if (children.size() != 1) {
+    return RC::INTERNAL;
+  }
+  return create(*children[0], oper);
 }
