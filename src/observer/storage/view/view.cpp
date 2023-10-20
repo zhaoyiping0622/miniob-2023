@@ -3,6 +3,7 @@
 #include "common/rc.h"
 #include "sql/parser/parse.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/parser/value.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/db/db.h"
@@ -104,7 +105,7 @@ void View::init_table_meta() {
       auto *table = db_->find_table(x.table_name().c_str());
       field_meta = *table->table_meta().field(x.field_name().c_str());
     } else {
-      field_meta.init(x.name().c_str(), x.type(), -1, -1, true, false, 0);
+      field_meta.init(x.name().c_str(), x.type(), 0, attr_type_to_size(x.type()), true, false, 0);
     }
     table_meta_->fields_.push_back(field_meta);
   }
