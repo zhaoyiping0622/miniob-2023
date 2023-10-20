@@ -38,8 +38,23 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   }
 
   auto &records = inserts.values;
+  auto &names = inserts.name_lists;
+  if (names.size()) {
+    if (names.size() != records[0].size()) {
+      return RC::INVALID_ARGUMENT;
+    }
+  }
   vector<vector<Value>> record_values;
   RC rc;
+
+  if (table->view()) {
+    auto *view = table->view();
+    std::vector<int> tmp;
+    table = view->view_meta().get_insert_table(db, tmp);
+    if (table == nullptr)
+      return RC::INVALID_ARGUMENT;
+  }
+
   for (auto &record_expr : records) {
     vector<Value> record;
     record.reserve(record_expr.size());
@@ -59,19 +74,11 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
       }
       record.push_back(value);
     }
-    rc = check_record(db, table, record);
+    rc = check_record(db, table, record, names);
     if (rc != RC::SUCCESS) {
       return rc;
     }
     record_values.push_back(record);
-  }
-
-  if (table->view()) {
-    auto *view = table->view();
-    std::vector<int> tmp;
-    table = view->view_meta().get_insert_table(db, tmp);
-    if (table == nullptr)
-      return RC::INVALID_ARGUMENT;
   }
 
   // everything alright
@@ -79,8 +86,28 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   return RC::SUCCESS;
 }
 
-RC InsertStmt::check_record(Db *db, Table *table, std::vector<Value> &record) {
+RC InsertStmt::check_record(Db *db, Table *table, std::vector<Value> &record, const std::vector<std::string> &names) {
   auto *view = table->view();
+
+  if (names.size()) {
+    std::vector<Value> tmp;
+    const TableMeta &table_meta = table->table_meta();
+    int null_cnt = 0;
+    for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+      bool found = false;
+      for (int j = 0; j < names.size(); j++) {
+        if (table_meta.field(i)->name() == names[j]) {
+          found = true;
+          tmp.push_back(std::move(record[j]));
+        }
+      }
+      if (!found) {
+        LOG_WARN("field %s not found in column list", table_meta.field(i)->name());
+        return RC::INVALID_ARGUMENT;
+      }
+    }
+    record = tmp;
+  }
 
   if (view != nullptr) {
     std::vector<int> order;

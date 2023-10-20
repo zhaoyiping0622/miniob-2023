@@ -380,6 +380,7 @@ struct CalcSqlNode {
 struct InsertSqlNode {
   std::string relation_name;                      ///< Relation to insert into
   std::vector<std::vector<ExprSqlNode *>> values; ///< 要插入的值
+  std::vector<std::string> name_lists;
   ~InsertSqlNode() {
     for (auto &x : values)
       for (auto *y : x)

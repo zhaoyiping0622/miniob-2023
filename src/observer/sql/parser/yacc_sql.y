@@ -211,7 +211,7 @@ ExprSqlNode *create_arithmetic_expression(ArithmeticType type,
 %type <update_set>          update_set
 %type <update_set_list>     update_set_list
 %type <id_list>             ids
-%type <id_list>             view_ids
+%type <id_list>             brace_id_list
 %type <order_unit>          order_unit
 %type <order>               order
 %type <bools>               null_def
@@ -426,7 +426,7 @@ create_table_stmt:    /*create table 语句的语法解析树*/
     ;
 
 create_view_stmt:
-    CREATE VIEW id view_ids AS select_stmt
+    CREATE VIEW id brace_id_list AS select_stmt
     {
       $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
       CreateViewSqlNode *create_view = new CreateViewSqlNode;
@@ -441,7 +441,7 @@ create_view_stmt:
       create_view->select_sql = $6->node.selection->sql;
     }
 
-view_ids:
+brace_id_list:
     {
       $$ = nullptr;
     }
@@ -543,20 +543,24 @@ type:
     ;
 
 insert_stmt:        /*insert   语句的语法解析树*/
-    INSERT INTO id VALUES record record_list
+    INSERT INTO id brace_id_list VALUES record record_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
       auto *insertion = new InsertSqlNode;
       $$->node.insertion = insertion;
       insertion->relation_name = $3;
-      if ($6 != nullptr) {
-        insertion->values.swap(*$6);
-        delete $6;
+      if ($7 != nullptr) {
+        insertion->values.swap(*$7);
+        delete $7;
       }
-      insertion->values.emplace_back(*$5);
-      delete $5;
+      insertion->values.emplace_back(*$6);
+      delete $6;
       std::reverse(insertion->values.begin(), insertion->values.end());
       free($3);
+      if($4 != nullptr) {
+        insertion->name_lists.swap(*$4);
+        delete $4;
+      }
     }
     ;
 
