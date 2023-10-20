@@ -118,6 +118,10 @@ RC Db::drop_table(Trx *trx, const char *table_name) {
   }
 
   Table *table = it->second;
+  if (it->second->view()) {
+    LOG_WARN("view should not be dropped", table_name);
+    return RC::INVALID_ARGUMENT;
+  }
   table->drop_all_indexes();
   // 这里会释放所有page
   delete table;
@@ -211,21 +215,24 @@ RC Db::open_all_views() {
       LOG_ERROR("Failed to open view. filename=%s", filename.c_str());
       return rc;
     }
-    if (opened_views_.count(view->name())) {
+    if (opened_tables_.count(view->name())) {
       delete view;
       LOG_ERROR("Duplicate table with difference file name. table=%s, the other filename=%s", view->name().c_str(),
                 filename.c_str());
       return RC::INTERNAL;
     }
-    opened_views_[view->name()] = view;
+    opened_tables_[view->name()] = new Table(view);
     LOG_INFO("Open view: %s, file: %s", view->name().c_str(), filename.c_str());
   }
   // parse sql，将所有view初始化完成
-  for (auto &[_, view] : opened_views_) {
-    rc = view->parse_sql(this);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to parse view sql, name =%s", view->name().c_str());
-      return rc;
+  for (auto &[_, table] : opened_tables_) {
+    if (table->view()) {
+      auto *view = table->view();
+      rc = view->parse_sql(this);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to parse view sql, name =%s", view->name().c_str());
+        return rc;
+      }
     }
   }
   return rc;
@@ -259,23 +266,23 @@ RC Db::recover() { return clog_manager_->recover(this); }
 CLogManager *Db::clog_manager() { return clog_manager_.get(); }
 
 RC Db::create_view(const char *view_name, const char *sql, SelectStmt *select) {
-  if (opened_views_.count(view_name)) {
+  if (opened_tables_.count(view_name)) {
     return RC::SCHEMA_VIEW_EXIST;
   }
   View *view = new View;
   RC rc = RC::SUCCESS;
   auto view_file_path = view_meta_file(path_.c_str(), view_name);
-  rc = view->create_view(view_file_path.c_str(), view_name, select);
+  rc = view->create_view(this, view_file_path.c_str(), view_name, select);
   if (rc != RC::SUCCESS)
     return rc;
-  opened_views_[view_name] = view;
+  opened_tables_[view_name] = new Table(view);
   return RC::SUCCESS;
 }
 
 View *Db::find_view(const char *view_name) const {
-  auto it = opened_views_.find(view_name);
-  if (it == opened_views_.end()) {
+  auto it = opened_tables_.find(view_name);
+  if (it == opened_tables_.end()) {
     return nullptr;
   }
-  return it->second;
+  return it->second->view();
 }

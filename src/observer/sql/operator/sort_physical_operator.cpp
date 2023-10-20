@@ -20,7 +20,8 @@ RC SortPhysicalOperator::next(Tuple *env_tuple) {
   idx_++;
   if (idx_ == values_.size())
     return RC::RECORD_EOF;
-  tuple_.set_cells(values_[idx_].second);
+  tuple_.set_cells(values_[idx_].ret_fields);
+  tuple_.set_record_map(values_[idx_].record_map);
   return RC::SUCCESS;
 }
 
@@ -41,14 +42,14 @@ RC SortPhysicalOperator::init(Tuple *env_tuple) {
   if (rc != RC::SUCCESS)
     return rc;
   // sort
-  std::sort(values_.begin(), values_.end(), [&](pair<Record, Record> &a, pair<Record, Record> &b) {
+  std::sort(values_.begin(), values_.end(), [&](SortRecord &a, SortRecord &b) {
     for (int i = 0; i < orders_.size(); i++) {
-      if (a.first[i].is_null() && b.first[i].is_null())
+      if (a.sort_fields[i].is_null() && b.sort_fields[i].is_null())
         continue;
-      auto cmp = (a.first[i] <=> b.first[i]);
-      if (b.first[i].is_null())
+      auto cmp = (a.sort_fields[i] <=> b.sort_fields[i]);
+      if (b.sort_fields[i].is_null())
         cmp = strong_ordering::greater;
-      else if (a.first[i].is_null())
+      else if (a.sort_fields[i].is_null())
         cmp = strong_ordering::less;
 
       if (cmp == strong_ordering::equal)
@@ -88,7 +89,11 @@ RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
         return rc;
       }
     }
-    values_.emplace_back(std::move(key), std::move(record));
+    SortRecord sr;
+    sr.sort_fields.swap(key);
+    sr.ret_fields.swap(record);
+    sr.record_map = subtuple->get_record_map();
+    values_.emplace_back(std::move(sr));
   }
   if (rc != RC::RECORD_EOF) {
     return rc;

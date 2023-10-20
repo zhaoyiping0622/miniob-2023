@@ -76,8 +76,6 @@ private:
   std::unordered_map<std::string, Table *> opened_tables_;
   std::unique_ptr<CLogManager> clog_manager_;
 
-  std::unordered_map<std::string, View *> opened_views_;
-
   /// 给每个table都分配一个ID，用来记录日志。这里假设所有的DDL都不会并发操作，所以相关的数据都不上锁
   int32_t next_table_id_ = 0;
 };

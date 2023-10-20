@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/sub_query_logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/update_logical_operator.h"
+#include "sql/operator/view_get_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/create_table_stmt.h"
@@ -108,7 +109,7 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
 }
 
 RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fields,
-                                     std::unique_ptr<LogicalOperator> &logical_operator) {
+                                     std::unique_ptr<LogicalOperator> &logical_operator, bool readonly) {
   unique_ptr<LogicalOperator> table_oper;
   vector<Field> current_fields;
   Table *table = join_stmt->table();
@@ -117,8 +118,10 @@ RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fiel
       current_fields.push_back(field);
     }
   }
-  table_oper.reset(new TableGetLogicalOperator(table, current_fields, true));
   RC rc = RC::SUCCESS;
+  rc = get_table_get_operator(table, current_fields, readonly, table_oper);
+  if (rc != RC::SUCCESS)
+    return rc;
   if (join_stmt->sub_join() == nullptr) {
     logical_operator.swap(table_oper);
     return rc;
@@ -140,7 +143,8 @@ RC LogicalPlanGenerator::create_plan(JoinStmt *join_stmt, const set<Field> &fiel
   return rc;
 }
 
-RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator) {
+RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator,
+                                     bool readonly) {
   unique_ptr<LogicalOperator> table_oper(nullptr);
 
   // const auto &current_tables = select_stmt->current_tables();
@@ -149,7 +153,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   RC rc = RC::SUCCESS;
 
   if (select_stmt->join_stmt()) {
-    rc = create_plan(select_stmt->join_stmt().get(), all_fields, table_oper);
+    rc = create_plan(select_stmt->join_stmt().get(), all_fields, table_oper, readonly);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -243,7 +247,11 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
     const FieldMeta *field_meta = table->table_meta().field(i);
     fields.push_back(Field(table, field_meta));
   }
-  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, false /*readonly*/));
+  unique_ptr<LogicalOperator> table_get_oper;
+  RC rc = RC::SUCCESS;
+  rc = get_table_get_operator(table, fields, false /*readonly*/, table_get_oper);
+  if (rc != RC::SUCCESS)
+    return rc;
 
   unique_ptr<LogicalOperator> predicate_oper;
   if (filter_stmt != nullptr) {
@@ -285,7 +293,9 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, std::unique_ptr<Lo
   for (auto &x : update_stmt->units()) {
     fields.push_back(x.field);
   }
-  table_get_oper.reset(new TableGetLogicalOperator(table, fields, false));
+  rc = get_table_get_operator(table, fields, false, table_get_oper);
+  if (rc != RC::SUCCESS)
+    return rc;
   auto &sub_queries = update_stmt->sub_queries();
   if (sub_queries.size()) {
     auto *sub_query_operator = new SubQueryLogicalOperator(table_get_oper);
@@ -327,4 +337,23 @@ RC LogicalPlanGenerator::create_plan(CreateTableStmt *create_table_stmt,
   oper->db_ = create_table_stmt->db_;
   logical_operator.reset(oper);
   return rc;
+}
+
+RC LogicalPlanGenerator::get_table_get_operator(Table *table, std::vector<Field> fields, bool readonly,
+                                                std::unique_ptr<LogicalOperator> &logical_operator) {
+  if (table->view() == nullptr) {
+    logical_operator.reset(new TableGetLogicalOperator(table, fields, readonly));
+    return RC::SUCCESS;
+  }
+  // TODO(zhaoyiping): 这里想一下怎么处理order by
+  auto *view = table->view();
+  logical_operator.reset(new ViewGetLogicalOperator(view, fields, readonly));
+  auto *select = view->select();
+  std::unique_ptr<LogicalOperator> select_oper;
+  RC rc = RC::SUCCESS;
+  rc = create(select, select_oper);
+  if (rc != RC::SUCCESS)
+    return rc;
+  logical_operator->add_child(std::move(select_oper));
+  return RC::SUCCESS;
 }

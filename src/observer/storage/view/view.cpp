@@ -6,10 +6,12 @@
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/db/db.h"
+#include "storage/table/table_meta.h"
 #include <fcntl.h>
 
 // 搞出来select各项，然后初始化ViewMeta，然后把它持久化
-RC View::create_view(const char *view_file_name, const char *view_name, SelectStmt *select) {
+RC View::create_view(Db *db, const char *view_file_name, const char *view_name, SelectStmt *select) {
+  db_ = db;
   select_.reset(select);
   int fd = ::open(view_file_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
   if (fd < 0) {
@@ -40,6 +42,7 @@ RC View::create_view(const char *view_file_name, const char *view_name, SelectSt
 
 // 直接打开文件，初始化view_meta，使用sql生成stmt
 RC View::open(Db *db, const char *meta_file) {
+  db_ = db;
   RC rc = RC::SUCCESS;
   rc = open_without_parse(meta_file);
   if (rc != RC::SUCCESS)
@@ -89,3 +92,20 @@ RC View::parse_sql(Db *db, const char *sql) {
   select_.reset(static_cast<SelectStmt *>(stmt));
   return RC::SUCCESS;
 }
+
+void View::init_table_meta() {
+  table_meta_.reset(new TableMeta);
+  table_meta_->name_ = view_meta_.name();
+  for (auto &x : view_meta_.metas()) {
+    FieldMeta field_meta;
+    if (x.table_name().size()) {
+      auto *table = db_->find_table(x.table_name().c_str());
+      field_meta = *table->table_meta().field(x.field_name().c_str());
+    } else {
+      field_meta.init(x.name().c_str(), x.type(), -1, -1, true, false, 0);
+    }
+    table_meta_->fields_.push_back(field_meta);
+  }
+}
+
+TableMeta &View::table_meta() { return *table_meta_; }

@@ -72,6 +72,8 @@ public:
   void to_string(std::string &output) const override;
   void desc(std::ostream &os) const;
 
+  friend class View;
+
 protected:
   int32_t table_id_ = -1;
   std::string name_;

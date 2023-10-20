@@ -2,7 +2,13 @@
 
 #include "sql/expr/tuple.h"
 #include "sql/operator/physical_operator.h"
+#include "storage/record/record.h"
 #include <memory>
+struct SortRecord {
+  std::vector<Value> sort_fields;
+  std::vector<Value> ret_fields;
+  TableRecordMap record_map;
+};
 class SortPhysicalOperator : public PhysicalOperator {
 public:
   using Record = std::vector<Value>;
@@ -19,7 +25,7 @@ private:
   RC read_all(Tuple *env_tuple);
 
   int idx_ = -1;
-  std::vector<pair<Record, Record>> values_;
+  std::vector<SortRecord> values_;
 
   std::shared_ptr<TupleSchema> schema_;
   std::vector<TupleCellSpec> sort_speces_;

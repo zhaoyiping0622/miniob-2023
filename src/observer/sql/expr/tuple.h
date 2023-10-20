@@ -63,6 +63,8 @@ private:
   std::vector<TupleCellSpec> cells_;
 };
 
+using TableRecordMap = std::map<Table *, Record>;
+
 /**
  * @brief 元组的抽象描述
  * @ingroup Tuple
@@ -97,6 +99,8 @@ public:
   virtual RC spec_at(int index, TupleCellSpec &spec) const = 0;
 
   virtual RC get_record(Table *table, Record *&record) = 0;
+
+  virtual TableRecordMap get_record_map() = 0;
 
   virtual std::string to_string() const {
     std::string str;
@@ -185,6 +189,12 @@ public:
       return RC::SUCCESS;
     }
     return RC::NOTFOUND;
+  }
+
+  TableRecordMap get_record_map() override {
+    return {
+        {const_cast<Table *>(table_), *record_},
+    };
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
@@ -283,6 +293,8 @@ public:
     return RC::NOTFOUND;
   }
 
+  TableRecordMap get_record_map() override { return tuple_->get_record_map(); }
+
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {
@@ -333,6 +345,8 @@ public:
   }
   RC get_record(Table *table, Record *&record) override { return RC::NOTFOUND; }
 
+  TableRecordMap get_record_map() override { return {}; }
+
 private:
   const std::vector<std::unique_ptr<Expression>> &expressions_;
 };
@@ -379,11 +393,22 @@ public:
     return RC::SUCCESS;
   }
 
-  RC get_record(Table *table, Record *&record) override { return RC::NOTFOUND; }
+  RC get_record(Table *table, Record *&record) override {
+    auto it = record_map_.find(table);
+    if (it == record_map_.end())
+      return RC::NOTFOUND;
+    record = &it->second;
+    return RC::SUCCESS;
+  }
+
+  TableRecordMap get_record_map() override { return record_map_; }
+
+  void set_record_map(TableRecordMap record_map) { record_map_.swap(record_map); }
 
 private:
   std::vector<Value> cells_;
   std::vector<TupleCellSpec> speces_;
+  TableRecordMap record_map_;
 };
 
 /**
@@ -452,6 +477,17 @@ public:
         return rc;
     }
     return rc;
+  }
+
+  TableRecordMap get_record_map() override {
+    TableRecordMap ret;
+    if (left_)
+      ret = left_->get_record_map();
+    if (right_)
+      for (auto x : right_->get_record_map()) {
+        ret.insert(x);
+      }
+    return ret;
   }
 
 private:

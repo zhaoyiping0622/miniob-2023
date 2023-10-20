@@ -11,6 +11,9 @@
 static const Json::StaticString VIEW_NAME("name");
 static const Json::StaticString VIEW_SQL("sql");
 static const Json::StaticString VIEW_METAS("metas");
+static const Json::StaticString VIEW_UPDATABLE("updatable");
+static const Json::StaticString VIEW_INSERTABLE("insertable");
+static const Json::StaticString VIEW_DELETABLE("deletable");
 
 static const Json::StaticString VIEW_FIELD_NAME("name");
 static const Json::StaticString VIEW_FIELD_TYPE("type");
@@ -71,6 +74,9 @@ int ViewMeta::serialize(std::ostream &os) const {
   Json::Value view_value;
   view_value[VIEW_NAME] = name_;
   view_value[VIEW_SQL] = sql_;
+  view_value[VIEW_INSERTABLE] = insertable_;
+  view_value[VIEW_UPDATABLE] = updatable_;
+  view_value[VIEW_DELETABLE] = deletable_;
   for (int i = 0; i < metas_.size(); i++) {
     Json::Value value;
     metas_[i].to_json(value);
@@ -124,6 +130,27 @@ int ViewMeta::deserialize(std::istream &is) {
     }
     metas_.push_back(meta);
   }
+
+  const Json::Value &view_updatable_value = view_value[VIEW_UPDATABLE];
+  if (!view_updatable_value.isBool()) {
+    LOG_ERROR("Invalid view updatable. json value=%s", view_updatable_value.toStyledString().c_str());
+    return -1;
+  }
+  updatable_ = view_updatable_value.asBool();
+
+  const Json::Value &view_insertable_value = view_value[VIEW_INSERTABLE];
+  if (!view_insertable_value.isBool()) {
+    LOG_ERROR("Invalid view updatable. json value=%s", view_insertable_value.toStyledString().c_str());
+    return -1;
+  }
+  insertable_ = view_insertable_value.asBool();
+
+  const Json::Value &view_deletable_value = view_value[VIEW_DELETABLE];
+  if (!view_deletable_value.isBool()) {
+    LOG_ERROR("Invalid view deletable. json value=%s", view_deletable_value.toStyledString().c_str());
+    return -1;
+  }
+  deletable_ = view_deletable_value.asBool();
 
   return (int)(is.tellg() - old_pos);
 }

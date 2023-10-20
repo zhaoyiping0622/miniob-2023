@@ -29,6 +29,7 @@ class Index;
 class IndexScanner;
 class RecordDeleter;
 class Trx;
+class View;
 
 /**
  * @brief 表
@@ -91,10 +92,11 @@ public:
   RecordFileHandler *record_handler() const { return record_handler_; }
 
 public:
-  int32_t table_id() const { return table_meta_.table_id(); }
+  int32_t table_id() const { return table_meta().table_id(); }
   const char *name() const;
 
   const TableMeta &table_meta() const;
+  TableMeta &table_meta();
 
   RC sync();
 
@@ -119,6 +121,11 @@ public:
   Index *find_index_by_fields(std::vector<const char *> fields) const;
   RC drop_index(int idx);
 
+public:
+  explicit Table(View *view) : view_(view) {}
+  View *view() const { return view_.get(); }
+  // void set_view(View *view) { view_.reset(view); }
+
 private:
   RC flush_table_meta_file(TableMeta &new_table_meta);
 
@@ -128,4 +135,7 @@ private:
   DiskBufferPool *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_ = nullptr; /// 记录操作
   std::vector<Index *> indexes_;
+
+private:
+  std::unique_ptr<View> view_;
 };

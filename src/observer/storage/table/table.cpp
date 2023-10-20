@@ -33,6 +33,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include "storage/table/table_meta.h"
 #include "storage/trx/trx.h"
+#include "storage/view/view.h"
 
 Table::~Table() {
   if (record_handler_ != nullptr) {
@@ -90,7 +91,7 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
   close(fd);
 
   // 创建文件
-  if ((rc = table_meta_.init(table_id, name, attribute_count, attributes)) != RC::SUCCESS) {
+  if ((rc = table_meta().init(table_id, name, attribute_count, attributes)) != RC::SUCCESS) {
     LOG_ERROR("Failed to init table meta. name:%s, ret:%d", name, rc);
     return rc; // delete table file
   }
@@ -103,7 +104,7 @@ RC Table::create(int32_t table_id, const char *path, const char *name, const cha
   }
 
   // 记录元数据到文件中
-  table_meta_.serialize(fs);
+  table_meta().serialize(fs);
   fs.close();
 
   std::string data_file = table_data_file(base_dir, name);
@@ -148,7 +149,7 @@ RC Table::open(const char *meta_file, const char *base_dir) {
     LOG_ERROR("Failed to open meta file for read. file name=%s, errmsg=%s", meta_file_path.c_str(), strerror(errno));
     return RC::IOERR_OPEN;
   }
-  if (table_meta_.deserialize(fs) < 0) {
+  if (table_meta().deserialize(fs) < 0) {
     LOG_ERROR("Failed to deserialize table meta. file name=%s", meta_file_path.c_str());
     fs.close();
     return RC::INTERNAL;
@@ -171,9 +172,9 @@ RC Table::open(const char *meta_file, const char *base_dir) {
 
   base_dir_ = base_dir;
 
-  const int index_num = table_meta_.index_num();
+  const int index_num = table_meta().index_num();
   for (int i = 0; i < index_num; i++) {
-    const IndexMeta *index_meta = table_meta_.index(i);
+    const IndexMeta *index_meta = table_meta().index(i);
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
@@ -194,9 +195,9 @@ RC Table::open(const char *meta_file, const char *base_dir) {
 
 RC Table::insert_record(Record &record) {
   RC rc = RC::SUCCESS;
-  rc = record_handler_->insert_record(record.data(), table_meta_.record_size(), &record.rid());
+  rc = record_handler_->insert_record(record.data(), table_meta().record_size(), &record.rid());
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
+    LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta().name(), strrc(rc));
     return rc;
   }
 
@@ -221,7 +222,7 @@ RC Table::visit_record(const RID &rid, bool readonly, std::function<void(Record 
 }
 
 RC Table::get_record(const RID &rid, Record &record) {
-  const int record_size = table_meta_.record_size();
+  const int record_size = table_meta().record_size();
   char *record_data = (char *)malloc(record_size);
   ASSERT(nullptr != record_data, "failed to malloc memory. record data size=%d", record_size);
 
@@ -242,9 +243,9 @@ RC Table::get_record(const RID &rid, Record &record) {
 
 RC Table::recover_insert_record(Record &record) {
   RC rc = RC::SUCCESS;
-  rc = record_handler_->recover_insert_record(record.data(), table_meta_.record_size(), record.rid());
+  rc = record_handler_->recover_insert_record(record.data(), table_meta().record_size(), record.rid());
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
+    LOG_ERROR("Insert record failed. table name=%s, rc=%s", table_meta().name(), strrc(rc));
     return rc;
   }
 
@@ -264,9 +265,14 @@ RC Table::recover_insert_record(Record &record) {
   return rc;
 }
 
-const char *Table::name() const { return table_meta_.name(); }
+const char *Table::name() const { return table_meta().name(); }
 
-const TableMeta &Table::table_meta() const { return table_meta_; }
+const TableMeta &Table::table_meta() const {
+  if (view()) {
+    return view()->table_meta();
+  }
+  return table_meta_;
+}
 
 RC Table::make_record(char *data, int len, Record &record) {
   record.set_data(data, len);
@@ -275,15 +281,15 @@ RC Table::make_record(char *data, int len, Record &record) {
 
 RC Table::make_record(int value_num, const Value *values, Record &record) {
   // 检查字段类型是否一致
-  if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
-    LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta_.name());
+  if (value_num + table_meta().sys_field_num() != table_meta().field_num()) {
+    LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta().name());
     return RC::SCHEMA_FIELD_MISSING;
   }
 
-  const int normal_field_start_index = table_meta_.sys_field_num();
+  const int normal_field_start_index = table_meta().sys_field_num();
   RC rc = RC::SUCCESS;
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta().field(i + normal_field_start_index);
     Value &value = const_cast<Value &>(values[i]);
     if (field->type() == TEXTS) {
       if (value.get_string().size()) {
@@ -300,7 +306,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
       }
     } else if (field->type() != value.attr_type()) {
       if (!Value::convert(value.attr_type(), field->type(), value)) {
-        LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d", table_meta_.name(),
+        LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d", table_meta().name(),
                   field->name(), field->type(), value.attr_type());
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
@@ -314,16 +320,16 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
   }
 
   // 复制所有字段的值
-  int record_size = table_meta_.record_size();
+  int record_size = table_meta().record_size();
   char *record_data = (char *)malloc(record_size);
   memset(record_data, 0, record_size);
 
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta().field(i + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
     if (value.attr_type() == NULLS) {
-      int null_offset = table_meta_.null_field_meta()->offset();
+      int null_offset = table_meta().null_field_meta()->offset();
       int &null_value = *(int *)(record_data + null_offset);
       null_value |= 1 << (field->index());
     } else if (field->type() == CHARS) {
@@ -339,7 +345,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
 }
 
 RC Table::init_record_handler(const char *base_dir) {
-  std::string data_file = table_data_file(base_dir, table_meta_.name());
+  std::string data_file = table_data_file(base_dir, table_meta().name());
 
   RC rc = BufferPoolManager::instance().open_file(data_file.c_str(), data_buffer_pool_);
   if (rc != RC::SUCCESS) {
@@ -423,7 +429,7 @@ RC Table::create_index(Trx *trx, const std::vector<FieldMeta> &field_meta, const
   indexes_.push_back(index);
 
   /// 接下来将这个索引放到表的元数据中
-  TableMeta new_table_meta(table_meta_);
+  TableMeta new_table_meta(table_meta());
   rc = new_table_meta.add_index(new_index_meta);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to add index (%s) on table (%s). error=%d:%s", index_name, name(), rc, strrc(rc));
@@ -454,7 +460,7 @@ RC Table::drop_index(int idx) {
 }
 
 RC Table::drop_index(const char *index_name) {
-  TableMeta new_table_meta(table_meta_);
+  TableMeta new_table_meta(table_meta());
   RC rc = new_table_meta.drop_index(index_name);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to drop index (%s) on table(%s). error=%d:%s", index_name, name(), rc, strrc(rc));
@@ -475,7 +481,7 @@ RC Table::drop_index(const char *index_name) {
 }
 
 RC Table::drop_all_indexes() {
-  TableMeta new_table_meta(table_meta_);
+  TableMeta new_table_meta(table_meta());
   RC rc = RC::SUCCESS;
   for (int i = static_cast<int>(indexes_.size()) - 1; i >= 0; i--) {
     rc = new_table_meta.drop_index(indexes_[i]->index_meta().name());
@@ -616,13 +622,13 @@ RC Table::flush_table_meta_file(TableMeta &new_table_meta) {
     return RC::IOERR_WRITE;
   }
 
-  table_meta_.swap(new_table_meta);
+  table_meta().swap(new_table_meta);
 
   return RC::SUCCESS;
 }
 
 RC Table::init_text_buffer_pool(const char *base_dir) {
-  std::string text_file = table_text_file(base_dir, table_meta_.name());
+  std::string text_file = table_text_file(base_dir, table_meta().name());
 
   RC rc = BufferPoolManager::instance().open_file(text_file.c_str(), text_buffer_pool_);
   if (rc != RC::SUCCESS) {
