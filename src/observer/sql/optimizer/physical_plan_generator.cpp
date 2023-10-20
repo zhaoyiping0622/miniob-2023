@@ -475,7 +475,23 @@ RC PhysicalPlanGenerator::create_plan(ViewGetLogicalOperator &logical_oper, std:
   if (children.size() != 1) {
     return RC::INTERNAL;
   }
-  return create(*children[0], oper);
+  RC rc = create(*children[0], oper);
+  if (rc != RC::SUCCESS)
+    return rc;
+  View *view = logical_oper.view_;
+  auto &metas = view->view_meta();
+  auto *schema = logical_oper.schema_.get();
+  std::vector<std::pair<TupleCellSpec, TupleCellSpec>> spec_map;
+  for (int i = 0; i < schema->cell_num(); i++) {
+    const TupleCellSpec &lower_spec = schema->cell_at(i);
+    auto &meta = metas.metas()[i];
+    spec_map.emplace_back(TupleCellSpec(meta.name().c_str()), lower_spec);
+    spec_map.emplace_back(TupleCellSpec(view->name().c_str(), meta.name().c_str()), lower_spec);
+  }
+  auto *rename = new RenamePhysicalOperator(spec_map);
+  rename->add_child(std::move(oper));
+  oper.reset(rename);
+  return RC::SUCCESS;
 }
 RC PhysicalPlanGenerator::create_plan(RenameLogicalOperator &logical_oper, std::unique_ptr<PhysicalOperator> &oper) {
   auto &children = logical_oper.children();

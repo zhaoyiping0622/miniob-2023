@@ -34,13 +34,13 @@ static void join_fields(set<Field> &a, const set<Field> &b) { a.insert(b.begin()
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
   auto *table = field_.table();
-  if (table->view()) {
-    auto *view = table->view();
-    auto *view_field_meta = view->view_meta().field(field_name());
-    if (view_field_meta == nullptr)
-      return RC::NOTFOUND;
-    return tuple.find_cell(view_field_meta->get_tuple_spec(), value);
-  }
+  // if (table->view()) {
+  //   auto *view = table->view();
+  //   auto *view_field_meta = view->view_meta().field(field_name());
+  //   if (view_field_meta == nullptr)
+  //     return RC::NOTFOUND;
+  //   return tuple.find_cell(view_field_meta->get_tuple_spec(), value);
+  // }
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
 

@@ -362,12 +362,12 @@ RC LogicalPlanGenerator::get_table_get_operator(Table *table, std::vector<Field>
   }
   // TODO(zhaoyiping): 这里想一下怎么处理order by
   auto *view = table->view();
-  logical_operator.reset(new ViewGetLogicalOperator(view, fields, readonly));
   std::unique_ptr<SelectStmt> select;
   RC rc = RC::SUCCESS;
   rc = view->select(select);
   if (rc != RC::SUCCESS)
     return rc;
+  logical_operator.reset(new ViewGetLogicalOperator(view, fields, readonly, select.get()));
   std::unique_ptr<LogicalOperator> select_oper;
   rc = create(select.get(), select_oper);
   if (rc != RC::SUCCESS)

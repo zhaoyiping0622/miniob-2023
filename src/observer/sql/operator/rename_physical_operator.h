@@ -12,6 +12,7 @@ public:
   virtual RC close() override;
 
   virtual Tuple *current_tuple() override;
+  virtual std::string name() const override { return "RENAME"; }
 
 private:
   RenameTuple tuple_;
