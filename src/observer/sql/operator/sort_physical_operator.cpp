@@ -1,5 +1,6 @@
 #include "sql/operator/sort_physical_operator.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/parser/parse_defs.h"
 #include <compare>
 #include <utility>
@@ -92,7 +93,9 @@ RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
     SortRecord sr;
     sr.sort_fields.swap(key);
     sr.ret_fields.swap(record);
-    sr.record_map = subtuple->get_record_map();
+    rc = subtuple->get_record_map(sr.record_map);
+    if (rc != RC::SUCCESS)
+      return rc;
     values_.emplace_back(std::move(sr));
   }
   if (rc != RC::RECORD_EOF) {

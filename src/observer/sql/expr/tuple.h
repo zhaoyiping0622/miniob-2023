@@ -100,7 +100,7 @@ public:
 
   virtual RC get_record(Table *table, Record *&record) = 0;
 
-  virtual TableRecordMap get_record_map() = 0;
+  virtual RC get_record_map(TableRecordMap &record_map) = 0;
 
   virtual std::string to_string() const {
     std::string str;
@@ -191,10 +191,11 @@ public:
     return RC::NOTFOUND;
   }
 
-  TableRecordMap get_record_map() override {
-    return {
+  RC get_record_map(TableRecordMap &record_map) override {
+    record_map = {
         {const_cast<Table *>(table_), *record_},
     };
+    return RC::SUCCESS;
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
@@ -293,7 +294,7 @@ public:
     return RC::NOTFOUND;
   }
 
-  TableRecordMap get_record_map() override { return tuple_->get_record_map(); }
+  RC get_record_map(TableRecordMap &record_map) override { return tuple_->get_record_map(record_map); }
 
 #if 0
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
@@ -345,7 +346,10 @@ public:
   }
   RC get_record(Table *table, Record *&record) override { return RC::NOTFOUND; }
 
-  TableRecordMap get_record_map() override { return {}; }
+  RC get_record_map(TableRecordMap &record_map) override {
+    record_map = {};
+    return RC::SUCCESS;
+  }
 
 private:
   const std::vector<std::unique_ptr<Expression>> &expressions_;
@@ -401,7 +405,10 @@ public:
     return RC::SUCCESS;
   }
 
-  TableRecordMap get_record_map() override { return record_map_; }
+  RC get_record_map(TableRecordMap &record_map) override {
+    record_map = record_map_;
+    return RC::SUCCESS;
+  }
 
   void set_record_map(TableRecordMap record_map) { record_map_.swap(record_map); }
 
@@ -479,15 +486,29 @@ public:
     return rc;
   }
 
-  TableRecordMap get_record_map() override {
-    TableRecordMap ret;
-    if (left_)
-      ret = left_->get_record_map();
-    if (right_)
-      for (auto x : right_->get_record_map()) {
-        ret.insert(x);
+  RC get_record_map(TableRecordMap &record_map) override {
+    RC rc = RC::SUCCESS;
+    if (left_) {
+      rc = left_->get_record_map(record_map);
+      if (rc != RC::SUCCESS)
+        return rc;
+    }
+    TableRecordMap tmp;
+    if (right_) {
+      rc = left_->get_record_map(tmp);
+      if (rc != RC::SUCCESS)
+        return rc;
+      if (record_map.empty())
+        record_map = tmp;
+      else {
+        for (auto x : tmp) {
+          if (record_map.count(x.first))
+            return RC::INVALID_ARGUMENT;
+          record_map.insert(x);
+        }
       }
-    return ret;
+    }
+    return RC::SUCCESS;
   }
 
 private:
