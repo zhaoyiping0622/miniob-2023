@@ -746,9 +746,10 @@ std::string NullCheckExpr::to_string() const {
 
 ////////////////////////////////////////////////////////////////////////////////
 RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-                       const string &table_name, const string &field_name, Table *&table, const FieldMeta *&field) {
+                       string &table_name, const string &field_name, Table *&table, const FieldMeta *&field) {
   if (common::is_blank(table_name.c_str())) {
     table = default_table;
+    table_name = default_table->name();
   } else if (nullptr != tables) {
     auto iter = tables->find(table_name);
     if (iter != tables->end()) {
