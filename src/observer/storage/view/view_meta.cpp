@@ -2,6 +2,7 @@
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/rc.h"
+#include "sql/expr/tuple_cell.h"
 #include "sql/parser/value.h"
 #include "sql/stmt/select_stmt.h"
 #include "json/reader.h"
@@ -35,7 +36,7 @@ RC ViewFieldMeta::from_json(const Json::Value &json_value, ViewFieldMeta &field)
     LOG_ERROR("Invalid view field name. json value=%s", view_field_name.toStyledString().c_str());
     return RC::INTERNAL;
   }
-  field.field_name_ = view_field_name.asString();
+  field.name_ = view_field_name.asString();
 
   const Json::Value view_field_type = json_value[VIEW_FIELD_TYPE];
   if (!view_field_type.isString()) {
@@ -52,14 +53,14 @@ RC ViewFieldMeta::from_json(const Json::Value &json_value, ViewFieldMeta &field)
   field.length_ = view_field_length.asInt();
 
   const Json::Value view_field_table_name = json_value[VIEW_FIELD_TABLE_NAME];
-  if (!view_field_table_name.isInt()) {
+  if (!view_field_table_name.isString()) {
     LOG_ERROR("Invalid view field table name. json value=%s", view_field_table_name.toStyledString().c_str());
     return RC::INTERNAL;
   }
   field.table_name_ = view_field_table_name.asString();
 
   const Json::Value view_field_field_name = json_value[VIEW_FIELD_FIELD_NAME];
-  if (!view_field_field_name.isInt()) {
+  if (!view_field_field_name.isString()) {
     LOG_ERROR("Invalid view field field name. json value=%s", view_field_field_name.toStyledString().c_str());
     return RC::INTERNAL;
   }
@@ -154,6 +155,14 @@ int ViewMeta::deserialize(std::istream &is) {
 
   return (int)(is.tellg() - old_pos);
 }
+
+TupleCellSpec ViewFieldMeta::get_tuple_spec() const {
+  if (table_name().size()) {
+    return TupleCellSpec(table_name().c_str(), field_name().c_str());
+  }
+  return TupleCellSpec(name().c_str());
+}
+
 RC ViewMeta::create(const char *view_name, SelectStmt *select) {
   name_ = view_name;
   sql_ = select->sql();
@@ -230,4 +239,12 @@ bool ViewMeta::get_deletable(SelectStmt *select) {
   if (select->aggregation_stmt()) {
     return false;
   }
+}
+
+ViewFieldMeta *ViewMeta::field(const char *name) {
+  for (auto &x : metas_) {
+    if (x.name() == name)
+      return &x;
+  }
+  return nullptr;
 }

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include <unistd.h>
 #include <vector>
 
+#include "common/defs.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "common/os/path.h"
@@ -209,7 +210,8 @@ RC Db::open_all_views() {
   // 首先把所有view都找到，不要parse sql
   for (const std::string &filename : view_meta_files) {
     View *view = new View;
-    rc = view->open_without_parse(filename.c_str());
+    auto view_file_path = path_ + common::FILE_PATH_SPLIT_STR + filename;
+    rc = view->open_without_parse(view_file_path.c_str());
     if (rc != RC::SUCCESS) {
       delete view;
       LOG_ERROR("Failed to open view. filename=%s", filename.c_str());

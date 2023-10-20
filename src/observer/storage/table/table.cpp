@@ -35,6 +35,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/view/view.h"
 
+Table::Table(View *view) : view_(view) {}
+
 Table::~Table() {
   if (record_handler_ != nullptr) {
     delete record_handler_;
@@ -267,7 +269,9 @@ RC Table::recover_insert_record(Record &record) {
 
 const char *Table::name() const { return table_meta().name(); }
 
-const TableMeta &Table::table_meta() const {
+const TableMeta &Table::table_meta() const { return const_cast<Table *>(this)->table_meta(); }
+
+TableMeta &Table::table_meta() {
   if (view()) {
     return view()->table_meta();
   }

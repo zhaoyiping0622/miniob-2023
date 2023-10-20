@@ -10,5 +10,6 @@ RC CreateViewStmt::create(Db *db, const CreateViewSqlNode &create_view, Stmt *&s
   create_view_stmt->view_name_ = create_view.view_name;
   create_view_stmt->sql_ = create_view.select_sql;
   create_view_stmt->select_stmt_.reset(static_cast<SelectStmt *>(select_stmt));
+  stmt = create_view_stmt;
   return RC::SUCCESS;
 }

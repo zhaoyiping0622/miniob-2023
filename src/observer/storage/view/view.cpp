@@ -66,6 +66,7 @@ RC View::open_without_parse(const char *meta_file) {
   return RC::SUCCESS;
 }
 RC View::parse_sql(Db *db) {
+  db_ = db;
   RC rc = RC::SUCCESS;
   rc = parse_sql(db, view_meta_.sql().c_str());
   if (rc != RC::SUCCESS)
@@ -108,4 +109,18 @@ void View::init_table_meta() {
   }
 }
 
-TableMeta &View::table_meta() { return *table_meta_; }
+TableMeta &View::table_meta() {
+  if (table_meta_ == nullptr)
+    init_table_meta();
+  return *table_meta_;
+}
+
+RC View::select(std::unique_ptr<SelectStmt> &select) {
+  RC rc = parse_sql(db_, view_meta_.sql().c_str());
+  if (rc != RC::SUCCESS)
+    return rc;
+  select.swap(select_);
+  return RC::SUCCESS;
+}
+View::View() {}
+View::~View() {}

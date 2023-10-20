@@ -429,10 +429,11 @@ create_view_stmt:
     {
       $$ = new ParsedSqlNode(SCF_CREATE_VIEW);
       CreateViewSqlNode *create_view = new CreateViewSqlNode;
-      create_view.view_name = $3;
+      $$->node.create_view = create_view;
+      create_view->view_name = $3;
       free($3);
-      create_select.view_name = $5;
-      create_select.select_sql = $5->sql;
+      create_view->select = $5;
+      create_view->select_sql = $5->node.selection->sql;
     }
 
 attr_list:

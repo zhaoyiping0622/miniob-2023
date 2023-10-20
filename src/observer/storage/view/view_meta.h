@@ -2,6 +2,7 @@
 
 #include "common/lang/serializable.h"
 #include "common/rc.h"
+#include "sql/expr/tuple_cell.h"
 #include "sql/parser/value.h"
 #include <json/value.h>
 #include <string>
@@ -21,6 +22,8 @@ public:
   static RC from_json(const Json::Value &json_value, ViewFieldMeta &field);
 
   friend class ViewMeta;
+
+  TupleCellSpec get_tuple_spec() const;
 
 private:
   std::string name_;
@@ -49,6 +52,9 @@ public:
   std::string &name() { return name_; }
   std::string &sql() { return sql_; }
   std::vector<ViewFieldMeta> &metas() { return metas_; };
+
+public:
+  ViewFieldMeta *field(const char *name);
 
 private:
   std::string name_;

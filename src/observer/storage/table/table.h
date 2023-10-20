@@ -122,7 +122,7 @@ public:
   RC drop_index(int idx);
 
 public:
-  explicit Table(View *view) : view_(view) {}
+  explicit Table(View *view);
   View *view() const { return view_.get(); }
   // void set_view(View *view) { view_.reset(view); }
 
