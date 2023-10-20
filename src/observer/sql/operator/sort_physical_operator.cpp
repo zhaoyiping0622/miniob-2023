@@ -93,7 +93,7 @@ RC SortPhysicalOperator::read_all(Tuple *env_tuple) {
     SortRecord sr;
     sr.sort_fields.swap(key);
     sr.ret_fields.swap(record);
-    rc = subtuple->get_record_map(sr.record_map);
+    // rc = subtuple->get_record_map(sr.record_map);
     if (rc != RC::SUCCESS) {
       sr.record_map.clear();
     }
