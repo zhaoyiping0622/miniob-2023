@@ -3,6 +3,7 @@
 #include "common/rc.h"
 #include "sql/parser/parse_defs.h"
 #include <compare>
+#include <numeric>
 #include <utility>
 
 RC SortPhysicalOperator::open(Trx *trx) {
@@ -19,10 +20,11 @@ RC SortPhysicalOperator::next(Tuple *env_tuple) {
     init(env_tuple);
   }
   idx_++;
-  if (idx_ == values_.size())
+  if (idx_ == sort_indexes_.size())
     return RC::RECORD_EOF;
-  tuple_.set_cells(values_[idx_].ret_fields);
-  tuple_.set_record_map(values_[idx_].record_map);
+  int sort_index = sort_indexes_[idx_];
+  tuple_.set_cells(values_[sort_index].ret_fields);
+  tuple_.set_record_map(values_[sort_index].record_map);
   return RC::SUCCESS;
 }
 
@@ -42,8 +44,10 @@ RC SortPhysicalOperator::init(Tuple *env_tuple) {
   RC rc = read_all(env_tuple);
   if (rc != RC::SUCCESS)
     return rc;
+  sort_indexes_.resize(values_.size());
+  iota(sort_indexes_.begin(), sort_indexes_.end(), 0);
   // sort
-  std::sort(values_.begin(), values_.end(), [&](SortRecord &a, SortRecord &b) {
+  auto record_cmp = [&](SortRecord &a, SortRecord &b) {
     for (int i = 0; i < orders_.size(); i++) {
       if (a.sort_fields[i].is_null() && b.sort_fields[i].is_null())
         continue;
@@ -65,7 +69,9 @@ RC SortPhysicalOperator::init(Tuple *env_tuple) {
     }
     //  keep index order
     return &a < &b;
-  });
+  };
+  std::sort(sort_indexes_.begin(), sort_indexes_.end(),
+            [&](int x, int y) { return record_cmp(values_[x], values_[y]); });
   return RC::SUCCESS;
 }
 

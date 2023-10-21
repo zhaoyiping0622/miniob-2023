@@ -27,6 +27,8 @@ private:
   int idx_ = -1;
   std::vector<SortRecord> values_;
 
+  std::vector<int> sort_indexes_;
+
   std::shared_ptr<TupleSchema> schema_;
   std::vector<TupleCellSpec> sort_speces_;
   std::vector<Order> orders_;
