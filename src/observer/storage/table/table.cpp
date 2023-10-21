@@ -643,6 +643,11 @@ RC Table::init_text_buffer_pool(const char *base_dir) {
   return rc;
 }
 
+// FIXME(zhaoyiping): 这里有个溢出
+
+const int TEXT_PAGE_SIZE = BP_PAGE_SIZE;
+const int TEXT_PAGE_MAX_NUM = TEXT_SIZE / TEXT_PAGE_SIZE + !!(TEXT_SIZE % TEXT_PAGE_SIZE);
+
 RC Table::get_text(int offset, Value &value) {
   std::string tmp;
   int page_num = offset / BP_PAGE_SIZE;
