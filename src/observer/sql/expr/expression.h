@@ -104,7 +104,7 @@ public:
   FieldExpr(const Table *table, const FieldMeta *field) : field_(table, field) {
     spec_ = TupleCellSpec(table_name(), field_name());
   }
-  FieldExpr(const Field &field) : field_(field) {}
+  FieldExpr(const Field &field) : field_(field) { spec_ = TupleCellSpec(table_name(), field_name()); }
 
   virtual ~FieldExpr() = default;
 
