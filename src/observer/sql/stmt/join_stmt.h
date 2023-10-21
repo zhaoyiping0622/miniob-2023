@@ -10,7 +10,7 @@ public:
   std::unique_ptr<ConjunctionExpr> &condition() { return condition_; }
   std::string alias() { return alias_; }
 
-  static RC create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, std::vector<Table *> &tables,
+  static RC create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, std::vector<std::string> &tables,
                    std::unordered_map<std::string, Table *> &table_map);
 
 private:

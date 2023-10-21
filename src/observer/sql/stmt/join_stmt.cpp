@@ -21,7 +21,7 @@ RC get_table(Db *db, const char *table_name, Table *&table) {
   return RC::SUCCESS;
 }
 
-RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<Table *> &tables,
+RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<std::string> &tables,
                     unordered_map<string, Table *> &table_map) {
   Table *table;
   RC rc = get_table(db, sql_node->relation.c_str(), table);
@@ -32,7 +32,7 @@ RC JoinStmt::create(Db *db, JoinSqlNode *sql_node, JoinStmt *&stmt, vector<Table
   if (sql_node->alias.size())
     alias_name = sql_node->alias;
   if (table_map.count(alias_name) == 0) {
-    tables.push_back(table);
+    tables.push_back(alias_name);
     table_map[alias_name] = table;
   } else {
     LOG_WARN("table name duplicated");

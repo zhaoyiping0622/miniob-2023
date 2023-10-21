@@ -26,30 +26,19 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <memory>
 
 SelectStmt::~SelectStmt() {}
 
-static void wildcard_fields(std::unordered_map<std::string, Table *> &table_map, std::string name,
-                            std::vector<std::unique_ptr<Expression>> &field_metas) {
-  if (name.size() == 0) {
-    for (auto &x : table_map) {
-      Expression *expr;
-      auto &table_meta = x.second->table_meta();
-      for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
-        FieldExpr::create(x.second, table_meta.field(i), x.first, expr);
-        field_metas.emplace_back(expr);
-      }
-    }
-  } else {
-    Expression *expr;
-    auto *table = table_map[name];
-    auto &table_meta = table->table_meta();
-    for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
-      FieldExpr::create(table, table_meta.field(i), name, expr);
-      field_metas.emplace_back(expr);
-    }
+static void wildcard_fields(Table *table, std::string name, std::vector<std::unique_ptr<Expression>> &field_metas) {
+  assert(name.size());
+  Expression *expr;
+  auto &table_meta = table->table_meta();
+  for (int i = table_meta.sys_field_num(); i < table_meta.field_num(); i++) {
+    FieldExpr::create(table, table_meta.field(i), name, expr);
+    field_metas.emplace_back(expr);
   }
 }
 
@@ -61,7 +50,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   }
 
   // collect tables in `from` statement
-  std::vector<Table *> tables;
+  std::vector<std::string> tables;
   std::unordered_map<std::string, Table *> table_map;
   ConjunctionExprSqlNode *conditions = nullptr;
   auto add_conjunction = [&](ConjunctionExprSqlNode *node) {
@@ -98,7 +87,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {
-    default_table = tables[0];
+    default_table = table_map[tables[0]];
   }
 
   // 处理groupby
@@ -199,7 +188,13 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         LOG_WARN("alias to star");
         return RC::INVALID_ARGUMENT;
       }
-      wildcard_fields(table_map, "", expressions);
+      for (auto &name : tables) {
+        auto it = table_map.find(name);
+        if (it == table_map.end()) {
+          return RC::INTERNAL;
+        }
+        wildcard_fields(it->second, name, expressions);
+      }
     } else if (expression->type() == ExprType::FIELD && expression->get_field()->field_name == "*") {
       if (attribute->alias.size()) {
         LOG_WARN("alias to star");
@@ -211,7 +206,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         LOG_WARN("table %s not exists", table_name.c_str());
         return RC::SCHEMA_FIELD_NOT_EXIST;
       }
-      wildcard_fields(table_map, table_name, expressions);
+      wildcard_fields(it->second, table_name, expressions);
     } else {
       Expression *expr;
       RC rc = Expression::create(db, default_table, &table_map, expression, expr, &aggregator_generator);
@@ -366,7 +361,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   for (auto it = used_fields.begin(); it != used_fields.end();) {
     bool found = false;
-    for (auto *table : tables) {
+    for (auto &name : tables) {
+      auto *table = table_map[name];
       if (table == it->table()) {
         found = true;
         break;
