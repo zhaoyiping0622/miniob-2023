@@ -41,7 +41,7 @@ RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
   //     return RC::NOTFOUND;
   //   return tuple.find_cell(view_field_meta->get_tuple_spec(), value);
   // }
-  return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
+  return tuple.find_cell(spec_, value);
 }
 
 // string FieldExpr::name() const { return field_.meta()->name(); }
